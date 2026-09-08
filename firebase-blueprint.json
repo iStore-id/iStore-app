@@ -1,0 +1,277 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile with role-based access control",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "admin", "pemilik"] },
+        "balance": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "products": {
+      "title": "Product",
+      "description": "Top-up game or digital voucher product",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "publisher": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "imageUrl": { "type": "string" },
+        "inputPlaceholder": { "type": "string" },
+        "inputGuide": { "type": "string" },
+        "items": { "type": "array" },
+        "paymentMethods": { "type": "array" }
+      },
+      "required": ["name", "slug", "status"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "Game top-up order transaction",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "productSlug": { "type": "string" },
+        "productName": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemName": { "type": "string" },
+        "targetUserId": { "type": "string" },
+        "targetZoneId": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "success", "failed", "cancelled"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["orderNumber", "productSlug", "status", "totalPrice"]
+    },
+    "settlementBatches": {
+      "title": "SettlementBatch",
+      "description": "Midtrans MAP CSV import batch and calculations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "periodDate": { "type": "string" },
+        "sourceType": { "type": "string", "enum": ["MIDTRANS_MAP_CSV"] },
+        "sourceFileName": { "type": "string" },
+        "sourceFileHash": { "type": "string" },
+        "grossAmount": { "type": "number" },
+        "mdrFeeAmount": { "type": "number" },
+        "refundAmount": { "type": "number" },
+        "adjustmentAmount": { "type": "number" },
+        "netSettledAmount": { "type": "number" },
+        "orderCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["CALCULATED", "VERIFIED", "SETTLED", "DISPUTED"] },
+        "idempotencyKey": { "type": "string" },
+        "processedBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "periodDate", "sourceType", "sourceFileName", "sourceFileHash", "grossAmount", "status", "idempotencyKey"]
+    },
+    "settlementRecords": {
+      "title": "SettlementRecord",
+      "description": "Individual order mapping for a settlement batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "batchId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "grossAmount": { "type": "number" },
+        "mdrFeeAmount": { "type": "number" },
+        "refundAmount": { "type": "number" },
+        "adjustmentAmount": { "type": "number" },
+        "netAmount": { "type": "number" },
+        "paymentType": { "type": "string" },
+        "gatewayTransactionStatus": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "batchId", "orderId", "grossAmount", "netAmount", "createdAt"]
+    },
+    "ledgerJournalEntries": {
+      "title": "LedgerJournalEntry",
+      "description": "Immutable append-only double-entry financial journal records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "eventType": { "type": "string" },
+        "lineItems": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "idempotencyKey", "eventType", "lineItems", "totalAmount", "currency", "createdAt"]
+    },
+    "commissionRecipients": {
+      "title": "CommissionRecipient",
+      "description": "Affiliate and referral partner profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["AFFILIATE", "REFERRAL", "CREATOR"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "SUSPENDED"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "code", "name", "type", "status"]
+    },
+    "commissionRules": {
+      "title": "CommissionRule",
+      "description": "Deterministic commission calculation rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "calculationMethod": { "type": "string", "enum": ["PERCENTAGE_NET", "PERCENTAGE_GROSS", "FIXED_PER_ORDER"] },
+        "percentageRate": { "type": "number" },
+        "fixedAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "calculationMethod", "status"]
+    },
+    "commissionRecords": {
+      "title": "CommissionRecord",
+      "description": "Immutable operational commission accrual records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "ruleId": { "type": "string" },
+        "commissionAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PAYABLE", "CANCELLED"] },
+        "ledgerStatus": { "type": "string", "enum": ["PENDING", "POSTED", "FAILED"] },
+        "ledgerJournalId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderId", "recipientId", "ruleId", "commissionAmount", "status"]
+    },
+    "blogs": {
+      "title": "BlogPost",
+      "description": "Article and news posts for marketing & content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "coverMediaId": { "type": "string" },
+        "coverMediaUrl": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "author": { "type": "string" },
+        "readTime": { "type": "number" },
+        "published": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
+        "publishedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "slug", "content", "published", "enabled"]
+    },
+    "faqs": {
+      "title": "FAQItem",
+      "description": "Customer support frequently asked questions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "category": { "type": "string" },
+        "sortOrder": { "type": "number" },
+        "published": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "archived": { "type": "boolean" },
+        "relatedGameId": { "type": "string" },
+        "relatedPromoId": { "type": "string" },
+        "relatedBlogId": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "publishedAt": { "type": "string" }
+      },
+      "required": ["id", "question", "answer", "published", "enabled", "archived"]
+    },
+    "notificationSettings": {
+      "title": "NotificationSettings",
+      "description": "Global notification channel and event configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "channels": { "type": "object" },
+        "events": { "type": "object" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["id", "channels", "events"]
+    }
+  },
+  "firestore": {
+    "/notificationSettings/{configId}": {
+      "schema": "notificationSettings",
+      "description": "Global notification configurations"
+    },
+    "/faqs/{faqId}": {
+      "schema": "faqs",
+      "description": "Customer support FAQ documents"
+    },
+    "/blogs/{blogId}": {
+      "schema": "blogs",
+      "description": "Marketing & Content Blog articles"
+    },
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User profile documents"
+    },
+    "/products/{productId}": {
+      "schema": "products",
+      "description": "Game and voucher catalog"
+    },
+    "/orders/{orderId}": {
+      "schema": "orders",
+      "description": "Order records"
+    },
+    "/settlementBatches/{batchId}": {
+      "schema": "settlementBatches",
+      "description": "Settlement batches"
+    },
+    "/settlementRecords/{recordId}": {
+      "schema": "settlementRecords",
+      "description": "Individual order mappings for a settlement batch"
+    },
+    "/ledgerJournalEntries/{entryId}": {
+      "schema": "ledgerJournalEntries",
+      "description": "Immutable append-only double-entry journal records"
+    },
+    "/commissionRecipients/{recipientId}": {
+      "schema": "commissionRecipients",
+      "description": "Affiliate and referral partner profiles"
+    },
+    "/commissionRules/{ruleId}": {
+      "schema": "commissionRules",
+      "description": "Commission rules configuration"
+    },
+    "/commissionRecords/{recordId}": {
+      "schema": "commissionRecords",
+      "description": "Commission accrual records"
+    }
+  }
+}

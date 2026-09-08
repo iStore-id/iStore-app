@@ -1,0 +1,384 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if user is admin or pemilik
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'chokerbayu@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'pemilik'])
+      );
+    }
+    
+    // Function to check if user is specifically pemilik (Owner)
+    function isOwner() {
+      return request.auth != null && (
+        request.auth.token.email == 'chokerbayu@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'pemilik')
+      );
+    }
+
+    // Function to check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+      // Users can only update their own non-sensitive fields. Role/balance changes blocked unless owner.
+      allow update: if isAuth() && request.auth.uid == userId 
+                    && (!request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['role', 'balance', 'status', 'referralCode', 'referredBy']) || isOwner());
+      allow create: if isAuth() && request.auth.uid == userId
+                    && (request.resource.data.role == 'customer' || (isOwner() && request.resource.data.role == 'pemilik'));
+      allow delete: if false; // Only via backend
+    }
+
+    // CORE DATA COLLECTIONS (Public Read, Admin/Owner Write)
+    match /games/{gameId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /products/{productId} {
+      // Anyone can read products. Admins can create/update.
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /productVariants/{variantId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ROLES
+    match /roles/{roleId} {
+      allow read: if isAuth(); // needed for frontend UI rendering based on roles
+      allow write: if isOwner(); // only owner can manage roles
+    }
+    
+    // CONFIGURATIONS
+    match /systemConfigs/{configId} {
+      allow read: if isAdmin(); // internal config, only admins/owner read
+      allow write: if isOwner(); // only owner can modify
+    }
+    
+    match /storeConfigs/{storeId} {
+      allow read: if true; // public read for store basics (name, logo, etc.)
+      allow write: if isOwner();
+    }
+
+    match /notificationSettings/{configId} {
+      allow read: if isAdmin();
+      allow write: if false; // Block client-side write; only modified via Backend SDK
+    }
+
+    // ORDERS COLLECTION
+    match /orders/{orderId} {
+      // Anyone can lookup order by invoice or view their orders. Admins can manage all.
+      allow read: if true;
+      // Orders are created/updated via backend or admin
+      allow write: if isAdmin();
+    }
+
+    // REFUND COLLECTIONS (Admin SDK only, client access blocked)
+    match /refunds/{refundId} {
+      allow read: if request.auth.token.email == 'chokerbayu@gmail.com' || isAdmin();
+      allow write: if false; // Disallow client-side writes
+    }
+
+    // AUDIT LOGS
+    match /auditLogs/{logId} {
+      // Only backend can write. Admins can read.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // SYSTEM LOGS (Runtime/Application/Integration Logs)
+    match /systemLogs/{logId} {
+      // Only backend can write. Admins can read.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // SETTINGS (Legacy/Existing)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // PRICING ENGINE
+    match /pricingRules/{ruleId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /priceHistories/{historyId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only via backend
+    }
+
+    // PROVIDER & ROUTING ENGINE
+    match /providers/{providerId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /providerSkus/{skuId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /providerMappings/{mappingId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /routingPolicies/{policyId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /paymentGateways/{gatewayId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // INVENTORY COLLECTIONS
+    match /stocks/{stockId} {
+      allow read, write: if isAdmin();
+    }
+    match /stockMovements/{movementId} {
+      allow read, write: if isAdmin();
+    }
+    match /reservations/{reservationId} {
+      allow read, write: if isAdmin();
+    }
+    match /quotas/{quotaId} {
+      allow read, write: if isAdmin();
+    }
+
+    // DELIVERY COLLECTIONS
+    match /deliveries/{deliveryId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only
+    }
+
+    // JOBS COLLECTION
+    match /jobs/{jobId} {
+      allow read: if isAdmin();
+      allow write: if false; // Server-side only
+    }
+
+    // RECONCILIATION COLLECTIONS (Admin SDK only, client access blocked)
+    match /reconciliationRuns/{runId} {
+      allow read, write: if false;
+    }
+    
+    match /reconciliationRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    // SETTLEMENT COLLECTIONS (Admin SDK only, client access blocked)
+    match /settlementBatches/{batchId} {
+      allow read, write: if false;
+    }
+
+    match /settlementRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    // LEDGER COLLECTIONS (Admin SDK only, client access blocked)
+    match /ledgerJournalEntries/{entryId} {
+      allow read, write: if false;
+    }
+
+    // COMMISSION COLLECTIONS (Admin SDK only, client access blocked)
+    match /commissionRecipients/{recipientId} {
+      allow read, write: if false;
+    }
+
+    match /commissionRules/{ruleId} {
+      allow read, write: if false;
+    }
+
+    match /commissionRecords/{recordId} {
+      allow read, write: if false;
+    }
+
+    match /payoutBatches/{batchId} {
+      allow read, write: if false;
+    }
+
+    // POINT TRANSACTIONS (Immutable ledger)
+    match /pointTransactions/{txId} {
+      allow read: if isAuth() && (resource.data.customerId == request.auth.uid || isAdmin());
+      allow write: if false; // Admin SDK only
+    }
+
+    match /loyaltyConfigs/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /rewardRedemptions/{redemptionId} {
+      allow read: if isAuth() && (resource.data.customerId == request.auth.uid || isAdmin());
+      allow write: if false; // Admin SDK only
+    }
+
+    match /wishlists/{wishlistItemId} {
+      allow read: if isAuth() && (resource.data.customerId == request.auth.uid || isAdmin());
+      allow create: if isAuth() && request.resource.data.customerId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAuth() && resource.data.customerId == request.auth.uid;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == 'published' || (isAuth() && resource.data.customerId == request.auth.uid) || isAdmin();
+      allow create: if isAuth() && request.resource.data.customerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /mediaLibrary/{mediaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if resource.data.enabled == true && resource.data.published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /popups/{popupId} {
+      allow read: if resource.data.enabled == true && resource.data.published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if (resource.data.enabled == true && resource.data.published == true && resource.data.isArchived != true) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /landings/{landingId} {
+      allow read: if (resource.data.enabled == true && resource.data.published == true && resource.data.isArchived != true) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /blogs/{blogId} {
+      allow read: if (resource.data.enabled == true && resource.data.published == true && resource.data.isArchived != true) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /faqs/{faqId} {
+      allow read: if (resource.data.enabled == true && resource.data.published == true && resource.data.archived != true) || isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // SEO SETTINGS
+    match /seoSettings/{settingId} {
+      allow read: if true; // Needed for public access to SEO configuration
+      allow write: if isAdmin();
+    }
+
+    // PRIVACY SETTINGS
+    match /privacySettings/{settingId} {
+      allow read: if true; // Needed for public access to Privacy Policy / TOS
+      allow write: if isOwner();
+    }
+
+    match /slaPolicies/{policyId} {
+      allow read: if isAdmin();
+      allow write: if isOwner();
+    }
+
+    match /businessCalendarConfig/{configId} {
+      allow read: if isAdmin();
+      allow write: if isOwner();
+    }
+
+    match /businessCalendarExceptions/{exceptionId} {
+      allow read: if isAdmin();
+      allow write: if isOwner();
+    }
+
+    // NOTIFICATIONS COLLECTION
+    match /notifications/{notificationId} {
+      // Admins can read all. Customers can only read their own notifications.
+      allow read: if isAdmin() || (isAuth() && resource.data.recipientId == request.auth.uid);
+      
+      // Allow marking as read via API (which uses Admin SDK) OR if we want to allow direct client update:
+      // However, we are using API endpoints for markRead, which use Admin SDK, so client write isn't strictly necessary.
+      // But for completeness and if the API uses the user's context:
+      allow update: if (isAdmin() && resource.data.recipientId == 'ADMIN_ALL') || 
+                     (isAuth() && resource.data.recipientId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+      
+      allow create, delete: if false; 
+    }
+
+    // INCIDENTS COLLECTION
+    match /incidents/{incidentId} {
+      // Only admins can read. No client-side write allowed.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // CUSTOMER SEGMENTS ENGINE (PHASE C2)
+    match /customerSegments/{segmentId} {
+      // Admins can read. Mutations strictly handled via Server API / Admin SDK.
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /customerSegmentMemberships/{membershipId} {
+      // Admins can read all. Customers can only read their own memberships. Mutations strictly via Server API.
+      allow read: if isAdmin() || (isAuth() && resource.data.customerUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    // REFERRAL ENGINE (PHASE C3)
+    match /referralRelationships/{relationshipId} {
+      // Admins can read all. Participants can read their specific relationship.
+      allow read: if isAdmin() || (isAuth() && (resource.data.referrerUid == request.auth.uid || resource.data.referredUid == request.auth.uid));
+      allow write: if false;
+    }
+
+    // MEMBERSHIP ENGINE (PHASE C4)
+    match /membershipPlans/{planId} {
+      allow read: if true; // Public read for plan details
+      allow write: if false; // Only via backend
+    }
+
+    match /customerMemberships/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow write: if false; // Only via backend
+    }
+
+    // SUPPORT & TICKETING ENGINE (PHASE C5)
+    match /supportCases/{caseId} {
+      // Customer can read their own cases. Admin can read all.
+      allow read: if isAdmin() || (isAuth() && resource.data.customerUid == request.auth.uid);
+      // Mutations strictly via Server API
+      allow write: if false;
+
+      match /messages/{messageId} {
+        // Customer can read public messages in their cases. Admin can read all including internal notes.
+        allow read: if isAdmin() || (isAuth() && get(/databases/$(database)/documents/supportCases/$(caseId)).data.customerUid == request.auth.uid && resource.data.isInternal == false);
+        // Messages created via Server API
+        allow write: if false;
+      }
+    }
+  }
+}
