@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { adminDb } from "./firebase-admin";
 import { AuthenticatedRequest } from "./middleware";
 import { DeliveryService } from "./delivery-service";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 const deliveryService = DeliveryService.getInstance();
 
@@ -50,14 +50,13 @@ export async function getAdminDeliveryDetail(req: AuthenticatedRequest, res: Res
     
     // Log audit for accessing sensitive delivery detail (especially if it has digital code)
     if (delivery.digitalCode) {
-       const auditRef = adminDb.collection("auditLogs").doc();
-       await auditRef.set({
-         id: auditRef.id,
-         adminUid: req.user.uid,
+       await AuditLogRepository.getInstance().createLog({
+         actor: { uid: req.user.uid, email: req.user.email || "system" },
+         role: req.user.role || "admin",
          action: "VIEW_DELIVERY_SENSITIVE",
-         resource: "deliveries",
-         resourceId: delivery.id,
-         createdAt: new Date().toISOString()
+         target: `deliveries/${delivery.id}`,
+         reason: "View sensitive delivery detail",
+         timestamp: new Date().toISOString()
        });
     }
 

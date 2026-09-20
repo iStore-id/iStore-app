@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../store/auth-store";
 import {
   BookOpen,
   Clock,
   Calendar,
-  User,
   ArrowLeft,
   Share2,
   Copy,
@@ -14,32 +13,32 @@ import {
   Gamepad2,
   Flame,
   Layout,
-  ExternalLink,
-  AlertTriangle,
   Eye,
   CheckCircle2
 } from "lucide-react";
-import { PublicBlogDetail } from "../types/blog";
+import { PublicBlogDetail, PublicBlogItem } from "../types/blog";
 import BlogContentRenderer from "../components/BlogContentRenderer";
+import BlogCard from "../components/blog/BlogCard";
 import { useSEO } from "../lib/seo";
 
 export default function BlogDetailPage() {
   const { slug, id } = useParams<{ slug?: string; id?: string }>();
   const location = useLocation();
-  const navigate = useNavigate();
   const { user } = useAuthStore();
 
   const isPreviewMode = location.pathname.includes("/admin/blog/") && location.pathname.includes("/preview");
 
+  const [articlesList, setArticlesList] = useState<PublicBlogItem[]>([]);
   const [blog, setBlog] = useState<PublicBlogDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedPromo, setCopiedPromo] = useState(false);
-
-  const [storeName, setStoreName] = useState("iStore.id");
+  const [storeName, setStoreName] = useState("Toko Kami");
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
+  // 1. Fetch store configuration
   useEffect(() => {
     fetch("/api/public/store-config")
       .then(res => res.json())
@@ -51,6 +50,88 @@ export default function BlogDetailPage() {
       .catch(() => {});
   }, []);
 
+  // 2. Fetch list of all published articles to determine unread sequence
+  useEffect(() => {
+    let isMounted = true;
+    const fetchArticlesList = async () => {
+      try {
+        const res = await fetch("/api/public/blog?limit=50");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (isMounted && json.success && Array.isArray(json.data)) {
+          setArticlesList(json.data);
+        }
+      } catch (err) {
+        console.warn("Notice: Failed to load published articles list", err);
+      }
+    };
+
+    fetchArticlesList();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 3. Fetch Full Article Content for the active article (slug / id)
+  useEffect(() => {
+    let isCurrent = true;
+    const currentIdentifier = isPreviewMode ? (id || slug) : slug;
+
+    if (!currentIdentifier) {
+      setError("Slug artikel tidak valid atau tidak ditemukan.");
+      setLoading(false);
+      return;
+    }
+
+    const fetchBlogDetail = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let url = "";
+        const headers: Record<string, string> = {};
+
+        if (isPreviewMode) {
+          url = `/api/admin/blog/${encodeURIComponent(currentIdentifier)}/preview`;
+          const token = await (user as any)?.getIdToken?.();
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+        } else {
+          url = `/api/public/blog/${encodeURIComponent(currentIdentifier)}`;
+        }
+
+        const res = await fetch(url, { headers });
+        const json = await res.json();
+
+        if (!isCurrent) return;
+
+        if (json.success && json.data) {
+          setBlog(json.data);
+        } else {
+          setBlog(null);
+          setError(json.message || "Artikel tidak ditemukan atau belum aktif.");
+        }
+      } catch (err: any) {
+        if (!isCurrent) return;
+        setBlog(null);
+        setError(err.message || "Terjadi kesalahan saat memuat artikel.");
+      } finally {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchBlogDetail();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [slug, id, isPreviewMode, user]);
+
+  // SEO
   useSEO({
     title: blog ? (blog.seoTitle || blog.title) : undefined,
     description: blog ? (blog.seoDescription || blog.excerpt) : undefined,
@@ -82,45 +163,6 @@ export default function BlogDetailPage() {
     } : undefined
   });
 
-  useEffect(() => {
-    fetchBlogDetail();
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [slug, id, isPreviewMode]);
-
-  const fetchBlogDetail = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      let url = "";
-      let headers: Record<string, string> = {};
-
-      if (isPreviewMode) {
-        const identifier = id || slug;
-        url = `/api/admin/blog/${identifier}/preview`;
-        const token = await (user as any)?.getIdToken?.();
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-      } else {
-        url = `/api/public/blog/${slug}`;
-      }
-
-      const res = await fetch(url, { headers });
-      const json = await res.json();
-
-      if (json.success && json.data) {
-        setBlog(json.data);
-      } else {
-        setError(json.message || "Artikel tidak ditemukan atau belum aktif.");
-      }
-    } catch (err: any) {
-      setError(err.message || "Terjadi kesalahan saat memuat artikel.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
@@ -135,7 +177,7 @@ export default function BlogDetailPage() {
 
   const handleShareWhatsApp = () => {
     if (!blog) return;
-    const text = encodeURIComponent(`Baca artikel menarik: "${blog.title}" di iStore.id\n${window.location.href}`);
+    const text = encodeURIComponent(`Baca artikel menarik: "${blog.title}" di ${storeName}\n${window.location.href}`);
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
@@ -145,11 +187,23 @@ export default function BlogDetailPage() {
     window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(window.location.href)}`, "_blank");
   };
 
+  // Find index of current active article to derive unread articles
+  const currentIdentifier = isPreviewMode ? (id || slug) : slug;
+  const currentIndex = articlesList.findIndex(
+    b => b.slug === currentIdentifier || b.id === currentIdentifier
+  );
+
+  // Unread articles are the remaining articles after the current active article
+  const unreadArticles: PublicBlogItem[] =
+    currentIndex !== -1
+      ? articlesList.slice(currentIndex + 1)
+      : [];
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-10 h-10 border-3 border-brand-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-sm font-medium text-slate-500">Memuat artikel...</p>
         </div>
       </div>
@@ -169,11 +223,11 @@ export default function BlogDetailPage() {
           </p>
           <div className="pt-2">
             <Link
-              to="/blog"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+              to="/"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
             >
               <ArrowLeft className="w-4 h-4" />
-              Kembali ke Daftar Blog
+              Kembali ke Beranda
             </Link>
           </div>
         </div>
@@ -203,42 +257,41 @@ export default function BlogDetailPage() {
       <div className="bg-white border-b border-slate-200/80">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
-            <Link to="/" className="hover:text-blue-600 transition-colors">
+            <Link to="/" className="hover:text-brand-600 transition-colors">
               Beranda
             </Link>
             <span>/</span>
-            <Link to="/blog" className="hover:text-blue-600 transition-colors">
-              Blog
+            <Link to="/" className="hover:text-brand-600 transition-colors">
+              Blog & Berita
             </Link>
             <span>/</span>
-            <span className="text-slate-800 font-medium truncate">{blog.category}</span>
+            <span className="text-slate-800 font-medium truncate">{blog.category || "Berita"}</span>
           </div>
 
           <Link
-            to="/blog"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-blue-600 transition-colors shrink-0"
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-600 transition-colors shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Kembali
+            Beranda
           </Link>
         </div>
       </div>
 
-      {/* Main Container */}
+      {/* ========================================================================= */}
+      {/* ARTIKEL AKTIF (FULL CONTENT ARTIKEL) */}
+      {/* ========================================================================= */}
       <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
         {/* Article Meta & Header */}
         <header className="space-y-4 text-left">
           <div className="flex flex-wrap items-center gap-2.5">
-            <Link
-              to={`/blog?category=${encodeURIComponent(blog.category)}`}
-              className="px-3.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-            >
-              {blog.category}
-            </Link>
+            <span className="px-3.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
+              {blog.category || "Berita"}
+            </span>
             <span className="text-slate-300">•</span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              {blog.readTime} menit baca
+              {blog.readTime || 1} menit baca
             </span>
             <span className="text-slate-300">•</span>
             <span className="text-xs text-slate-500 flex items-center gap-1">
@@ -255,9 +308,11 @@ export default function BlogDetailPage() {
             {blog.title}
           </h1>
 
-          <p className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal pt-1">
-            {blog.excerpt}
-          </p>
+          {blog.excerpt && (
+            <p className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal pt-1">
+              {blog.excerpt}
+            </p>
+          )}
 
           {/* Author Info & Share */}
           <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -266,8 +321,8 @@ export default function BlogDetailPage() {
                 {blog.author ? blog.author.charAt(0).toUpperCase() : "I"}
               </div>
               <div>
-                <div className="font-bold text-sm text-slate-900">{blog.author}</div>
-                <div className="text-xs text-slate-400">Tim Editorial iStore.id</div>
+                <div className="font-bold text-sm text-slate-900">{blog.author || "Tim Editorial"}</div>
+                <div className="text-xs text-slate-400">Tim Editorial {storeName}</div>
               </div>
             </div>
 
@@ -321,21 +376,18 @@ export default function BlogDetailPage() {
             <div className="mt-12 pt-6 border-t border-slate-100 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">Tags:</span>
               {blog.tags.map((tag, idx) => (
-                <Link
+                <span
                   key={idx}
-                  to={`/blog?search=${encodeURIComponent(tag)}`}
-                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600"
                 >
                   #{tag}
-                </Link>
+                </span>
               ))}
             </div>
           )}
         </div>
 
-        {/* ========================================================================= */}
-        {/* RELATED COMMERCE & PROMO SECTIONS (REUSE EXISTING MODULES) */}
-        {/* ========================================================================= */}
+        {/* Related Commerce & Promo Sections */}
         {(blog.relatedGame || blog.relatedPromo || blog.relatedCampaign || blog.relatedLanding) && (
           <section className="space-y-4 my-10">
             <div className="flex items-center gap-2">
@@ -346,7 +398,7 @@ export default function BlogDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Game Card */}
               {blog.relatedGame && (
-                <div className="p-5 rounded-3xl bg-gradient-to-br from-blue-900 to-indigo-900 text-white flex items-center justify-between shadow-sm">
+                <div className="p-5 rounded-3xl bg-gradient-to-br from-brand-900 to-brand-900 text-white flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3.5">
                     <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md overflow-hidden border border-white/20 shrink-0 flex items-center justify-center">
                       {blog.relatedGame.image ? (
@@ -360,17 +412,17 @@ export default function BlogDetailPage() {
                       )}
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-blue-300 uppercase tracking-wide">
+                      <div className="text-xs font-semibold text-brand-300 uppercase tracking-wide">
                         Top Up Game Resmi
                       </div>
                       <h4 className="font-bold text-base text-white">{blog.relatedGame.name}</h4>
-                      <p className="text-xs text-blue-200">Proses otomatis detik ini juga</p>
+                      <p className="text-xs text-brand-200">Proses otomatis detik ini juga</p>
                     </div>
                   </div>
 
                   <Link
                     to={`/games/${blog.relatedGame.slug}`}
-                    className="px-4 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold transition-colors shrink-0 shadow-sm"
+                    className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold transition-colors shrink-0 shadow-sm"
                   >
                     Beli Sekarang
                   </Link>
@@ -416,23 +468,23 @@ export default function BlogDetailPage() {
 
               {/* Landing Page Card */}
               {blog.relatedLanding && (
-                <div className="p-5 rounded-3xl bg-purple-50 border border-purple-200 flex items-center justify-between shadow-xs">
+                <div className="p-5 rounded-3xl bg-brand-50 border border-brand-200 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-600 text-white flex items-center justify-center shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shrink-0">
                       <Layout className="w-6 h-6" />
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-purple-700 uppercase tracking-wide">
+                      <div className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
                         Halaman Khusus
                       </div>
-                      <h4 className="font-bold text-sm text-purple-950">{blog.relatedLanding.title}</h4>
-                      <p className="text-xs text-purple-800">Lihat event dan penawaran eksklusif</p>
+                      <h4 className="font-bold text-sm text-brand-950">{blog.relatedLanding.title}</h4>
+                      <p className="text-xs text-brand-800">Lihat event dan penawaran eksklusif</p>
                     </div>
                   </div>
 
                   <Link
                     to={`/promo/${blog.relatedLanding.slug}`}
-                    className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors shrink-0"
+                    className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-colors shrink-0"
                   >
                     Buka Halaman
                   </Link>
@@ -467,14 +519,37 @@ export default function BlogDetailPage() {
           </section>
         )}
 
-        {/* Bottom Back Button */}
-        <div className="pt-8 border-t border-slate-200 text-center">
+        {/* ========================================================================= */}
+        {/* ARTIKEL YANG BELUM DIBACA (PREVIEW MENGGUNAKAN BLOGCARD HOMEPAGE) */}
+        {/* ========================================================================= */}
+        {unreadArticles.length > 0 && (
+          <div className="pt-10 border-t border-slate-200/80">
+            {/* 
+              Responsive & Adaptive container matching homepage layout:
+              - Mobile (< 640px): Flexible horizontal snap-carousel with compact cards (w-[230px] to w-[250px]).
+              - Tablet & Desktop (>= 640px): CSS Auto-fill grid (minmax 260px, 1fr) adapting fluidly.
+            */}
+            <div className="flex sm:grid sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory no-scrollbar scroll-smooth">
+              {unreadArticles.map((unreadItem) => (
+                <BlogCard
+                  key={unreadItem.id}
+                  blog={unreadItem}
+                  className="w-[230px] xs:w-[250px] sm:w-auto shrink-0 snap-start"
+                  headingLevel="h3"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Back to Home Button */}
+        <div className="pt-10 text-center">
           <Link
-            to="/blog"
+            to="/"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-bold transition-colors shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
-            Kembali ke Semua Artikel Blog
+            Kembali ke Beranda
           </Link>
         </div>
       </article>

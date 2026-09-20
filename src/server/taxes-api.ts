@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 
 const DEFAULT_PAYMENT_FEES = {
   gopay: { name: "GoPay", percentage: 0.7, flat: 0, enabled: true },
@@ -25,16 +25,13 @@ const DEFAULT_TAX_CONFIG = {
 
 export async function getTaxAndFeeConfigApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const feeDocRef = adminDb.collection("systemConfigs").doc("payment_method_fees");
-    const taxDocRef = adminDb.collection("systemConfigs").doc("tax_config");
-
-    const [feeSnap, taxSnap] = await Promise.all([
-      feeDocRef.get(),
-      taxDocRef.get()
+    const [feeVal, taxVal] = await Promise.all([
+      SystemConfigRepository.getInstance().getConfig("payment_method_fees"),
+      SystemConfigRepository.getInstance().getConfig("tax_config")
     ]);
 
-    const paymentFees = feeSnap.exists ? (feeSnap.data()?.value || DEFAULT_PAYMENT_FEES) : DEFAULT_PAYMENT_FEES;
-    const taxConfig = taxSnap.exists ? (taxSnap.data()?.value || DEFAULT_TAX_CONFIG) : DEFAULT_TAX_CONFIG;
+    const paymentFees = feeVal || DEFAULT_PAYMENT_FEES;
+    const taxConfig = taxVal || DEFAULT_TAX_CONFIG;
 
     return res.status(200).json({
       success: true,
@@ -77,17 +74,14 @@ export async function updateTaxAndFeeConfigApi(req: AuthenticatedRequest, res: R
       }
     }
 
-    const feeDocRef = adminDb.collection("systemConfigs").doc("payment_method_fees");
-    const taxDocRef = adminDb.collection("systemConfigs").doc("tax_config");
-
-    const [feeSnap, taxSnap] = await Promise.all([
-      feeDocRef.get(),
-      taxDocRef.get()
+    const [oldFee, oldTax] = await Promise.all([
+      SystemConfigRepository.getInstance().getConfig("payment_method_fees"),
+      SystemConfigRepository.getInstance().getConfig("tax_config")
     ]);
 
     const before = {
-      paymentFees: feeSnap.exists ? feeSnap.data()?.value : null,
-      taxConfig: taxSnap.exists ? taxSnap.data()?.value : null
+      paymentFees: oldFee || null,
+      taxConfig: oldTax || null
     };
 
     const now = new Date().toISOString();
@@ -107,8 +101,8 @@ export async function updateTaxAndFeeConfigApi(req: AuthenticatedRequest, res: R
     };
 
     await Promise.all([
-      feeDocRef.set(newFeeData, { merge: true }),
-      taxDocRef.set(newTaxData, { merge: true })
+      SystemConfigRepository.getInstance().upsertConfig("payment_method_fees", newFeeData),
+      SystemConfigRepository.getInstance().upsertConfig("tax_config", newTaxData)
     ]);
 
     const after = {

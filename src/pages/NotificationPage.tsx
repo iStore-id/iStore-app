@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import { 
   Bell, 
   Check, 
@@ -27,7 +28,8 @@ export default function NotificationPage() {
       if (isLoadMore && lastId) params.append("lastId", lastId);
       params.append("limit", "20");
 
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/customer/notifications?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -58,7 +60,8 @@ export default function NotificationPage() {
 
   const markRead = async (id: string) => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/customer/notifications/${id}/read`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -74,7 +77,8 @@ export default function NotificationPage() {
 
   const markAllRead = async () => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/customer/notifications/mark-all-read`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -101,7 +105,7 @@ export default function NotificationPage() {
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
             Notifikasi Saya
             {unreadCount > 0 && (
-              <span className="px-2 py-0.5 text-xs font-bold bg-blue-600 text-white rounded-full">
+              <span className="px-2 py-0.5 text-xs font-bold bg-brand-600 text-white rounded-full">
                 {unreadCount}
               </span>
             )}
@@ -113,13 +117,13 @@ export default function NotificationPage() {
       <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
           <div className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-blue-600" />
+            <Bell className="w-5 h-5 text-brand-600" />
             <span className="text-sm font-bold text-slate-700">Kotak Masuk</span>
           </div>
           {unreadCount > 0 && (
             <button 
               onClick={markAllRead}
-              className="text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
+              className="text-sm font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1.5 transition-colors"
             >
               <Check className="w-4 h-4" />
               Tandai Semua Dibaca
@@ -138,7 +142,7 @@ export default function NotificationPage() {
             </p>
             <Link 
               to="/"
-              className="mt-8 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+              className="mt-8 inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-bold rounded-2xl text-white bg-brand-600 hover:bg-brand-700 transition-all shadow-lg shadow-brand-200"
             >
               Mulai Belanja
             </Link>
@@ -151,7 +155,7 @@ export default function NotificationPage() {
               return (
                 <div 
                   key={notif.id}
-                  className={`p-6 transition-all flex gap-5 ${isUnread ? 'bg-blue-50/30 border-l-4 border-l-blue-600' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}
+                  className={`p-6 transition-all flex gap-5 ${isUnread ? 'bg-brand-50/30 border-l-4 border-l-brand-600' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
@@ -176,7 +180,7 @@ export default function NotificationPage() {
                       {notif.actionUrl && (
                         <Link 
                           to={notif.actionUrl}
-                          className="inline-flex items-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-2xl transition-all shadow-md shadow-blue-100"
+                          className="inline-flex items-center gap-2 text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 px-5 py-2.5 rounded-2xl transition-all shadow-md shadow-brand-100"
                         >
                           Lihat Detail
                           <ExternalLink className="w-4 h-4" />
@@ -204,7 +208,7 @@ export default function NotificationPage() {
             <button 
               onClick={() => fetchNotifications(true)}
               disabled={loading}
-              className="text-base font-bold text-blue-600 hover:text-blue-700 disabled:opacity-50 transition-colors"
+              className="text-base font-bold text-brand-600 hover:text-brand-700 disabled:opacity-50 transition-colors"
             >
               {loading ? "Memuat..." : "Muat Lebih Banyak"}
             </button>

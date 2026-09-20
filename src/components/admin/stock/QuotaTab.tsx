@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { Quota, Provider } from '../../../types/core';
 import { useAuthStore } from '../../../store/auth-store';
 import { Database, Plus, RefreshCw, Power } from 'lucide-react';
@@ -31,18 +29,30 @@ export default function QuotaTab() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const provSnap = await getDocs(collection(db, 'providers'));
-      const provData = provSnap.docs.map(d => ({ id: d.id, ...d.data() } as Provider));
+      const token = await (user as any)?.getIdToken?.();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // 1. Fetch providers
+      const provRes = await fetch('/api/admin/providers', { headers });
+      if (!provRes.ok) {
+        throw new Error('Failed to fetch providers');
+      }
+      const provJson = await provRes.json();
+      const provData = (provJson.data || []) as Provider[];
       setProviders(provData);
 
-      const quotasSnap = await getDocs(collection(db, 'quotas'));
-      const quotasData = quotasSnap.docs.map(d => {
-        const data = d.data() as Quota;
-        const p = provData.find(prov => prov.id === data.providerId);
+      // 2. Fetch quotas
+      const quotasRes = await fetch('/api/admin/quotas', { headers });
+      if (!quotasRes.ok) {
+        throw new Error('Failed to fetch quotas');
+      }
+      const quotasJson = await quotasRes.json();
+      const quotasRaw = (quotasJson.data || []) as Quota[];
+
+      const quotasData = quotasRaw.map(q => {
+        const p = provData.find(prov => prov.id === q.providerId);
         return {
-          id: d.id,
-          ...data,
+          ...q,
           providerName: p ? p.name : 'Unknown Provider'
         };
       });

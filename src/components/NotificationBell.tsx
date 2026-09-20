@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from "../lib/supabase";
 import { Bell, Check, ExternalLink, Inbox } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
@@ -16,7 +17,8 @@ export default function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch('/api/customer/notifications?limit=5', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -51,7 +53,8 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       await fetch('/api/customer/notifications/mark-all-read', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -65,7 +68,8 @@ export default function NotificationBell() {
 
   const markRead = async (id: string) => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       await fetch(`/api/customer/notifications/${id}/read`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -81,7 +85,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-500 hover:text-primary hover:bg-blue-50 rounded-full transition-colors"
+        className="relative p-2 text-gray-500 hover:text-primary hover:bg-brand-50 rounded-full transition-colors"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -123,7 +127,7 @@ export default function NotificationBell() {
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors flex gap-3 ${notif.status === 'UNREAD' ? 'bg-blue-50/20' : ''}`}
+                      className={`p-4 hover:bg-gray-50 transition-colors flex gap-3 ${notif.status === 'UNREAD' ? 'bg-brand-50/20' : ''}`}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">

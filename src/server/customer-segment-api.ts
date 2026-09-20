@@ -78,7 +78,7 @@ customerSegmentRouter.post("/", requireAuth, requirePermission("users", "create"
     const { name, description, type, ruleGroup, initialMembers } = req.body;
 
     const segment = await segmentService.createSegment(
-      { name, description, type, ruleGroup, initialMembers },
+      { name, description, type, ruleGroup },
       actor,
       actorRole
     );

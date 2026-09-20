@@ -3,12 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>iStore.id - Top Up Game &amp; Voucher</title>
+    <title>Top Up Game &amp; Voucher</title>
     <meta name="description" content="Platform top up game dan voucher digital terpercaya di Indonesia" />
-    <meta property="og:title" content="iStore.id - Top Up Game &amp; Voucher" />
+    <meta property="og:title" content="Top Up Game &amp; Voucher" />
     <meta property="og:description" content="Platform top up game dan voucher digital terpercaya di Indonesia" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function() {
+        try {
+          fetch("/api/public/config/midtrans")
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+              if (data && data.success && data.data && data.data.clientKey) {
+                if (!document.getElementById("midtrans-snap-script")) {
+                  var script = document.createElement("script");
+                  script.id = "midtrans-snap-script";
+                  script.src = data.data.isProduction 
+                    ? "https://app.midtrans.com/snap/snap.js" 
+                    : "https://app.sandbox.midtrans.com/snap/snap.js";
+                  script.setAttribute("data-client-key", data.data.clientKey);
+                  script.async = true;
+                  document.head.appendChild(script);
+                }
+              }
+            })
+            .catch(function() {});
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

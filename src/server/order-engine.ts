@@ -1,4 +1,7 @@
-import { adminDb } from "./firebase-admin";
+import { PricingService } from "./pricing-service";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { DynamicCatalogService } from "./dynamic-catalog-service";
+import { OrderRepository } from "./supabase/order-repository";
 import { getStoreConfiguration } from "./core-service";
 import { createMidtransTransaction, checkMidtransStatus } from "./midtrans";
 import { AuthenticatedRequest } from "./middleware";
@@ -11,6 +14,8 @@ import { FlashSaleService } from "./flash-sale-service";
 import { NotificationService } from "./notification-service";
 
 const providerService = ProviderService.getInstance();
+const dynamicCatalogService = DynamicCatalogService.getInstance();
+const pricingService = PricingService.getInstance();
 const promoService = PromoService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
 const notificationService = NotificationService.getInstance();
@@ -31,44 +36,69 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       });
     }
 
-    const { productId, variantId, customerInput, promoCode, referralCode } = req.body;
+    const { productId, variantId, customerInput, promoCode, referralCode, paymentMethod } = req.body;
     
     // STRICT SECURITY: Trust token UID, do not trust req.body.userId
-    const userId = req.user ? req.user.uid : "guest";
+    const userId = req.user ? (req.user.uid || req.user.id) : null;
 
     if (!productId || !variantId || !customerInput) {
       return res.status(400).json({ success: false, message: "Incomplete data" });
     }
 
     // 1. Fetch Product
-    const productRef = adminDb.collection("products").doc(productId);
-    const productSnap = await productRef.get();
-    if (!productSnap.exists) {
+    const product = await dynamicCatalogService.getProduct(productId);
+    if (!product) {
       return res.status(404).json({ success: false, code: "PRODUCT_NOT_FOUND", message: "Produk tidak ditemukan" });
     }
 
-    const product = productSnap.data()!;
     if (product.status !== "active") {
       return res.status(400).json({ success: false, message: "Produk tidak aktif" });
     }
 
     // 2. Validate Variant & Price Engine from normalized collection
-    const variantRef = adminDb.collection("productVariants").doc(variantId);
-    const variantSnap = await variantRef.get();
+    const variant = await dynamicCatalogService.getVariant(variantId);
     
-    if (!variantSnap.exists) {
+    if (!variant) {
       return res.status(400).json({ success: false, message: "Varian tidak ditemukan" });
     }
 
-    const variant = variantSnap.data()!;
-    if (variant.productId !== productId) {
+    const isVirtual = dynamicCatalogService.isVirtualVariant(variantId);
+    let isValidVariant = false;
+
+    if (isVirtual) {
+      // For virtual variants, verify ownership against product's game
+      let productGameSlug = "";
+      if (dynamicCatalogService.isVirtualProduct(productId)) {
+        productGameSlug = productId.replace("virtual-product-", "");
+      } else if (product.gameId) {
+        const catalogRepo = SupabaseCatalogRepository.getInstance();
+        const game = await catalogRepo.getGame(product.gameId);
+        if (game) {
+          productGameSlug = game.slug;
+        }
+      }
+      if (!productGameSlug) {
+        productGameSlug = product.slug;
+      }
+
+      const variantGameSlug = variant.productId.replace("virtual-product-", "");
+      isValidVariant = Boolean(variantGameSlug && productGameSlug && variantGameSlug === productGameSlug);
+    } else {
+      isValidVariant = (variant.productId === productId);
+    }
+
+    if (!isValidVariant) {
       return res.status(400).json({ success: false, message: "Varian tidak valid untuk produk ini" });
     }
 
     // Price calculation using Pricing Engine foundation in Catalog
-    const pricing = variant.pricing || {};
-    const subtotal = pricing.sellingPrice || variant.sellingPrice || 0;
-    const adminFee = variant.adminFee || 0;
+    const { finalPrice: effectivePrice } = await pricingService.resolveEffectivePrice(
+      variant, 
+      { userId: userId || undefined }, 
+      product
+    );
+    const subtotal = effectivePrice;
+    const adminFee = (variant as any).adminFee || 0;
     
     if (subtotal <= 0 && variant.status === "active") {
       return res.status(400).json({ success: false, message: "Harga produk tidak valid" });
@@ -87,7 +117,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         return res.status(400).json({ success: false, message: "Kode promo tidak dapat digabungkan dengan produk Flash Sale." });
       }
       try {
-        const consumedFs = await flashSaleService.consumeQuotaAndLimit(activeFlashSale.id!, userId);
+        const consumedFs = await flashSaleService.consumeQuotaAndLimit(activeFlashSale.id!, userId || "guest");
         baseAmount = consumedFs.salePrice;
         flashSaleSnapshot = {
           id: consumedFs.id,
@@ -101,12 +131,12 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     } else if (promoCode && typeof promoCode === "string" && promoCode.trim()) {
       try {
-        const gameId = product.gameId || product.categoryId;
+        const gameId = product.gameId || product.categoryIds?.[0];
         const calc = await promoService.validateAndCalculateDiscount(
           promoCode,
           subtotal,
-          userId,
-          { gameId, productId, categoryId: product.categoryId }
+          userId || "guest",
+          { gameId, productId, categoryId: product.categoryIds?.[0] }
         );
         discount = calc.discountAmount;
         promoId = calc.promoId;
@@ -133,9 +163,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    // 3. Create Order in Firestore (Transaction Locking / Idempotency)
-    const orderRef = adminDb.collection("orders").doc();
-    orderId = orderRef.id;
+    // 3. Create Order in Supabase
+    orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
     if (stock && stock.status === 'active') {
       try {
@@ -148,7 +177,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const orderData = {
       id: orderId,
       invoice: orderId,
-      userId: userId || "guest",
+      userId: userId,
       customerData: customerInput,
       productId: product.id,
       productName: product.name,
@@ -157,7 +186,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       
       // Provider & Routing Engine Integration
       providerId: routingDecision.selectedProviderId || "manual",
-      providerSkuId: routingDecision.selectedProviderSkuId || "",
+      providerSkuId: routingDecision.selectedProviderSkuId || null,
       providerSku: routingDecision.selectedProviderSku || "",
       routingDecisionCode: routingDecision.code,
       
@@ -177,14 +206,17 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       updatedAt: new Date().toISOString()
     };
 
-    await orderRef.set(orderData);
+    const orderRepo = OrderRepository.getInstance();
+    await orderRepo.createOrder(orderData as any);
 
     // Notify customer
-    await notificationService.notifyCustomer(userId, 'ORDER_CREATED', 'Pesanan Dibuat', `Pesanan ${orderId} telah berhasil dibuat. Silakan selesaikan pembayaran.`, {
-      relatedEntity: { type: 'ORDER', id: orderId! },
-      actionUrl: `/transactions/${orderId}`,
-      idempotencyKey: `order_created_${orderId}`
-    });
+    if (userId) {
+      await notificationService.notifyCustomer(userId, 'ORDER_CREATED', 'Pesanan Dibuat', `Pesanan ${orderId} telah berhasil dibuat. Silakan selesaikan pembayaran.`, {
+        relatedEntity: { type: 'ORDER', id: orderId! },
+        actionUrl: `/transactions/${orderId}`,
+        idempotencyKey: `order_created_${orderId}`
+      });
+    }
 
     // Increment promo usage atomically if applied
     if (promoId) {
@@ -192,24 +224,38 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     // 4. Generate Midtrans Snap Token
+    const allowedPaymentMethods = [
+      "qris",
+      "gopay",
+      "shopeepay",
+      "bca_va",
+      "bni_va",
+      "bri_va",
+      "echannel",
+      "permata_va",
+      "other_va"
+    ];
+    const validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
+
     const snapResult = await createMidtransTransaction({
       orderId: orderId,
       grossAmount: finalAmount,
       customerDetails: {
-        first_name: userId === "guest" ? "Guest" : "Customer",
-        email: "customer@istore.id", // Should take from input if available
-        phone: "08123456789"
+        first_name: customerInput?.buyerName || customerInput?.buyer_name || (userId ? "Customer" : "Guest"),
+        email: customerInput?.email || "customer@istore.id",
+        phone: customerInput?.whatsapp || customerInput?.phone || "08123456789"
       },
       itemDetails: [{
-        id: variant.id || variantId,
+        id: (variant.id || variantId).substring(0, 50),
         price: finalAmount,
         quantity: 1,
         name: `${product.name} - ${variant.displayName || variant.name}`.substring(0, 50)
-      }]
+      }],
+      paymentMethod: validatedPaymentMethod
     });
 
     // Save token to order for future retries if needed
-    await orderRef.update({
+    await orderRepo.updateOrder(orderId, {
       snapToken: snapResult.token,
       paymentUrl: snapResult.redirectUrl,
       updatedAt: new Date().toISOString()
@@ -243,11 +289,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
            }
 
            // Ensure payment ledger entry is recorded and trigger dispatcher if fulfillment is pending
-           const refreshedOrderSnap = await adminDb.collection("orders").doc(orderId).get();
-           if (refreshedOrderSnap.exists) {
-              const refreshedOrderData = refreshedOrderSnap.data()!;
+           const orderRepo = OrderRepository.getInstance();
+           const refreshedOrderData = await orderRepo.getOrderById(orderId);
+           if (refreshedOrderData) {
               if (refreshedOrderData.paymentStatus === 'paid') {
-                 await safeRecordPaymentReceived(orderId, refreshedOrderData, "SYSTEM", { source: "Checkout Recovery Retry" });
+                 await safeRecordPaymentReceived(orderId, refreshedOrderData as any, "SYSTEM", { source: "Checkout Recovery Retry" });
                  if (refreshedOrderData.transactionStatus === 'pending') {
                     console.log(`[Checkout Recovery] Triggering fulfillment dispatcher for reconciled order: ${orderId}`);
                     await dispatchFulfillment(orderId);

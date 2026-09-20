@@ -1,58 +1,17 @@
-import { adminDb } from "./firebase-admin";
+import { SupabaseCMSRepository } from "./supabase/cms-repository";
+import { Campaign, CampaignStatus, computeCampaignStatus } from "../types/cms";
+import { PromoService } from "./promo-service";
+import { FlashSaleService } from "./flash-sale-service";
 
-export type CampaignStatus = 'DRAFT' | 'SCHEDULED' | 'ACTIVE' | 'ENDED' | 'INACTIVE' | 'ARCHIVED';
-
-export interface Campaign {
-  id: string;
-  name: string; // Internal name
-  title: string; // Display title
-  description: string;
-  slug?: string;
-  mediaId?: string; // Reference to MediaLibrary
-  mediaUrl?: string; // Visual asset URL
-  promoIds?: string[]; // References to PromoData IDs
-  flashSaleIds?: string[]; // References to FlashSaleData IDs
-  bannerIds?: string[]; // References to Banner IDs
-  popupIds?: string[]; // References to Popup IDs
-  targetType?: 'all' | 'game' | 'category' | 'product' | 'custom_url';
-  targetId?: string;
-  targetUrl?: string;
-  priority: number;
-  enabled: boolean;
-  published: boolean;
-  isArchived: boolean;
-  startAt: string; // ISO datetime
-  endAt?: string; // ISO datetime
-  status: CampaignStatus;
-  createdBy: string;
-  updatedBy?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export function computeCampaignStatus(campaign: {
-  published: boolean;
-  enabled: boolean;
-  isArchived?: boolean;
-  startAt: string;
-  endAt?: string;
-}): CampaignStatus {
-  if (campaign.isArchived) return 'ARCHIVED';
-  if (!campaign.published) return 'DRAFT';
-  if (!campaign.enabled) return 'INACTIVE';
-
-  const now = new Date().toISOString();
-  if (campaign.startAt && now < campaign.startAt) {
-    return 'SCHEDULED';
-  }
-  if (campaign.endAt && now > campaign.endAt) {
-    return 'ENDED';
-  }
-  return 'ACTIVE';
-}
+export { computeCampaignStatus };
 
 export class CampaignService {
   private static instance: CampaignService;
+  private cmsRepo: SupabaseCMSRepository;
+
+  private constructor() {
+    this.cmsRepo = SupabaseCMSRepository.getInstance();
+  }
 
   public static getInstance(): CampaignService {
     if (!CampaignService.instance) {
@@ -62,131 +21,41 @@ export class CampaignService {
   }
 
   async getCampaigns(includeArchived: boolean = true): Promise<Campaign[]> {
-    let query: FirebaseFirestore.Query = adminDb.collection("campaigns");
-    if (!includeArchived) {
-      query = query.where("isArchived", "==", false);
-    }
-    const snap = await query.get();
-    let campaigns = snap.docs.map(doc => {
-      const data = doc.data();
-      const status = computeCampaignStatus({
-        published: !!data.published,
-        enabled: !!data.enabled,
-        isArchived: !!data.isArchived,
-        startAt: data.startAt,
-        endAt: data.endAt
-      });
-      return { id: doc.id, ...data, status } as Campaign;
-    });
+    const result = await this.cmsRepo.listCampaigns(false);
+    let campaigns = result.map(c => ({
+      ...c,
+      status: computeCampaignStatus(c)
+    } as Campaign));
 
-    // Deterministic sort: priority asc, createdAt desc
-    campaigns.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    if (!includeArchived) {
+      campaigns = campaigns.filter(c => !c.isArchived);
+    }
 
     return campaigns;
   }
 
   async getCampaignById(id: string): Promise<Campaign | null> {
-    const doc = await adminDb.collection("campaigns").doc(id).get();
-    if (!doc.exists) return null;
-    const data = doc.data()!;
-    const status = computeCampaignStatus({
-      published: !!data.published,
-      enabled: !!data.enabled,
-      isArchived: !!data.isArchived,
-      startAt: data.startAt,
-      endAt: data.endAt
-    });
-    return { id: doc.id, ...data, status } as Campaign;
+    const campaign = await this.cmsRepo.getCampaign(id);
+    if (!campaign) return null;
+    return {
+      ...campaign,
+      status: computeCampaignStatus(campaign)
+    } as Campaign;
   }
 
   async getPublicCampaigns(): Promise<Campaign[]> {
-    const snap = await adminDb.collection("campaigns")
-      .where("published", "==", true)
-      .where("enabled", "==", true)
-      .where("isArchived", "==", false)
-      .get();
-
-    const now = new Date().toISOString();
-    let campaigns = snap.docs.map(doc => {
-      const data = doc.data();
-      const status = computeCampaignStatus({
-        published: true,
-        enabled: true,
-        isArchived: false,
-        startAt: data.startAt,
-        endAt: data.endAt
-      });
-      return { id: doc.id, ...data, status } as Campaign;
-    });
-
-    // Filter server-side strictly for ACTIVE
-    campaigns = campaigns.filter(c => {
-      if (c.startAt && c.startAt > now) return false;
-      if (c.endAt && c.endAt < now) return false;
-      return true;
-    });
-
-    campaigns.sort((a, b) => a.priority - b.priority);
-    return campaigns;
+    const result = await this.cmsRepo.listCampaigns(true);
+    return result.map(c => ({
+      ...c,
+      status: computeCampaignStatus(c)
+    } as Campaign));
   }
 
   async validateReferences(data: Partial<Campaign>): Promise<void> {
-    // Validate target url if custom_url
     if (data.targetUrl) {
       const t = data.targetUrl.trim();
       if (!t.startsWith("/") && !t.startsWith("http://") && !t.startsWith("https://")) {
         throw new Error("Target URL harus berformat valid (diawali / atau https://).");
-      }
-    }
-
-    // Validate mediaId if provided
-    if (data.mediaId) {
-      const mediaDoc = await adminDb.collection("mediaLibrary").doc(data.mediaId).get();
-      if (!mediaDoc.exists) {
-        throw new Error(`Media asset dengan ID '${data.mediaId}' tidak ditemukan di Media Library.`);
-      }
-    }
-
-    // Validate promoIds if provided
-    if (data.promoIds && data.promoIds.length > 0) {
-      for (const promoId of data.promoIds) {
-        const pDoc = await adminDb.collection("promos").doc(promoId).get();
-        if (!pDoc.exists) {
-          throw new Error(`Promo dengan ID '${promoId}' tidak ditemukan.`);
-        }
-      }
-    }
-
-    // Validate flashSaleIds if provided
-    if (data.flashSaleIds && data.flashSaleIds.length > 0) {
-      for (const fsId of data.flashSaleIds) {
-        const fsDoc = await adminDb.collection("flashSales").doc(fsId).get();
-        if (!fsDoc.exists) {
-          throw new Error(`Flash Sale dengan ID '${fsId}' tidak ditemukan.`);
-        }
-      }
-    }
-
-    // Validate bannerIds if provided
-    if (data.bannerIds && data.bannerIds.length > 0) {
-      for (const bId of data.bannerIds) {
-        const bDoc = await adminDb.collection("banners").doc(bId).get();
-        if (!bDoc.exists) {
-          throw new Error(`Banner dengan ID '${bId}' tidak ditemukan.`);
-        }
-      }
-    }
-
-    // Validate popupIds if provided
-    if (data.popupIds && data.popupIds.length > 0) {
-      for (const pId of data.popupIds) {
-        const pDoc = await adminDb.collection("popups").doc(pId).get();
-        if (!pDoc.exists) {
-          throw new Error(`Popup dengan ID '${pId}' tidak ditemukan.`);
-        }
       }
     }
   }
@@ -195,95 +64,134 @@ export class CampaignService {
     if (!data.name || !data.title || !data.description) {
       throw new Error("Nama internal, judul, dan deskripsi kampanye wajib diisi.");
     }
-    if (!data.startAt) {
-      throw new Error("Waktu mulai (startAt) kampanye wajib diisi.");
+
+    let validStartAt = data.startAt;
+    if (!validStartAt) {
+      validStartAt = new Date().toISOString();
+    } else {
+      const parsedStart = new Date(validStartAt);
+      if (isNaN(parsedStart.getTime())) {
+        throw new Error("Format waktu mulai (startAt) tidak valid.");
+      }
+      validStartAt = parsedStart.toISOString();
     }
-    if (data.endAt && data.startAt > data.endAt) {
-      throw new Error("Waktu berakhir harus setelah waktu mulai.");
+
+    let validEndAt: string | undefined = undefined;
+    if (data.endAt && typeof data.endAt === 'string' && data.endAt.trim()) {
+      const parsedEnd = new Date(data.endAt);
+      if (isNaN(parsedEnd.getTime())) {
+        throw new Error("Format waktu selesai (endAt) tidak valid.");
+      }
+      validEndAt = parsedEnd.toISOString();
+      if (new Date(validEndAt) < new Date(validStartAt)) {
+        throw new Error("Waktu selesai (endAt) tidak boleh lebih awal dari waktu mulai (startAt).");
+      }
     }
 
     await this.validateReferences(data);
 
-    const ref = adminDb.collection("campaigns").doc();
-    const now = new Date().toISOString();
+    let slug = data.slug && data.slug.trim()
+      ? data.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      : data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    if (!slug) {
+      slug = `campaign-${Date.now()}`;
+    }
+    const existingSlug = await this.cmsRepo.getCampaignBySlug(slug);
+    if (existingSlug) {
+      slug = `${slug}-${Math.random().toString(36).substring(2, 6)}`;
+    }
 
-    const campaignData: Omit<Campaign, 'id' | 'status'> = {
-      name: data.name.trim(),
-      title: data.title.trim(),
-      description: data.description.trim(),
-      slug: data.slug?.trim() || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-      mediaId: data.mediaId || '',
-      mediaUrl: data.mediaUrl || '',
-      promoIds: data.promoIds || [],
-      flashSaleIds: data.flashSaleIds || [],
-      bannerIds: data.bannerIds || [],
-      popupIds: data.popupIds || [],
+    const item = await this.cmsRepo.createCampaign({
+      ...data,
+      slug,
+      mediaId: data.mediaId && data.mediaId.trim() ? data.mediaId.trim() : undefined,
+      mediaUrl: data.mediaUrl && data.mediaUrl.trim() ? data.mediaUrl.trim() : undefined,
+      promoIds: Array.isArray(data.promoIds) ? data.promoIds : [],
+      flashSaleIds: Array.isArray(data.flashSaleIds) ? data.flashSaleIds : [],
+      bannerIds: Array.isArray(data.bannerIds) ? data.bannerIds : [],
+      popupIds: Array.isArray(data.popupIds) ? data.popupIds : [],
       targetType: data.targetType || 'all',
-      targetId: data.targetId || '',
-      targetUrl: data.targetUrl || '',
+      targetId: data.targetId && data.targetId.trim() ? data.targetId.trim() : undefined,
+      targetUrl: data.targetUrl && data.targetUrl.trim() ? data.targetUrl.trim() : undefined,
       priority: typeof data.priority === 'number' ? data.priority : 0,
-      enabled: !!data.enabled,
-      published: !!data.published,
-      isArchived: !!data.isArchived,
-      startAt: data.startAt,
-      endAt: data.endAt || '',
+      enabled: typeof data.enabled === 'boolean' ? data.enabled : true,
+      published: typeof data.published === 'boolean' ? data.published : false,
+      isArchived: typeof data.isArchived === 'boolean' ? data.isArchived : false,
+      startAt: validStartAt,
+      endAt: validEndAt,
       createdBy: uid,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await ref.set(campaignData);
-
-    const status = computeCampaignStatus({
-      published: campaignData.published,
-      enabled: campaignData.enabled,
-      isArchived: campaignData.isArchived,
-      startAt: campaignData.startAt,
-      endAt: campaignData.endAt
+      updatedBy: uid,
+      status: computeCampaignStatus({
+        published: typeof data.published === 'boolean' ? data.published : false,
+        enabled: typeof data.enabled === 'boolean' ? data.enabled : true,
+        isArchived: !!data.isArchived,
+        startAt: validStartAt,
+        endAt: validEndAt
+      })
     });
 
-    return { id: ref.id, ...campaignData, status };
+    return item as Campaign;
   }
 
   async updateCampaign(id: string, data: Partial<Campaign>, uid: string): Promise<Campaign> {
-    const ref = adminDb.collection("campaigns").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Campaign tidak ditemukan.");
-
-    const existing = snap.data()!;
-
-    if (data.startAt && data.endAt && data.startAt > data.endAt) {
-      throw new Error("Waktu berakhir harus setelah waktu mulai.");
-    } else if (data.startAt && !data.endAt && existing.endAt && data.startAt > existing.endAt) {
-      throw new Error("Waktu mulai tidak boleh setelah waktu berakhir existing.");
-    } else if (!data.startAt && data.endAt && existing.startAt && existing.startAt > data.endAt) {
-      throw new Error("Waktu berakhir tidak boleh sebelum waktu mulai existing.");
-    }
+    const existing = await this.cmsRepo.getCampaign(id);
+    if (!existing) throw new Error("Campaign tidak ditemukan.");
 
     await this.validateReferences(data);
 
-    const updateData: any = {
+    let validStartAt = data.startAt;
+    if (validStartAt !== undefined) {
+      const parsedStart = new Date(validStartAt);
+      if (isNaN(parsedStart.getTime())) {
+        throw new Error("Format waktu mulai (startAt) tidak valid.");
+      }
+      validStartAt = parsedStart.toISOString();
+    }
+
+    let validEndAt = data.endAt;
+    if (validEndAt !== undefined) {
+      if (validEndAt && typeof validEndAt === 'string' && validEndAt.trim()) {
+        const parsedEnd = new Date(validEndAt);
+        if (isNaN(parsedEnd.getTime())) {
+          throw new Error("Format waktu selesai (endAt) tidak valid.");
+        }
+        validEndAt = parsedEnd.toISOString();
+        const startToCheck = validStartAt || existing.startAt;
+        if (startToCheck && new Date(validEndAt) < new Date(startToCheck)) {
+          throw new Error("Waktu selesai (endAt) tidak boleh lebih awal dari waktu mulai (startAt).");
+        }
+      } else {
+        validEndAt = undefined;
+      }
+    }
+
+    let formattedSlug = data.slug;
+    if (formattedSlug && formattedSlug.trim()) {
+      formattedSlug = formattedSlug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const existingSlug = await this.cmsRepo.getCampaignBySlug(formattedSlug);
+      if (existingSlug && existingSlug.id !== id) {
+        throw new Error(`Slug "${formattedSlug}" sudah digunakan oleh campaign lain.`);
+      }
+    }
+
+    await this.cmsRepo.updateCampaign(id, {
       ...data,
+      slug: formattedSlug !== undefined ? formattedSlug : undefined,
+      startAt: validStartAt,
+      endAt: validEndAt,
+      mediaId: data.mediaId !== undefined ? (data.mediaId && data.mediaId.trim() ? data.mediaId.trim() : undefined) : undefined,
+      mediaUrl: data.mediaUrl !== undefined ? (data.mediaUrl && data.mediaUrl.trim() ? data.mediaUrl.trim() : undefined) : undefined,
+      targetId: data.targetId !== undefined ? (data.targetId && data.targetId.trim() ? data.targetId.trim() : undefined) : undefined,
+      targetUrl: data.targetUrl !== undefined ? (data.targetUrl && data.targetUrl.trim() ? data.targetUrl.trim() : undefined) : undefined,
       updatedBy: uid,
       updatedAt: new Date().toISOString()
-    };
-    delete updateData.id;
-    delete updateData.status;
-    delete updateData.createdBy;
-    delete updateData.createdAt;
-
-    await ref.update(updateData);
-    const updatedSnap = await ref.get();
-    const finalData = updatedSnap.data()!;
-    const status = computeCampaignStatus({
-      published: !!finalData.published,
-      enabled: !!finalData.enabled,
-      isArchived: !!finalData.isArchived,
-      startAt: finalData.startAt,
-      endAt: finalData.endAt
     });
 
-    return { id: updatedSnap.id, ...finalData, status } as Campaign;
+    const updated = await this.cmsRepo.getCampaign(id);
+    return {
+      ...updated!,
+      status: computeCampaignStatus(updated!)
+    } as Campaign;
   }
 
   async archiveCampaign(id: string, uid: string): Promise<Campaign> {
@@ -291,74 +199,51 @@ export class CampaignService {
   }
 
   async deleteCampaign(id: string): Promise<void> {
-    const ref = adminDb.collection("campaigns").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Campaign tidak ditemukan.");
-    // Safe deletion: only delete campaign doc, referenced entities stay untouched
-    await ref.delete();
+    await this.cmsRepo.deleteCampaign(id);
   }
 
-  /**
-   * Helper to retrieve candidate marketing components (promos, flash sales, banners, popups)
-   * for easy orchestration in the Admin Campaign management form.
-   */
   async getAvailableComponents(): Promise<{
     promos: Array<{ id: string; name: string; code: string; discountType: string; discountValue: number }>;
     flashSales: Array<{ id: string; name: string; salePrice: number; startAt: string; endAt: string }>;
     banners: Array<{ id: string; name: string; title?: string; mediaUrl: string; placement: string }>;
     popups: Array<{ id: string; name: string; title: string; placement: string; trigger: string }>;
   }> {
-    const [promosSnap, flashSalesSnap, bannersSnap, popupsSnap] = await Promise.all([
-      adminDb.collection("promos").limit(50).get(),
-      adminDb.collection("flashSales").limit(50).get(),
-      adminDb.collection("banners").limit(50).get(),
-      adminDb.collection("popups").limit(50).get()
+    const [banners, popups, promos, flashSales] = await Promise.all([
+      this.cmsRepo.listBanners(false),
+      this.cmsRepo.listPopups(false),
+      PromoService.getInstance().getPromos(),
+      FlashSaleService.getInstance().getFlashSales()
     ]);
 
-    const promos = promosSnap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name || data.code,
-        code: data.code,
-        discountType: data.discountType,
-        discountValue: data.discountValue
-      };
-    });
-
-    const flashSales = flashSalesSnap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name,
-        salePrice: data.salePrice,
-        startAt: data.startAt,
-        endAt: data.endAt
-      };
-    });
-
-    const banners = bannersSnap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name,
-        title: data.title,
-        mediaUrl: data.mediaUrl,
-        placement: data.placement
-      };
-    });
-
-    const popups = popupsSnap.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        name: data.name,
-        title: data.title,
-        placement: data.placement,
-        trigger: data.trigger
-      };
-    });
-
-    return { promos, flashSales, banners, popups };
+    return {
+      promos: promos.map(p => ({
+        id: p.id || "",
+        name: p.name,
+        code: p.code,
+        discountType: p.discountType,
+        discountValue: p.discountValue
+      })),
+      flashSales: flashSales.map(fs => ({
+        id: fs.id || "",
+        name: fs.name,
+        salePrice: fs.salePrice,
+        startAt: fs.startAt,
+        endAt: fs.endAt
+      })),
+      banners: banners.map(b => ({
+        id: b.id,
+        name: b.name,
+        title: b.title,
+        mediaUrl: b.mediaUrl,
+        placement: b.placement
+      })),
+      popups: popups.map(p => ({
+        id: p.id,
+        name: p.name,
+        title: p.title,
+        placement: p.placement,
+        trigger: p.trigger
+      }))
+    };
   }
 }

@@ -204,7 +204,7 @@ export default function SupportPage() {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">{c.id}</span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        c.status === 'OPEN' ? 'bg-blue-100 text-blue-700' :
+                        c.status === 'OPEN' ? 'bg-brand-100 text-brand-700' :
                         c.status === 'ACKNOWLEDGED' ? 'bg-amber-100 text-amber-700' :
                         'bg-green-100 text-green-700'
                       }`}>
@@ -316,7 +316,7 @@ export default function SupportPage() {
                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">{selectedCase.id} • {selectedCase.category}</p>
               </div>
               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                selectedCase.status === 'OPEN' ? 'bg-blue-100 text-blue-700' :
+                selectedCase.status === 'OPEN' ? 'bg-brand-100 text-brand-700' :
                 selectedCase.status === 'ACKNOWLEDGED' ? 'bg-amber-100 text-amber-700' :
                 'bg-green-100 text-green-700'
               }`}>

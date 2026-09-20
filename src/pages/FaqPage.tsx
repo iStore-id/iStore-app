@@ -24,7 +24,7 @@ export default function FaqPage() {
       .then((json) => {
         if (json.success && json.data) {
           setContactInfo({
-            name: json.data.name || "iStore.id",
+            name: json.data.name || "Toko Kami",
             whatsapp: json.data.contactInformation?.whatsapp || "",
             email: json.data.contactInformation?.email || ""
           });
@@ -35,7 +35,7 @@ export default function FaqPage() {
 
   useSEO({
     title: activeCategory !== "ALL" ? `FAQ ${activeCategory} - Pusat Bantuan` : "Pusat Bantuan & FAQ",
-    description: "Pertanyaan yang sering diajukan mengenai cara top up game, konfirmasi pembayaran otomatis, pengembalian dana, dan keamanan akun di iStore.id.",
+    description: "Pertanyaan yang sering diajukan mengenai cara top up game, konfirmasi pembayaran otomatis, pengembalian dana, dan keamanan akun di Toko Kami.",
     keywords: ["faq top up", "bantuan istore", "cara top up game", "pembayaran qris game", "istore id"],
     canonicalPath: "/faq",
     ogType: "website",
@@ -103,14 +103,14 @@ export default function FaqPage() {
 
         {/* Hero & Search Header */}
         <div className="text-center space-y-4 pt-2 pb-4">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-100 text-primary mb-1 shadow-xs">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-100 text-primary mb-1 shadow-xs">
             <HelpCircle className="w-8 h-8" />
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
             Pusat Bantuan & Pertanyaan Umum
           </h1>
           <p className="text-slate-600 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
-            Temukan jawaban cepat seputar transaksi, metode pembayaran, keamanan akun, dan panduan top up di iStore.id.
+            Temukan jawaban cepat seputar transaksi, metode pembayaran, keamanan akun, dan panduan top up di Toko Kami.
           </p>
 
           {/* Search Bar */}
@@ -122,11 +122,11 @@ export default function FaqPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari pertanyaan, misal: durasi diamond, QRIS, voucher..."
-                className="w-full pl-11 pr-24 py-3.5 bg-white border border-slate-200 rounded-full text-slate-900 placeholder-slate-400 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition"
+                className="w-full pl-11 pr-24 py-3.5 bg-white border border-slate-200 rounded-full text-slate-900 placeholder-slate-400 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 shadow-sm transition"
               />
               <button
                 type="submit"
-                className="absolute right-2 px-4 py-2 bg-primary hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-full transition shadow-xs"
+                className="absolute right-2 px-4 py-2 bg-primary hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold rounded-full transition shadow-xs"
               >
                 Cari
               </button>
@@ -167,7 +167,7 @@ export default function FaqPage() {
         <div className="pt-2">
           {loading ? (
             <div className="py-16 text-center space-y-3">
-              <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mx-auto" />
+              <RefreshCw className="w-8 h-8 text-brand-500 animate-spin mx-auto" />
               <p className="text-slate-500 text-sm font-medium">Memuat pertanyaan umum...</p>
             </div>
           ) : error ? (
@@ -207,7 +207,7 @@ export default function FaqPage() {
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             {contactInfo.whatsapp ? (
               <a
-                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "iStore.id")},%20saya%20butuh%20bantuan`}
+                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "Toko Kami")},%20saya%20butuh%20bantuan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition"

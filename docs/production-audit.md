@@ -66,6 +66,17 @@ Berdasarkan audit komprehensif terhadap source code aktual, berikut adalah hasil
 - **Client-side Price Manipulation**: Diblokir via arsitektur (Order Engine ditaruh di backend).
 - **Error Output**: Backend melempar JSON seragam dan tidak mengekspos *stack trace* maupun API keys di response.
 
+## 11. Commission & Affiliate Runtime Status
+**Status: LEGACY / NEEDS MIGRATION (FAIL)**
+- **Current State**: Implementasi runtime di `src/server/commission-service.ts` dan test `test-payout-verification.ts` masih berbasis **Firestore (Legacy)** dengan status workflow lama:
+  - `status`: `PAYABLE`
+  - `payoutStatus`: `UNPAID`
+- **Canonical Target Misalignment**: Arsitektur baru menetapkan **Supabase (PostgreSQL)** sebagai *canonical target* untuk data relasional ini (`commission_recipients`, `commission_rules`, `commission_records`) dengan definisi status yang telah berubah:
+  - `commission_records.status`: `pending` / `approved` / `paid` / `reversed` / `cancelled`
+  - `commission_records.ledger_status`: `pending` / `posted` / `reversed` / `failed`
+- **Tipe Data & Repositori**: Type `src/types/commission.ts` serta pemetaan di `src/server/commission-repository.ts` belum dimigrasikan untuk mencerminkan status *canonical* yang baru.
+- **Kesimpulan Audit**: Modul komisi perlu di-refactor secara menyeluruh untuk beralih ke Supabase PostgreSQL. Semua manipulasi data melalui `adminDb.collection("commissionRecords")` dan status flow lama harus digantikan dengan skema dan query Drizzle/Supabase terbaru.
+
 ---
 
 ## Daftar Pekerjaan Lanjutan (Future Fixes)

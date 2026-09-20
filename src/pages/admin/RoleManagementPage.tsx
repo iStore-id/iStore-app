@@ -246,6 +246,7 @@ export default function RoleManagementPage() {
 
   // Check if permission is enabled in form
   const isPermissionEnabled = (resourceKey: string, actionKey: string): boolean => {
+    if (formData.id === "pemilik" || selectedRole?.id === "pemilik") return true;
     if (formData.permissions.some(p => p.resource === "*" && p.action === "full_access")) {
       return true;
     }

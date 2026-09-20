@@ -108,7 +108,7 @@ export default function PublicLandingPage() {
             to="/"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Beranda iStore
+            <ArrowLeft className="w-3.5 h-3.5" /> Beranda Toko
           </Link>
           <span className="text-xs text-slate-400">Promo & Event</span>
         </div>
@@ -124,7 +124,7 @@ export default function PublicLandingPage() {
                 return (
                   <div
                     key={block.id || idx}
-                    className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 text-white p-8 sm:p-12 shadow-md border border-slate-800/50 ${
+                    className={`relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-900 via-slate-900 to-brand-950 text-white p-8 sm:p-12 shadow-md border border-slate-800/50 ${
                       block.data?.alignment === "center" ? "text-center" : "text-left"
                     }`}
                   >
@@ -139,7 +139,7 @@ export default function PublicLandingPage() {
                     )}
                     <div className="relative z-10 max-w-2xl mx-auto">
                       {block.data?.badge && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-indigo-300 border border-indigo-400/30 mb-4 backdrop-blur-sm">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-brand-500/20 text-brand-300 border border-brand-400/30 mb-4 backdrop-blur-sm">
                           <Sparkles className="w-3.5 h-3.5" />
                           {block.data.badge}
                         </span>
@@ -155,7 +155,7 @@ export default function PublicLandingPage() {
                       {block.data?.ctaText && block.data?.ctaUrl && (
                         <a
                           href={block.data.ctaUrl}
-                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary hover:bg-primary text-white font-semibold text-sm shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary hover:bg-primary text-white font-semibold text-sm shadow-md shadow-brand-500/20 transition transform active:scale-95"
                         >
                           {block.data.ctaText}
                           <ChevronRight className="w-4 h-4" />
@@ -218,7 +218,7 @@ export default function PublicLandingPage() {
                           <p className="text-xs text-slate-500 mt-0.5">{block.data.customDescription}</p>
                         )}
                       </div>
-                      <span className="p-2 bg-blue-50 text-primary rounded-xl">
+                      <span className="p-2 bg-brand-50 text-primary rounded-xl">
                         <Gamepad2 className="w-5 h-5" />
                       </span>
                     </div>
@@ -233,12 +233,12 @@ export default function PublicLandingPage() {
                         <div className="flex-1 text-center sm:text-left">
                           <h4 className="font-bold text-slate-900 text-base">{game.name}</h4>
                           <p className="text-xs text-slate-500 line-clamp-2 mt-1">
-                            {game.description || "Layanan top up instan dan terpercaya di iStore.id"}
+                            {game.description || "Layanan top up instan dan terpercaya di Toko Kami"}
                           </p>
                         </div>
                         <Link
                           to={`/games/${game.slug}`}
-                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary hover:bg-blue-700 text-white text-xs font-bold text-center transition flex-shrink-0"
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary hover:bg-brand-700 text-white text-xs font-bold text-center transition flex-shrink-0"
                         >
                           Top Up Sekarang
                         </Link>
@@ -315,7 +315,7 @@ export default function PublicLandingPage() {
                             </span>
                             <Link
                               to="/#katalog"
-                              className="text-xs font-bold text-primary hover:text-indigo-800"
+                              className="text-xs font-bold text-primary hover:text-brand-800"
                             >
                               Beli Sekarang &rarr;
                             </Link>
@@ -330,7 +330,7 @@ export default function PublicLandingPage() {
                 return (
                   <div
                     key={block.id || idx}
-                    className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-3xl p-8 sm:p-10 text-center shadow-sm"
+                    className="bg-gradient-to-r from-slate-900 to-brand-950 text-white rounded-3xl p-8 sm:p-10 text-center shadow-sm"
                   >
                     {block.data?.title && (
                       <h3 className="text-xl sm:text-2xl font-bold mb-2 text-white">

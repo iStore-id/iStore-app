@@ -26,6 +26,7 @@ interface DashboardStats {
   metrics: {
     orders: {
       total: number;
+      success: number;
       trend: number;
     };
     financial: {
@@ -84,8 +85,9 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    console.log("AdminDashboardPage: user", user);
     fetchStats(range);
-  }, [range]);
+  }, [range, user]);
 
   if (loading && !data) {
     return (
@@ -186,18 +188,18 @@ export default function AdminDashboardPage() {
              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Order Performance</p>
              <div className="flex items-end justify-between">
                <div>
-                 <p className="text-2xl font-bold text-slate-900">{metrics?.orders.total}</p>
+                 <p className="text-2xl font-bold text-slate-900">{metrics?.orders?.total ?? 0}</p>
                  <p className="text-xs text-slate-500">Total Transactions</p>
                </div>
                <div className="text-right">
-                 <p className="text-sm font-bold text-green-600">{metrics?.orders.success}</p>
+                 <p className="text-sm font-bold text-green-600">{metrics?.orders?.success ?? 0}</p>
                  <p className="text-[10px] text-slate-400">Successful</p>
                </div>
              </div>
              <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-green-500" 
-                  style={{ width: `${metrics?.orders.total ? (metrics.orders.success / metrics.orders.total) * 100 : 0}%` }}
+                  style={{ width: `${(metrics?.orders && metrics.orders.total) ? ((metrics.orders.success || 0) / metrics.orders.total) * 100 : 0}%` }}
                 />
              </div>
            </div>

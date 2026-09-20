@@ -1,13 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { 
-  collection, 
-  query, 
-  getDocs, 
-  orderBy, 
-  limit, 
-  onSnapshot 
-} from "firebase/firestore";
-import { db, isFirebaseConfigured } from "../../lib/firebase";
 import { useAuthStore } from "../../store/auth-store";
 import { formatRupiah } from "../../lib/utils";
 import { 
@@ -60,22 +51,24 @@ export default function AdminPaymentsPage() {
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
   const fetchOrders = async () => {
-    if (!isFirebaseConfigured || !db) {
-      setError("Database Firebase belum dikonfigurasi.");
-      setLoading(false);
-      return;
-    }
-
     setRefreshing(true);
     try {
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(200));
-      const querySnapshot = await getDocs(q);
-      const ordersData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setOrders(ordersData);
-      setError(null);
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch("/api/admin/orders?limit=200", {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : ""
+        }
+      });
+      if (!res.ok) {
+        throw new Error("Gagal mengambil data log pembayaran.");
+      }
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setOrders(json.data);
+        setError(null);
+      } else {
+        throw new Error(json.message || "Gagal memuat log pembayaran.");
+      }
     } catch (err: any) {
       console.error("Gagal mengambil data log pembayaran:", err);
       setError("Gagal memuat log pembayaran. Pastikan Anda memiliki akses administrator.");

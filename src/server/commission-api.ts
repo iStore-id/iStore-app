@@ -1,8 +1,10 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
 import { encryptSecret, decryptSecret } from "./midtrans";
+import { SupabaseRefundRepository } from "./supabase/refund-repository";
+import * as repo from "./commission-repository";
+import * as crypto from "crypto";
 import { 
   CommissionConfig, 
   CommissionRecipient, 
@@ -114,10 +116,8 @@ export function sanitizeRecipientForAudit(raw: any): any {
 
 export async function getCommissionConfigApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const docRef = adminDb.collection("systemConfigs").doc("commission_config");
-    const snap = await docRef.get();
-
-    const config: CommissionConfig = snap.exists ? (snap.data()?.value || DEFAULT_COMMISSION_CONFIG) : DEFAULT_COMMISSION_CONFIG;
+    const { SystemConfigRepository } = await import("./supabase/system-config-repository");
+    const config = await SystemConfigRepository.getInstance().getConfig("commission_config") || DEFAULT_COMMISSION_CONFIG;
 
     return res.status(200).json({
       success: true,
@@ -159,9 +159,8 @@ export async function updateCommissionConfigApi(req: AuthenticatedRequest, res: 
       return res.status(400).json({ success: false, message: "Untuk Phase 1 MVP, hanya tipe 'AFFILIATE' yang didukung." });
     }
 
-    const docRef = adminDb.collection("systemConfigs").doc("commission_config");
-    const snap = await docRef.get();
-    const existing = snap.exists ? (snap.data()?.value || DEFAULT_COMMISSION_CONFIG) : DEFAULT_COMMISSION_CONFIG;
+    const { SystemConfigRepository } = await import("./supabase/system-config-repository");
+    const existing = await SystemConfigRepository.getInstance().getConfig("commission_config") || DEFAULT_COMMISSION_CONFIG;
 
     const now = new Date().toISOString();
     const updatedConfig: CommissionConfig = {
@@ -173,12 +172,8 @@ export async function updateCommissionConfigApi(req: AuthenticatedRequest, res: 
       updatedBy: actor.uid
     };
 
-    await docRef.set({
-      key: "commission_config",
-      value: updatedConfig,
-      updatedAt: now,
-      updatedBy: actor.uid
-    }, { merge: true });
+    // Store in Supabase as Single Source of Truth
+    await SystemConfigRepository.getInstance().upsertConfig("commission_config", updatedConfig);
 
     await logCoreAudit(
       actor,
@@ -187,12 +182,12 @@ export async function updateCommissionConfigApi(req: AuthenticatedRequest, res: 
       "systemConfigs/commission_config",
       existing,
       updatedConfig,
-      "Updated commission foundation configuration"
+      "Updated commission foundation configuration in Supabase"
     );
 
     return res.status(200).json({
       success: true,
-      message: "Konfigurasi komisi berhasil disimpan",
+      message: "Konfigurasi komisi berhasil disimpan di Supabase",
       data: updatedConfig
     });
   } catch (error: any) {
@@ -208,37 +203,17 @@ export async function updateCommissionConfigApi(req: AuthenticatedRequest, res: 
 export async function getCommissionRecipientsApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { status, type, search } = req.query;
-    let query: FirebaseFirestore.Query = adminDb.collection("commissionRecipients");
-
-    if (status && typeof status === "string") {
-      query = query.where("status", "==", status);
-    }
-
-    if (type && typeof type === "string") {
-      query = query.where("type", "==", type);
-    }
-
-    const snap = await query.get();
-    let recipients: CommissionRecipient[] = snap.docs.map(d => {
-      const data = { id: d.id, ...d.data() };
-      return sanitizeRecipientForResponse(data);
+    const recipientsList = await repo.getRecipients({
+      status: status && typeof status === "string" ? status : undefined,
+      type: type && typeof type === "string" ? type : undefined,
+      search: search && typeof search === "string" ? search : undefined
     });
 
-    if (search && typeof search === "string") {
-      const q = search.toLowerCase().trim();
-      recipients = recipients.filter(r => 
-        r.name?.toLowerCase().includes(q) || 
-        r.code?.toLowerCase().includes(q) ||
-        r.id?.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort by createdAt desc
-    recipients.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    const sanitized = recipientsList.map(sanitizeRecipientForResponse);
 
     return res.status(200).json({
       success: true,
-      data: recipients
+      data: sanitized
     });
   } catch (error: any) {
     console.error("[Get Commission Recipients Error]", error);
@@ -249,13 +224,13 @@ export async function getCommissionRecipientsApi(req: AuthenticatedRequest, res:
 export async function getCommissionRecipientByIdApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const docSnap = await adminDb.collection("commissionRecipients").doc(id).get();
+    const recipient = await repo.getRecipientById(id);
 
-    if (!docSnap.exists) {
+    if (!recipient) {
       return res.status(404).json({ success: false, message: "Penerima komisi tidak ditemukan." });
     }
 
-    const sanitized = sanitizeRecipientForResponse({ id: docSnap.id, ...docSnap.data() });
+    const sanitized = sanitizeRecipientForResponse(recipient);
 
     return res.status(200).json({
       success: true,
@@ -294,20 +269,16 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
     }
 
     // Check code uniqueness in commissionRecipients
-    const existingCodeSnap = await adminDb.collection("commissionRecipients")
-      .where("code", "==", normalizedCode)
-      .limit(1)
-      .get();
-
-    if (!existingCodeSnap.empty) {
+    const existingRecipient = await repo.getRecipientByCode(normalizedCode);
+    if (existingRecipient) {
       return res.status(400).json({ success: false, message: `Kode afiliasi '${normalizedCode}' sudah digunakan oleh penerima lain.` });
     }
 
-    const docRef = adminDb.collection("commissionRecipients").doc();
+    const generatedId = crypto.randomUUID();
     const now = new Date().toISOString();
 
     // Prepare encrypted payout account storage
-    let firestorePayout: FirestorePayoutAccount | null = null;
+    let firestorePayout: any = null;
     if (payoutAccount && (payoutAccount.bankName || payoutAccount.accountNumber)) {
       const rawAcc = String(payoutAccount.accountNumber || "").trim();
       const bank = String(payoutAccount.bankName || "").trim();
@@ -331,11 +302,11 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
     }
 
     const newRecipientDoc = {
-      id: docRef.id,
+      id: generatedId,
       name: name.trim(),
       code: normalizedCode,
-      type: "AFFILIATE" as RecipientType,
-      status,
+      type: "AFFILIATE" as any,
+      status: status as any,
       notes: notes ? notes.trim() : "",
       userId: userId || null,
       payoutAccount: firestorePayout,
@@ -345,8 +316,8 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
       updatedBy: actor.uid
     };
 
-    // Store encrypted at rest in Firestore (NO plaintext accountNumber)
-    await docRef.set(newRecipientDoc);
+    // Store in Supabase using Repository
+    const savedRecipient = await repo.createRecipient(newRecipientDoc);
 
     // Audit with masked account number only (NO plaintext, NO ciphertext keys)
     const auditPayload = sanitizeRecipientForAudit(newRecipientDoc);
@@ -355,7 +326,7 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
       actor,
       role,
       "CREATE_COMMISSION_RECIPIENT",
-      `commissionRecipients/${docRef.id}`,
+      `commissionRecipients/${generatedId}`,
       null,
       auditPayload,
       `Created affiliate recipient: ${newRecipientDoc.name} (${newRecipientDoc.code})`
@@ -364,7 +335,7 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
     return res.status(201).json({
       success: true,
       message: "Penerima komisi afiliasi berhasil dibuat",
-      data: sanitizeRecipientForResponse(newRecipientDoc)
+      data: sanitizeRecipientForResponse(savedRecipient)
     });
   } catch (error: any) {
     console.error("[Create Commission Recipient Error]", error);
@@ -382,14 +353,10 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
     const role = req.user?.role || "admin";
     const { name, code, status, notes, payoutAccount, userId } = req.body;
 
-    const docRef = adminDb.collection("commissionRecipients").doc(id);
-    const snap = await docRef.get();
-
-    if (!snap.exists) {
+    const existing = await repo.getRecipientById(id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Penerima komisi tidak ditemukan." });
     }
-
-    const existing = snap.data() as any;
 
     if (name !== undefined && (typeof name !== "string" || name.trim().length < 2)) {
       return res.status(400).json({ success: false, message: "Nama penerima minimal 2 karakter." });
@@ -403,12 +370,8 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
       }
 
       if (normalizedCode !== existing.code) {
-        const checkSnap = await adminDb.collection("commissionRecipients")
-          .where("code", "==", normalizedCode)
-          .limit(1)
-          .get();
-
-        if (!checkSnap.empty && checkSnap.docs[0].id !== id) {
+        const checkRecipient = await repo.getRecipientByCode(normalizedCode);
+        if (checkRecipient && checkRecipient.id !== id) {
           return res.status(400).json({ success: false, message: `Kode afiliasi '${normalizedCode}' sudah digunakan.` });
         }
       }
@@ -419,7 +382,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
     }
 
     // Process payout account updates securely
-    let firestorePayout: FirestorePayoutAccount | null = existing.payoutAccount || null;
+    let firestorePayout: any = existing.payoutAccount || null;
     if (payoutAccount !== undefined) {
       if (payoutAccount === null) {
         firestorePayout = null;
@@ -438,10 +401,8 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
           };
         } else {
           // Preserve existing encrypted account number if unmodified or masked
-          const prevEnc = existing.payoutAccount?.encryptedAccountNumber || 
-            (existing.payoutAccount?.accountNumber ? encryptSecret(existing.payoutAccount.accountNumber) : "");
-          const prevMask = existing.payoutAccount?.accountNumberMasked || 
-            (existing.payoutAccount?.accountNumber ? maskAccountNumber(existing.payoutAccount.accountNumber) : "");
+          const prevEnc = existing.payoutAccount?.encryptedAccountNumber || "";
+          const prevMask = existing.payoutAccount?.accountNumberMasked || "";
 
           firestorePayout = {
             bankName: bank,
@@ -471,7 +432,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
       delete (updatedDoc.payoutAccount as any).accountNumber;
     }
 
-    await docRef.set(updatedDoc, { merge: true });
+    const savedRecipient = await repo.updateRecipient(id, updatedDoc);
 
     // Auditing with strictly masked data (NO secrets, NO cipher keys, NO plaintext)
     const auditBefore = sanitizeRecipientForAudit(existing);
@@ -490,7 +451,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
     return res.status(200).json({
       success: true,
       message: "Penerima komisi berhasil diperbarui",
-      data: sanitizeRecipientForResponse(updatedDoc)
+      data: sanitizeRecipientForResponse(savedRecipient)
     });
   } catch (error: any) {
     console.error("[Update Commission Recipient Error]", error);
@@ -505,39 +466,15 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
 export async function getCommissionRulesApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { status, recipientType, search } = req.query;
-    let query: FirebaseFirestore.Query = adminDb.collection("commissionRules");
-
-    if (status && typeof status === "string") {
-      query = query.where("status", "==", status);
-    }
-
-    if (recipientType && typeof recipientType === "string") {
-      query = query.where("recipientType", "==", recipientType);
-    }
-
-    const snap = await query.get();
-    let rules = snap.docs.map(d => ({ id: d.id, ...d.data() })) as CommissionRule[];
-
-    if (search && typeof search === "string") {
-      const q = search.toLowerCase().trim();
-      rules = rules.filter(r => 
-        r.name?.toLowerCase().includes(q) || 
-        r.id?.toLowerCase().includes(q) ||
-        r.gameId?.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort by priority ascending (1 highest priority), tie-break with createdAt desc
-    rules.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return (a.priority || 100) - (b.priority || 100);
-      }
-      return (b.createdAt || "").localeCompare(a.createdAt || "");
+    const rulesList = await repo.getRules({
+      status: status && typeof status === "string" ? status : undefined,
+      recipientType: recipientType && typeof recipientType === "string" ? recipientType : undefined,
+      search: search && typeof search === "string" ? search : undefined
     });
 
     return res.status(200).json({
       success: true,
-      data: rules
+      data: rulesList
     });
   } catch (error: any) {
     console.error("[Get Commission Rules Error]", error);
@@ -548,15 +485,15 @@ export async function getCommissionRulesApi(req: AuthenticatedRequest, res: Resp
 export async function getCommissionRuleByIdApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const docSnap = await adminDb.collection("commissionRules").doc(id).get();
+    const rule = await repo.getRuleById(id);
 
-    if (!docSnap.exists) {
+    if (!rule) {
       return res.status(404).json({ success: false, message: "Aturan komisi tidak ditemukan." });
     }
 
     return res.status(200).json({
       success: true,
-      data: { id: docSnap.id, ...docSnap.data() }
+      data: rule
     });
   } catch (error: any) {
     console.error("[Get Commission Rule Detail Error]", error);
@@ -638,17 +575,17 @@ export async function createCommissionRuleApi(req: AuthenticatedRequest, res: Re
 
     // Verify recipientId if provided
     if (recipientId) {
-      const recSnap = await adminDb.collection("commissionRecipients").doc(recipientId).get();
-      if (!recSnap.exists) {
+      const recipient = await repo.getRecipientById(recipientId);
+      if (!recipient) {
         return res.status(400).json({ success: false, message: `Penerima komisi dengan ID '${recipientId}' tidak ditemukan.` });
       }
     }
 
-    const docRef = adminDb.collection("commissionRules").doc();
+    const generatedId = crypto.randomUUID();
     const now = new Date().toISOString();
 
     const newRule: CommissionRule = {
-      id: docRef.id,
+      id: generatedId,
       name: name.trim(),
       recipientType: "AFFILIATE",
       recipientId: recipientId || null,
@@ -662,20 +599,20 @@ export async function createCommissionRuleApi(req: AuthenticatedRequest, res: Re
       priority: Math.floor(priority),
       effectiveFrom: new Date(effectiveFrom).toISOString().split("T")[0],
       effectiveUntil: effectiveUntil ? new Date(effectiveUntil).toISOString().split("T")[0] : null,
-      status,
+      status: status as any,
       createdAt: now,
       updatedAt: now,
       createdBy: actor.uid,
       updatedBy: actor.uid
     };
 
-    await docRef.set(newRule);
+    const savedRule = await repo.createRule(newRule);
 
     await logCoreAudit(
       actor,
       role,
       "CREATE_COMMISSION_RULE",
-      `commissionRules/${docRef.id}`,
+      `commissionRules/${generatedId}`,
       null,
       newRule,
       `Created commission rule: ${newRule.name}`
@@ -684,7 +621,7 @@ export async function createCommissionRuleApi(req: AuthenticatedRequest, res: Re
     return res.status(201).json({
       success: true,
       message: "Aturan komisi berhasil dibuat",
-      data: newRule
+      data: savedRule
     });
   } catch (error: any) {
     console.error("[Create Commission Rule Error]", error);
@@ -702,14 +639,10 @@ export async function updateCommissionRuleApi(req: AuthenticatedRequest, res: Re
     const role = req.user?.role || "admin";
     const body = req.body;
 
-    const docRef = adminDb.collection("commissionRules").doc(id);
-    const snap = await docRef.get();
-
-    if (!snap.exists) {
+    const existing = await repo.getRuleById(id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Aturan komisi tidak ditemukan." });
     }
-
-    const existing = snap.data() as CommissionRule;
 
     if (body.name !== undefined && (typeof body.name !== "string" || body.name.trim().length < 2)) {
       return res.status(400).json({ success: false, message: "Nama aturan komisi minimal 2 karakter." });
@@ -754,8 +687,8 @@ export async function updateCommissionRuleApi(req: AuthenticatedRequest, res: Re
     }
 
     if (body.recipientId) {
-      const recSnap = await adminDb.collection("commissionRecipients").doc(body.recipientId).get();
-      if (!recSnap.exists) {
+      const recipient = await repo.getRecipientById(body.recipientId);
+      if (!recipient) {
         return res.status(400).json({ success: false, message: `Penerima komisi dengan ID '${body.recipientId}' tidak ditemukan.` });
       }
     }
@@ -781,7 +714,7 @@ export async function updateCommissionRuleApi(req: AuthenticatedRequest, res: Re
       updatedBy: actor.uid
     };
 
-    await docRef.set(updatedRule, { merge: true });
+    const savedRule = await repo.updateRule(id, updatedRule);
 
     await logCoreAudit(
       actor,
@@ -796,7 +729,7 @@ export async function updateCommissionRuleApi(req: AuthenticatedRequest, res: Re
     return res.status(200).json({
       success: true,
       message: "Aturan komisi berhasil diperbarui",
-      data: updatedRule
+      data: savedRule
     });
   } catch (error: any) {
     console.error("[Update Commission Rule Error]", error);
@@ -825,26 +758,13 @@ export async function getCommissionRecordsApi(req: AuthenticatedRequest, res: Re
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 20));
 
-    let query: FirebaseFirestore.Query = adminDb.collection("commissionRecords");
-
-    if (orderId && typeof orderId === "string") {
-      query = query.where("orderId", "==", orderId.trim());
-    }
-
-    if (recipientId && typeof recipientId === "string") {
-      query = query.where("recipientId", "==", recipientId.trim());
-    }
-
-    if (status && typeof status === "string" && status !== "ALL") {
-      query = query.where("status", "==", status.trim().toUpperCase());
-    }
-
-    if (calculationMethod && typeof calculationMethod === "string" && calculationMethod !== "ALL") {
-      query = query.where("calculationMethod", "==", calculationMethod.trim());
-    }
-
-    const snap = await query.get();
-    let allRecords: CommissionRecord[] = snap.docs.map(d => ({ id: d.id, ...d.data() } as CommissionRecord));
+    // Fetch from Supabase via Repository
+    let allRecords = await repo.getRecords({
+      orderId: orderId && typeof orderId === "string" ? orderId.trim() : undefined,
+      recipientId: recipientId && typeof recipientId === "string" ? recipientId.trim() : undefined,
+      status: status && typeof status === "string" && status !== "ALL" ? status.trim() : undefined,
+      calculationMethod: calculationMethod && typeof calculationMethod === "string" && calculationMethod !== "ALL" ? calculationMethod.trim() : undefined
+    });
 
     // Client-side date filtering & search matching for maximum precision without complex composite indexes
     if (startDate && typeof startDate === "string") {
@@ -930,12 +850,10 @@ export async function getCommissionRecordByIdApi(req: AuthenticatedRequest, res:
       return res.status(400).json({ success: false, message: "ID catatan komisi diperlukan." });
     }
 
-    const snap = await adminDb.collection("commissionRecords").doc(id).get();
-    if (!snap.exists) {
+    const record = await repo.getRecordById(id);
+    if (!record) {
       return res.status(404).json({ success: false, message: "Catatan komisi tidak ditemukan." });
     }
-
-    const record = { id: snap.id, ...snap.data() } as CommissionRecord;
 
     return res.status(200).json({
       success: true,
@@ -988,16 +906,15 @@ export async function triggerCommissionRefundClawbackApi(req: AuthenticatedReque
       });
     }
 
-    // Verify refundKey is SUCCEEDED
-    const refundSnap = await adminDb.collection("refunds").doc(String(refundKey).trim()).get();
-    if (!refundSnap.exists) {
+    // Verify refundKey is SUCCEEDED via Supabase
+    const refundData = await SupabaseRefundRepository.getInstance().getRefundById(String(refundKey).trim());
+    if (!refundData) {
       return res.status(404).json({
         success: false,
         message: `Dokumen refund '${refundKey}' tidak ditemukan.`
       });
     }
 
-    const refundData = refundSnap.data()!;
     if (refundData.status !== "SUCCEEDED") {
       return res.status(400).json({
         success: false,
@@ -1037,26 +954,19 @@ export async function triggerCommissionRefundClawbackApi(req: AuthenticatedReque
 export async function handleListPayoutBatches(req: any, res: any) {
   try {
     const { status, recipientId, limit = "50" } = req.query;
-    let query: any = adminDb.collection("payoutBatches");
-
-    if (status) {
-      query = query.where("status", "==", String(status).trim());
-    }
-    if (recipientId) {
-      query = query.where("recipientId", "==", String(recipientId).trim());
-    }
+    
+    const batches = await repo.getPayoutBatches({
+      status: status ? String(status).trim() : undefined,
+      recipientId: recipientId ? String(recipientId).trim() : undefined
+    });
 
     const maxLimit = Math.min(parseInt(String(limit), 10) || 50, 100);
-    const snap = await query.limit(maxLimit).get();
-
-    const batches = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-    // Sort descending by createdAt
-    batches.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const limitedBatches = batches.slice(0, maxLimit);
 
     return res.status(200).json({
       success: true,
-      batches,
-      count: batches.length
+      batches: limitedBatches,
+      count: limitedBatches.length
     });
   } catch (error: any) {
     console.error("[List Payout Batches Error]", error);
@@ -1074,23 +984,21 @@ export async function handleListPayoutBatches(req: any, res: any) {
 export async function handleGetPayoutBatchDetail(req: any, res: any) {
   try {
     const { batchId } = req.params;
-    const snap = await adminDb.collection("payoutBatches").doc(String(batchId).trim()).get();
-    if (!snap.exists) {
+    const batch = await repo.getPayoutBatchById(String(batchId).trim());
+    if (!batch) {
       return res.status(404).json({
         success: false,
         message: `Batch payout '${batchId}' tidak ditemukan.`
       });
     }
 
-    const batch = { id: snap.id, ...snap.data() } as any;
-
-    // Also fetch associated commission records details
+    // Also fetch associated commission records details from Supabase
     const allocations = Array.isArray(batch.allocations) ? batch.allocations : [];
     const commissionDetails: any[] = [];
     for (const item of allocations) {
-      const cSnap = await adminDb.collection("commissionRecords").doc(item.commissionId).get();
-      if (cSnap.exists) {
-        commissionDetails.push({ id: cSnap.id, ...cSnap.data() });
+      const record = await repo.getRecordById(item.commissionId);
+      if (record) {
+        commissionDetails.push(record);
       }
     }
 

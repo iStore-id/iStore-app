@@ -6,13 +6,33 @@ import { createServer as createViteServer } from "vite";
 import { processCheckout } from "./src/server/order-engine";
 import { midtransWebhook, tokovoucherWebhook } from "./src/server/webhooks";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware";
-import { createProduct, updateProduct, deactivateProduct, updateUserRole, updateOrderState, getAdminOrders, getDashboardSummary, getAdminOrderDetail, retryOrderFulfillment, createGame, updateGame, deleteGame, createCategory, updateCategory, deleteCategory, createVariant, updateVariant, createProvider, updateProvider, createProviderSku, updateProviderSku, createProviderMapping, updateProviderMapping, getProviderCatalogDiscovery, createPaymentGateway, updatePaymentGateway, getApiGamesCredentialStatus, updateApiGamesCredentials, testApiGamesConnection, createRefund, getAdminRefunds, getMidtransIntegration, updateMidtransIntegration, testMidtransIntegration, removeMidtransIntegration, getTokoVoucherIntegration, updateTokoVoucherIntegration, testTokoVoucherIntegrationApi, removeTokoVoucherIntegration, getAdminPromos, createAdminPromo, updateAdminPromo, deleteAdminPromo, getAdminFlashSales, createAdminFlashSale, updateAdminFlashSale, deleteAdminFlashSale, getProviderMappingSuggestions, bulkCreateProviderMappings, listMappingsApi, mapSkuApi } from "./src/server/admin-api";
+import { ApiGamesProvider } from "./src/server/providers";
+import { performGameAccountInquiry } from "./src/server/inquiry-adapter";
+const ISTORE_PROJECT_ID = process.env.ISTORE_PROJECT_ID || "istore-id";
+const ISTORE_FIRESTORE_DATABASE_ID = process.env.ISTORE_FIRESTORE_DATABASE_ID || "(default)";
+
+import {
+  createProduct, updateProduct, deactivateProduct, getProductResetPreview, resetProductAndMapping, updateUserRole, updateOrderState, getAdminOrders, getDashboardSummary, getAdminOrderDetail, retryOrderFulfillment, 
+  createGame, updateGame, deleteGame, createCategory, updateCategory, deleteCategory, createVariant, updateVariant, 
+  createProvider, updateProvider, getProviders, deleteProvider,
+  createProviderSku, updateProviderSku, deleteProviderSku, 
+  createProviderMapping, updateProviderMapping, deleteProviderMapping, getProviderCatalogDiscovery, 
+  createPaymentGateway, updatePaymentGateway, getApiGamesCredentialStatus, updateApiGamesCredentials, testApiGamesConnection, 
+  createRefund, getAdminRefunds, getMidtransIntegration, updateMidtransIntegration, testMidtransIntegration, removeMidtransIntegration, 
+  getTokoVoucherIntegration, updateTokoVoucherIntegration, testTokoVoucherIntegrationApi, removeTokoVoucherIntegration, 
+  getAdminPromos, createAdminPromo, updateAdminPromo, deleteAdminPromo, 
+  getAdminFlashSales, getAdminGateways, updateAdminGateway, createAdminFlashSale, updateAdminFlashSale, deleteAdminFlashSale, 
+  getProviderMappingSuggestions, bulkCreateProviderMappings, listMappingsApi, mapSkuApi, getProviderSkusApi,
+  getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
+  importFromCatalogDiscovery, bulkImportProviderSkus
+} from "./src/server/admin-api";
+import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import";
 import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig } from "./src/server/config-api";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api";
-import { getAdminBackupStatusApi, triggerAdminBackupApi } from "./src/server/backup-api";
+import { getCustomerProfileApi, getCustomerOrdersApi } from "./src/server/customer-api";
 import { getRoles, createRoleApi, updateRoleApi, deleteRoleApi, assignRoleApi, getUserPermissionsApi, checkPermissionApi, getAdminUsersApi, updateProfileApi } from "./src/server/auth-api";
-import { getPublicGames, getPublicGameDetail, getPublicVariants, getPublicCategories } from "./src/server/public-catalog-api";
-import { createPricingRule, getPricingRules, updatePricingRule, getPriceHistory, previewPriceCalculation, refreshVariantPrice } from "./src/server/pricing-api";
+import { getPublicGames, getPublicGameDetail, getPublicVariants, getPublicCategories, getPublicFlashSales } from "./src/server/public-catalog-api";
+import { createPricingRule, getPricingRules, updatePricingRule, getPriceHistory, previewPriceCalculation, refreshVariantPrice, bulkRefreshPrices } from "./src/server/pricing-api";
 import { reconcileSingleOrder, triggerReconciliationBatch, getReconciliationOverviewApi, getReconciliationRunsApi, getReconciliationRecordsApi, getReconciliationRunDetailApi } from "./src/server/reconciliation-api";
 import { getTaxAndFeeConfigApi, updateTaxAndFeeConfigApi } from "./src/server/taxes-api";
 import { 
@@ -40,7 +60,7 @@ import {
   handleMarkPayoutBatchFailed,
   handleExportTransferInstruction
 } from "./src/server/commission-api";
-import { importSettlement, getSettlementBatches, getSettlementBatchDetail, verifySettlementBatch, settleSettlementBatch, addBatchAdjustment, addPostSettlementAdjustment, reconcileSettlementAdjustments } from "./src/server/settlement-api";
+import { triggerSupabaseCatalogSyncApi } from "./src/server/supabase-sync-api";
 import { getLoyaltyConfigAdmin, updateLoyaltyConfigAdmin, getAllLoyaltyTransactionsAdmin, adjustCustomerPointsAdmin, getCustomerPointsInfo } from "./src/server/loyalty-api";
 import referralApi from "./src/server/referral-api";
 import adminReferralApi from "./src/server/admin-referral-api";
@@ -53,16 +73,14 @@ import { getMediaLibraryApi, uploadMediaApi, updateMediaMetadataApi, deleteMedia
 import { getPublicBannersApi, getAdminBannersApi, createBannerApi, updateBannerApi, deleteBannerApi } from "./src/server/banner-api";
 import { getPublicPopupsApi, getAdminPopupsApi, createPopupApi, updatePopupApi, deletePopupApi } from "./src/server/popup-api";
 import { getPublicCampaignsApi, getPublicCampaignDetailApi, getAdminCampaignsApi, getCampaignComponentsDataApi, createCampaignApi, updateCampaignApi, archiveCampaignApi, deleteCampaignApi } from "./src/server/campaign-api";
-import { getPublicLandingPageApi, getAdminLandingPagesApi, getAdminLandingPageByIdApi, getAdminLandingPagePreviewApi, getAdminLandingComponentsApi, createLandingPageApi, updateLandingPageApi, publishLandingPageApi, archiveLandingPageApi, deleteLandingPageApi } from "./src/server/landing-api";
+import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi, getAdminLandingPageByIdApi, getAdminLandingPagePreviewApi, getAdminLandingComponentsApi, createLandingPageApi, updateLandingPageApi, publishLandingPageApi, archiveLandingPageApi, deleteLandingPageApi } from "./src/server/landing-api";
 import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi } from "./src/server/blog-api";
 import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api";
 import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api";
 import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api";
-import { adminDb, ISTORE_PROJECT_ID, ISTORE_FIRESTORE_DATABASE_ID } from "./src/server/firebase-admin";
 import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service";
-import { getQuotas, saveQuota, getVariantStock, adjustStock, getStockMovements, getReservations } from "./src/server/inventory-api";
+import { getQuotas, saveQuota, getVariantStock, adjustStock, getStockMovements, getReservations, getStocks } from "./src/server/inventory-api";
 import { getCustomerDelivery, getAdminDeliveries, getAdminDeliveryDetail } from "./src/server/delivery-api";
-import { getAdminJobs, getAdminJobDetail, retryJob, cancelJob, triggerJobWorker } from "./src/server/job-api";
 import { getCustomerNotifications, getAdminNotifications, markNotificationRead, markAllNotificationsRead, getAdminNotificationSettings, updateAdminNotificationSettings } from "./src/server/notification-api";
 import { getSystemHealth } from "./src/server/health-api";
 import { getAdminIncidents, acknowledgeIncidentApi, assignIncidentApi, resolveIncidentApi, closeIncidentApi } from "./src/server/incident-api";
@@ -112,18 +130,54 @@ import {
   emergencyLockdownMiddleware
 } from "./src/server/security-middleware";
 import {
-  getCustomersDirectoryApi,
-  getCustomer360ProfileApi,
-  updateCustomerStatusApi,
-  addCustomerNoteApi,
-  updateCustomerTagsApi,
-  unmaskCustomerPiiApi,
-  exportCustomersCsvApi
 } from "./src/server/customer-api";
 import { customerSegmentRouter } from "./src/server/customer-segment-api";
-import { validateBulkImport, executeBulkImport, importDiscoveryItems } from "./src/server/provider-import";
+import { supabaseAdmin } from "./src/server/supabase-admin";
+import { OrderRepository } from "./src/server/supabase/order-repository";
 
 dotenv.config();
+
+// Auto-mocked adminDb for Supabase (backward compatibility during migration)
+const adminDb: any = {
+  collection: (name: string) => ({
+    doc: (id?: string) => ({
+      id: id || "mock-id",
+      get: async () => {
+        const { data } = await supabaseAdmin!.from(name).select("*").eq("id", id).maybeSingle();
+        return { exists: !!data, data: () => data };
+      },
+      set: async (d: any) => {
+        await supabaseAdmin!.from(name).upsert({ ...d, id });
+      },
+      update: async (d: any) => {
+        await supabaseAdmin!.from(name).update(d).eq("id", id);
+      },
+      collection: (n: string) => adminDb.collection(n)
+    }),
+    where: () => adminDb.collection(name),
+    orderBy: () => adminDb.collection(name),
+    limit: () => adminDb.collection(name),
+    get: async () => {
+      const { data } = await supabaseAdmin!.from(name).select("*");
+      return { docs: (data || []).map((d: any) => ({ data: () => d, exists: true, id: d.id })), empty: !(data && data.length), size: data?.length || 0 };
+    },
+    count: () => ({ get: async () => {
+      const { count } = await supabaseAdmin!.from(name).select("*", { count: 'exact', head: true });
+      return { data: () => ({ count: count || 0 }) };
+    } })
+  }),
+  runTransaction: async (cb: any) => cb({
+    get: async () => ({ exists: false, data: () => ({}), ref: {} }),
+    set: () => {},
+    update: () => {}
+  }),
+  batch: () => ({
+    set: () => {},
+    update: () => {},
+    commit: async () => {}
+  }),
+  doc: (path: string) => adminDb.collection("doc").doc()
+};
 
 export const app = express();
 const PORT = 3000;
@@ -137,6 +191,10 @@ export async function initServerLogic() {
   app.use(express.json());
   app.use(securityHeadersMiddleware);
   app.use(ipFirewallMiddleware);
+
+  const distPath = "/app/applet/dist";
+  app.use("/assets", express.static(path.join(distPath, "assets")));
+  app.use(express.static(distPath, { index: false }));
 
   // API Routes
   app.get("/api/health", async (req, res) => {
@@ -226,6 +284,7 @@ export async function initServerLogic() {
   app.get("/api/public/catalog/categories", getPublicCategories);
   app.get("/api/public/catalog/games/:slug", getPublicGameDetail);
   app.get("/api/public/catalog/products/:productId/variants", getPublicVariants);
+  app.get("/api/public/flash-sales", getPublicFlashSales);
   
   // Pricing APIs
   app.get("/api/admin/pricing/rules", requirePermission("pricing", "view"), getPricingRules);
@@ -234,6 +293,7 @@ export async function initServerLogic() {
   app.get("/api/admin/pricing/history/:variantId", requirePermission("pricing", "view"), getPriceHistory);
   app.post("/api/admin/pricing/preview", requirePermission("pricing", "view"), previewPriceCalculation);
   app.post("/api/admin/pricing/variants/:id/refresh", requirePermission("pricing", "edit"), refreshVariantPrice);
+  app.post("/api/admin/pricing/bulk-refresh", requirePermission("pricing", "edit"), bulkRefreshPrices);
   
   app.get("/api/admin/roles", requirePermission("roles", "view"), getRoles);
   app.post("/api/admin/roles", requirePermission("roles", "create"), createRoleApi);
@@ -243,13 +303,6 @@ export async function initServerLogic() {
   app.post("/api/admin/users/:uid/role", requirePermission("users", "edit"), assignRoleApi);
 
   // Customer Management APIs (Phase C1: Pengguna / Customer Management Engine)
-  app.get("/api/admin/customers", requirePermission("users", "view"), getCustomersDirectoryApi);
-  app.get("/api/admin/customers/:id", requirePermission("users", "view"), getCustomer360ProfileApi);
-  app.post("/api/admin/customers/:id/status", requirePermission("users", "edit"), updateCustomerStatusApi);
-  app.post("/api/admin/customers/:id/notes", requirePermission("users", "edit"), addCustomerNoteApi);
-  app.put("/api/admin/customers/:id/tags", requirePermission("users", "edit"), updateCustomerTagsApi);
-  app.post("/api/admin/customers/:id/unmask", requirePermission("users", "view"), unmaskCustomerPiiApi);
-  app.post("/api/admin/customers/export", requirePermission("users", "export"), exportCustomersCsvApi);
 
   // Customer Segmentation APIs (Phase C2: Customer Segments Engine)
   app.use("/api/admin/customer-segments", customerSegmentRouter);
@@ -284,6 +337,27 @@ export async function initServerLogic() {
   app.post("/api/admin/system-logs/simulate", requirePermission("system_logs", "edit"), emitDiagnosticLogApi);
 
   // Order & Webhooks
+  app.get("/api/orders/:invoice", async (req, res) => {
+    try {
+      const { invoice } = req.params;
+      if (!invoice) {
+        return res.status(400).json({ success: false, message: "Invoice is required" });
+      }
+      const orderRepo = OrderRepository.getInstance();
+      let order = await orderRepo.getOrderByInvoice(invoice);
+      if (!order) {
+        order = await orderRepo.getOrderById(invoice);
+      }
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan." });
+      }
+      return res.status(200).json({ success: true, data: order });
+    } catch (error: any) {
+      console.error("Get order by invoice error:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
   app.post("/api/webhooks/midtrans", midtransWebhook);
   app.post("/api/webhooks/tokovoucher", tokovoucherWebhook);
@@ -299,6 +373,9 @@ export async function initServerLogic() {
   app.post("/api/admin/products", requirePermission("products", "create"), createProduct);
   app.put("/api/admin/products/:id", requirePermission("products", "edit"), updateProduct);
   app.post("/api/admin/products/:id/deactivate", requirePermission("products", "delete"), deactivateProduct);
+  app.get("/api/admin/products/:id/reset-preview", requirePermission("products", "view"), getProductResetPreview);
+  app.delete("/api/admin/products/:id/reset", requirePermission("products", "delete"), resetProductAndMapping);
+  app.post("/api/admin/catalog/bulk-import-skus", requirePermission("products", "create"), bulkImportProviderSkus);
 
   app.post("/api/admin/product-variants", requirePermission("products", "create"), createVariant);
   app.put("/api/admin/product-variants/:id", requirePermission("products", "edit"), updateVariant);
@@ -317,6 +394,8 @@ export async function initServerLogic() {
   app.get("/api/admin/reconciliation/records", requirePermission("finance", "view"), getReconciliationRecordsApi);
   app.post("/api/admin/reconciliation/orders/:id", requirePermission("finance", "edit"), reconcileSingleOrder);
   app.post("/api/admin/reconciliation/runs", requirePermission("finance", "edit"), triggerReconciliationBatch);
+
+  // Provider SKU Migration Runner Route (Owner-only)
 
   // Tax & Fee Configuration Routes
   app.get("/api/admin/taxes/config", requirePermission("finance", "view"), getTaxAndFeeConfigApi);
@@ -350,14 +429,7 @@ export async function initServerLogic() {
   app.get("/api/admin/commission/payouts/:batchId/export-instruction", requirePermission("finance", "export"), handleExportTransferInstruction);
 
   // Settlement Routes
-  app.post("/api/admin/settlement/import", requirePermission("finance", "edit"), importSettlement);
-  app.get("/api/admin/settlement/batches", requirePermission("finance", "view"), getSettlementBatches);
-  app.get("/api/admin/settlement/batches/:id", requirePermission("finance", "view"), getSettlementBatchDetail);
-  app.post("/api/admin/settlement/batches/:id/verify", requirePermission("finance", "edit"), verifySettlementBatch);
-  app.post("/api/admin/settlement/batches/:id/settle", requirePermission("finance", "edit"), settleSettlementBatch);
-  app.post("/api/admin/settlement/batches/:id/adjustment", requirePermission("finance", "edit"), addBatchAdjustment);
-  app.post("/api/admin/settlement/batches/:id/post-settlement-adjustment", requirePermission("finance", "edit"), addPostSettlementAdjustment);
-  app.post("/api/admin/settlement/reconcile-adjustments", requirePermission("finance", "edit"), reconcileSettlementAdjustments);
+  // app.post("/api/admin/settlement/import", requirePermission("finance", "edit"), );
   
   // Ledger Routes
   app.get("/api/admin/ledger/overview", requirePermission("finance", "view"), getLedgerOverviewApi);
@@ -366,46 +438,74 @@ export async function initServerLogic() {
   app.get("/api/admin/ledger/entries/:id", requirePermission("finance", "view"), getLedgerEntryDetailApi);
   
   // Provider Routes
+  app.get("/api/admin/providers", requirePermission("providers", "view"), getProviders);
   app.post("/api/admin/providers", requirePermission("providers", "create"), createProvider);
   app.put("/api/admin/providers/:id", requirePermission("providers", "edit"), updateProvider);
+  app.delete("/api/admin/providers/:id", requirePermission("providers", "delete"), deleteProvider);
+  
+  app.get("/api/admin/providers/skus", requirePermission("providers", "view"), getProviderSkusApi);
   app.post("/api/admin/providers/skus", requirePermission("providers", "create"), createProviderSku);
   app.put("/api/admin/providers/skus/:id", requirePermission("providers", "edit"), updateProviderSku);
+  app.delete("/api/admin/providers/skus/:id", requirePermission("providers", "delete"), deleteProviderSku);
+
+  // Admin Catalog Listings
+  app.get("/api/admin/catalog/games", requirePermission("games", "view"), getAdminGames);
+  app.get("/api/admin/catalog/categories", requirePermission("games", "view"), getAdminCategories);
+  app.get("/api/admin/catalog/products", requirePermission("products", "view"), getAdminProducts);
+  app.get("/api/admin/catalog/variants", requirePermission("products", "view"), getAdminVariants);
+
   app.post("/api/admin/providers/mappings", requirePermission("providers", "create"), createProviderMapping);
   app.put("/api/admin/providers/mappings/:id", requirePermission("providers", "edit"), updateProviderMapping);
+  app.delete("/api/admin/providers/mappings/:id", requirePermission("providers", "delete"), deleteProviderMapping);
   app.get("/api/admin/providers/mappings", requirePermission("providers", "view"), listMappingsApi);
   app.post("/api/admin/providers/mappings/map", requirePermission("providers", "edit"), mapSkuApi);
   app.post("/api/admin/providers/mappings/suggest", requirePermission("providers", "view"), getProviderMappingSuggestions);
   app.post("/api/admin/providers/mappings/bulk", requirePermission("providers", "create"), bulkCreateProviderMappings);
   app.get("/api/admin/providers/catalog-discovery", requirePermission("providers", "view"), getProviderCatalogDiscovery);
-  app.post("/api/admin/providers/catalog-discovery/import", requirePermission("providers", "create"), importDiscoveryItems);
+  app.post("/api/admin/providers/catalog-discovery/import", requirePermission("providers", "create"), importFromCatalogDiscovery);
+  
+  // Supabase Fresh Catalog Sync API (STEP 4.5B)
+  app.post("/api/admin/supabase/catalog-sync", requirePermission("providers", "create"), triggerSupabaseCatalogSyncApi);
   
   // Provider SKU Bulk Import Routes
+  app.get("/api/admin/providers/:providerId/skus", requirePermission("providers", "view"), getAllProviderSkus);
   app.post("/api/admin/providers/skus/import/validate", requirePermission("providers", "create"), validateBulkImport);
-  app.post("/api/admin/providers/skus/import/:importId/execute", requirePermission("providers", "create"), executeBulkImport);
+  app.post("/api/admin/providers/skus/import/:sessionId/execute", requirePermission("providers", "create"), commitBulkImport);
   
   // Payment Gateway Routes
+  app.get("/api/admin/gateways", requirePermission("gateway", "view"), getAdminGateways);
   app.post("/api/admin/gateways", requirePermission("gateway", "create"), createPaymentGateway);
   app.put("/api/admin/gateways/:id", requirePermission("gateway", "edit"), updatePaymentGateway);
   
   // Inventory & Quota Routes
   app.get("/api/admin/quotas", requirePermission("stock", "quota.manage"), getQuotas);
   app.post("/api/admin/quotas", requirePermission("stock", "quota.manage"), saveQuota);
+  app.get("/api/admin/stocks", requirePermission("stock", "view"), getStocks);
   app.get("/api/admin/variants/:variantId/stock", requirePermission("stock", "view"), getVariantStock);
   app.post("/api/admin/variants/:variantId/stock/adjust", requirePermission("stock", "adjust"), adjustStock);
   app.get("/api/admin/variants/:variantId/stock/movements", requirePermission("stock", "view"), getStockMovements);
   app.get("/api/admin/variants/:variantId/reservations", requirePermission("stock", "view"), getReservations);
 
   // Digital Delivery Routes
-  app.get("/api/customer/orders/:orderId/delivery", optionalAuth, getCustomerDelivery); // Inside API, we check if customerId matches, wait, optionalAuth won't throw on missing user. So we must use authenticated. Let's create an auth-required version or just check in getCustomerDelivery.
+  app.get("/api/customer/orders", requireAuth, getCustomerOrdersApi); app.get("/api/customer/profile/:uid", requireAuth, getCustomerProfileApi); app.get("/api/customer/orders/:orderId/delivery", optionalAuth, getCustomerDelivery); // Inside API, we check if customerId matches, wait, optionalAuth won't throw on missing user. So we must use authenticated. Let's create an auth-required version or just check in getCustomerDelivery.
+  app.post("/api/customer/games/inquiry", optionalAuth, async (req: any, res: any) => {
+    try {
+      const { gameCode, userId, zoneId } = req.body || {};
+      if (!gameCode || !userId) {
+        return res.status(400).json({ isValid: false, username: null, message: "gameCode and userId are required" });
+      }
+
+      const result = await performGameAccountInquiry(gameCode, userId, zoneId);
+      return res.json(result);
+    } catch (error: any) {
+      console.error("[Games Inquiry API Error]", error);
+      return res.status(500).json({ isValid: false, username: null, message: error.message || "Gagal melakukan inquiry akun" });
+    }
+  });
   app.get("/api/admin/deliveries", requirePermission("delivery", "view"), getAdminDeliveries);
   app.get("/api/admin/deliveries/:deliveryId", requirePermission("delivery", "view"), getAdminDeliveryDetail);
 
   // Queue / Job Routes
-  app.get("/api/admin/jobs", requirePermission("queue", "view"), getAdminJobs);
-  app.get("/api/admin/jobs/:id", requirePermission("queue", "view"), getAdminJobDetail);
-  app.post("/api/admin/jobs/:id/retry", requirePermission("queue", "retry"), retryJob);
-  app.post("/api/admin/jobs/:id/cancel", requirePermission("queue", "cancel"), cancelJob);
-  app.post("/api/admin/jobs/trigger-worker", requirePermission("queue", "retry"), triggerJobWorker);
 
   // API Games Credential Management
   app.get("/api/admin/providers/apigames/credentials/status", requirePermission("integration", "credentials.view"), getApiGamesCredentialStatus);
@@ -526,6 +626,7 @@ export async function initServerLogic() {
   app.delete("/api/admin/campaigns/:id", requirePermission("marketing", "delete"), deleteCampaignApi);
 
   // Marketing & Konten - Landing Pages
+  app.get("/api/public/landings", getPublicLandingsApi);
   app.get("/api/public/landings/:slug", getPublicLandingPageApi);
   app.get("/api/admin/landings", requirePermission("content", "view"), getAdminLandingPagesApi);
   app.get("/api/admin/landings/components-data", requirePermission("content", "view"), getAdminLandingComponentsApi);
@@ -574,8 +675,8 @@ export async function initServerLogic() {
   app.put("/api/admin/feature-flags", requirePermission("settings", "edit"), updateAdminFeatureFlags);
 
   // Backup & Recovery
-  app.get("/api/admin/backup/status", requirePermission("system", "view"), getAdminBackupStatusApi);
-  app.post("/api/admin/backup/trigger", requirePermission("system", "edit"), triggerAdminBackupApi);
+  // app.get("/api/admin/backup/status", requirePermission("system", "view"), getAdminBackupStatusApi);
+  // app.post("/api/admin/backup/trigger", requirePermission("system", "edit"), triggerAdminBackupApi);
 
   // Marketing & Konten - SEO, Robots.txt & Sitemap
   app.get("/robots.txt", getRobotsTxt);
@@ -615,49 +716,53 @@ export async function initServerLogic() {
   app.post("/api/admin/incidents/:id/resolve", requirePermission("incidents", "manage"), resolveIncidentApi);
   app.post("/api/admin/incidents/:id/close", requirePermission("incidents", "manage"), closeIncidentApi);
 
-  // Run migrations
-  await migrateInitialRoles().catch(err => console.error("Migration error:", err));
+  isServerInitialized = true;
 
-  // Initialize Background Worker
-  const { JobService } = await import("./src/server/job-service");
-  const jobService = JobService.getInstance();
-  const workerTimer = jobService.startWorkerLoop();
-
-  // Vite middleware for development or static serving for production
+  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
-  isServerInitialized = true;
+  // SPA fallback
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith("/assets")) {
+      return next();
+    }
+    res.sendFile(path.join("/app/applet/dist", "index.html"));
+  });
 
   // Only open long-running HTTP server when not in Vercel Serverless environment
   if (process.env.VERCEL !== "1") {
     const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`Server running on http://0.0.0.0:${PORT}`);
     });
 
-    // Graceful Shutdown
-    const shutdown = () => {
-      console.log("[Server] Received shutdown signal. Cleaning up...");
-      clearInterval(workerTimer);
-      server.close(() => {
-        console.log("[Server] Closed HTTP server.");
-        process.exit(0);
-      });
-    };
+    // Run async migrations and background workers after server is listening
+    migrateInitialRoles().catch(err => console.warn("[Startup] Initial roles migration warning:", err?.message || err));
 
-    process.on("SIGTERM", shutdown);
-    process.on("SIGINT", shutdown);
+    // Initialize Background Worker
+    import("./src/server/job-service")
+      .then(({ JobService }) => {
+        const jobService = JobService.getInstance();
+
+        // Graceful Shutdown
+        const shutdown = () => {
+          console.log("[Server] Received shutdown signal. Cleaning up...");
+          // if () clearInterval();
+          server.close(() => {
+            console.log("[Server] Closed HTTP server.");
+            process.exit(0);
+          });
+        };
+
+        process.on("SIGTERM", shutdown);
+        process.on("SIGINT", shutdown);
+      })
+      .catch(err => console.warn("[Startup] Job worker init warning:", err?.message || err));
   }
 }
 

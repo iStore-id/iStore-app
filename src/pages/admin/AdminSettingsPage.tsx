@@ -135,13 +135,13 @@ export default function AdminSettingsPage() {
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Toko</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Toko (Opsional)</label>
               <input
                 type="text"
                 value={config.name}
                 onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                placeholder="Masukkan nama toko..."
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
               />
             </div>
             <div>

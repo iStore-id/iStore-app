@@ -1,4 +1,5 @@
-import { adminDb } from "./firebase-admin";
+import { OrderRepository } from "./supabase/order-repository";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
 import { safeRecordPaymentReceived, safeRecordFulfillmentSuccess } from "./ledger-service";
 import { LoyaltyService } from "./loyalty-service";
 import { NotificationService } from "./notification-service";
@@ -15,74 +16,86 @@ export const VALID_TRANSITIONS: Record<string, string[]> = {
   'EXPIRED': [] // Terminal
 };
 
+function mapRowToDomainOrder(row: any) {
+  if (!row) return {};
+  return {
+    ...row,
+    id: row.id,
+    invoice: row.invoice,
+    userId: row.user_id || row.userId,
+    customerData: row.customer_data || row.customerData,
+    productId: row.product_id || row.productId,
+    productName: row.product_name || row.productName,
+    variantId: row.variant_id || row.variantId,
+    variantName: row.variant_name || row.variantName,
+    providerId: row.provider_id || row.providerId,
+    providerSkuId: row.provider_sku_id || row.providerSkuId,
+    providerSku: row.provider_sku || row.providerSku,
+    routingDecisionCode: row.routing_decision_code || row.routingDecisionCode,
+    quantity: row.quantity,
+    price: row.price,
+    adminFee: row.admin_fee || row.adminFee,
+    discount: row.discount,
+    totalAmount: row.total_amount || row.totalAmount,
+    paymentStatus: row.payment_status || row.paymentStatus,
+    transactionStatus: row.transaction_status || row.transactionStatus,
+    paymentGatewayCode: row.payment_gateway_code || row.paymentGatewayCode,
+    gatewayTransactionId: row.gateway_transaction_id || row.gatewayTransactionId,
+    gatewayPaymentType: row.gateway_payment_type || row.gatewayPaymentType,
+    gatewayResponse: row.gateway_response || row.gatewayResponse,
+    providerReferenceId: row.provider_reference_id || row.providerReferenceId || row.providerReference,
+    providerReference: row.provider_reference_id || row.providerReferenceId || row.providerReference,
+    serialNumber: row.serial_number || row.serialNumber,
+    fulfillmentResponse: row.fulfillment_response || row.fulfillmentResponse,
+    failureReason: row.failure_reason || row.failureReason,
+    idempotencyKey: row.idempotency_key || row.idempotencyKey,
+    paidAt: row.paid_at || row.paidAt,
+    fulfilledAt: row.fulfilled_at || row.fulfilledAt,
+    createdAt: row.created_at || row.createdAt,
+    updatedAt: row.updated_at || row.updatedAt,
+    promoId: row.promo_id || row.promoId,
+    promoSnapshot: row.promo_snapshot || row.promoSnapshot,
+    flashSaleSnapshot: row.flash_sale_snapshot || row.flashSaleSnapshot,
+    referralCode: row.referral_code || row.referralCode,
+    snapToken: row.snap_token || row.snapToken,
+    paymentUrl: row.payment_url || row.paymentUrl,
+  };
+}
+
 export async function transitionOrderState(
   orderId: string, 
   newState: 'PAID' | 'EXPIRED' | 'PROCESSING' | 'SUCCESS' | 'FAILED', 
   payload: any = {}, 
   reason: string
 ) {
-   const transitionResult = await adminDb.runTransaction(async (t) => {
-      const ref = adminDb.collection("orders").doc(orderId);
-      const snap = await t.get(ref);
-      if (!snap.exists) throw new Error("ORDER_NOT_FOUND");
-      
-      const order = snap.data()!;
-      
-      // Determine logical current state
-      let currentState = 'UNKNOWN';
-      if (order.paymentStatus === 'pending') currentState = 'PENDING_PAYMENT';
-      else if (order.paymentStatus === 'paid' && order.transactionStatus === 'pending') currentState = 'PAID';
-      else if (order.transactionStatus === 'processing') currentState = 'PROCESSING';
-      else if (order.transactionStatus === 'success') currentState = 'SUCCESS';
-      else if (order.transactionStatus === 'failed' || order.paymentStatus === 'failed') currentState = 'FAILED';
-      else if (order.paymentStatus === 'expired') currentState = 'EXPIRED';
+   const orderRepo = OrderRepository.getInstance();
 
-      // Validation
-      if (!VALID_TRANSITIONS[currentState] || !VALID_TRANSITIONS[currentState].includes(newState)) {
-         throw new Error(`INVALID_STATE_TRANSITION: Cannot move from ${currentState} to ${newState}. Reason: ${reason}`);
+   // Invoke Supabase RPC State Machine (Source of Truth)
+   const rpcResult = await orderRepo.transitionOrderState(orderId, newState, payload, reason);
+
+   if (!rpcResult || !rpcResult.success) {
+      const errorMsg = rpcResult?.error_message || "UNKNOWN_STATE_TRANSITION_ERROR";
+      if (errorMsg === "ORDER_NOT_FOUND") {
+         throw new Error("ORDER_NOT_FOUND");
       }
+      if (errorMsg === "INVALID_STATE_TRANSITION") {
+         throw new Error(`INVALID_STATE_TRANSITION: Cannot move to ${newState}. Reason: ${reason}`);
+      }
+      throw new Error(`STATE_TRANSITION_FAILED: ${errorMsg}`);
+   }
 
-      let dbPaymentStatus = order.paymentStatus;
-      let dbTransactionStatus = order.transactionStatus;
-
-      if (newState === 'PAID') { dbPaymentStatus = 'paid'; }
-      if (newState === 'EXPIRED') { dbPaymentStatus = 'expired'; dbTransactionStatus = 'expired'; }
-      if (newState === 'PROCESSING') { dbTransactionStatus = 'processing'; }
-      if (newState === 'SUCCESS') { dbTransactionStatus = 'success'; }
-      if (newState === 'FAILED') { dbTransactionStatus = 'failed'; if(dbPaymentStatus === 'pending') dbPaymentStatus = 'failed'; }
-
-      const updateData = {
-         ...payload,
-         paymentStatus: dbPaymentStatus,
-         transactionStatus: dbTransactionStatus,
-         updatedAt: new Date().toISOString()
-      };
-
-      t.update(ref, updateData);
-      
-      // Audit log entry within the transaction
-      const auditRef = adminDb.collection("auditLogs").doc();
-      t.set(auditRef, {
-        id: auditRef.id,
-        action: "STATE_TRANSITION",
-        resource: "orders",
-        resourceId: orderId,
-        before: { paymentStatus: order.paymentStatus, transactionStatus: order.transactionStatus },
-        after: { paymentStatus: dbPaymentStatus, transactionStatus: dbTransactionStatus },
-        reason: reason,
-        createdAt: new Date().toISOString()
-      });
-
-      return { orderBefore: order, updateData };
-   });
+   const orderBefore = mapRowToDomainOrder(rpcResult.order_before);
+   const orderAfter = mapRowToDomainOrder(rpcResult.order_after);
 
    const mergedOrderData = {
-      ...transitionResult.orderBefore,
-      ...transitionResult.updateData
+      ...orderBefore,
+      ...orderAfter,
+      ...payload
    };
+
    const userId = mergedOrderData.userId;
 
-   // Post-transaction hook: Notifications
+   // Post-transaction hook: Notifications & downstream actions
    if (newState === 'PAID') {
       await notificationService.notifyCustomer(userId, 'PAYMENT_CONFIRMED', 'Pembayaran Diterima', `Pembayaran untuk pesanan ${mergedOrderData.invoice} telah dikonfirmasi.`, {
         relatedEntity: { type: 'ORDER', id: orderId },
@@ -155,8 +168,8 @@ export async function transitionOrderState(
       // MEMBERSHIP ACTIVATION ENGINE
       try {
          if (mergedOrderData.productId) {
-            const productSnap = await adminDb.collection("products").doc(mergedOrderData.productId).get();
-            if (productSnap.exists && productSnap.data()?.type === 'membership') {
+            const product = await SupabaseCatalogRepository.getInstance().getProduct(mergedOrderData.productId);
+            if (product && product.type === 'membership') {
                const { MembershipService } = await import('./membership-service');
                const membershipService = MembershipService.getInstance();
                await membershipService.activateMembership(
@@ -229,6 +242,11 @@ export async function transitionOrderState(
       }
    }
 
-   return transitionResult;
+   return {
+      orderBefore,
+      orderAfter,
+      updateData: orderAfter
+   };
 }
+
 

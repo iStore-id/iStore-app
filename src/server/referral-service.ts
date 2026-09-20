@@ -1,4 +1,3 @@
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
 import { LoyaltyService } from "./loyalty-service";
 import { CommissionService } from "./commission-service";
@@ -9,6 +8,8 @@ import {
   ReferralRewardStatus
 } from "../types/referral";
 import { CustomerUser } from "../types/customer";
+import { supabaseAdmin } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 
 const DEFAULT_REFERRAL_CONFIG: ReferralConfig = {
   enabled: false,
@@ -44,70 +45,112 @@ export class ReferralService {
    * Get Referral System Configuration
    */
   async getConfig(): Promise<ReferralConfig> {
-    const doc = await adminDb.collection("systemConfigs").doc("referral_config").get();
-    if (!doc.exists) return DEFAULT_REFERRAL_CONFIG;
-    return { ...DEFAULT_REFERRAL_CONFIG, ...doc.data() } as ReferralConfig;
+    try {
+      const data = await SystemConfigRepository.getInstance().getConfig("referral_config");
+      if (!data) return DEFAULT_REFERRAL_CONFIG;
+      return { ...DEFAULT_REFERRAL_CONFIG, ...data } as ReferralConfig;
+    } catch (err) {
+      console.error("[ReferralService] Failed to read config from Supabase, falling back to default:", err);
+      return DEFAULT_REFERRAL_CONFIG;
+    }
   }
 
   /**
    * Generate a unique referral code for a user atomically
    */
   async generateReferralCode(userId: string, actor: { uid: string; email: string }): Promise<string> {
-    return await adminDb.runTransaction(async (transaction) => {
-      const userRef = adminDb.collection("users").doc(userId);
-      const userSnap = await transaction.get(userRef);
-      
-      if (!userSnap.exists) throw new Error("USER_NOT_FOUND");
-      const userData = userSnap.data() as CustomerUser;
-      
-      if (userData.referralCode) return userData.referralCode;
+    if (!supabaseAdmin) throw new Error("Supabase admin not configured");
 
-      // Generate a simple normalized code: FIRSTNAME-RANDOM
-      const namePart = (userData.name || userData.displayName || "USER").split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, "");
-      let isUnique = false;
-      let code = "";
-      let attempts = 0;
+    const { data: userData, error: userError } = await supabaseAdmin
+      .from("profiles")
+      .select("display_name, referral_code, role_id")
+      .eq("id", userId)
+      .maybeSingle();
 
-      while (!isUnique && attempts < 5) {
-        const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-        code = `${namePart}${randomPart}`;
+    if (userError || !userData) throw new Error("USER_NOT_FOUND");
+    if (userData.referral_code) return userData.referral_code;
+
+    // Generate a simple normalized code: FIRSTNAME-RANDOM
+    const namePart = (userData.display_name || "USER").split(" ")[0].toUpperCase().replace(/[^A-Z0-9]/g, "");
+    let isUnique = false;
+    let code = "";
+    let attempts = 0;
+
+    while (!isUnique && attempts < 5) {
+      const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+      code = `${namePart}${randomPart}`;
+      
+      const { count } = await supabaseAdmin
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("referral_code", code);
         
-        // Check uniqueness in users collection
-        const existingSnap = await adminDb.collection("users").where("referralCode", "==", code).get();
-        if (existingSnap.empty) {
-          isUnique = true;
-        }
-        attempts++;
+      if (count === 0) {
+        isUnique = true;
       }
+      attempts++;
+    }
 
-      if (!isUnique) throw new Error("FAILED_TO_GENERATE_UNIQUE_CODE");
+    if (!isUnique) throw new Error("FAILED_TO_GENERATE_UNIQUE_CODE");
 
-      transaction.update(userRef, { 
-        referralCode: code,
-        updatedAt: new Date().toISOString()
-      });
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ 
+        referral_code: code,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", userId);
 
-      await logCoreAudit(
-        actor,
-        userData.role || "customer",
-        "REFERRAL_CODE_CREATED",
-        `users/${userId}`,
-        null,
-        { userId, referralCode: code }
-      );
+    if (updateError) throw new Error("FAILED_TO_SAVE_CODE");
 
-      return code;
-    });
+    await logCoreAudit(
+      actor,
+      userData.role_id || "customer",
+      "REFERRAL_CODE_CREATED",
+      `users/${userId}`,
+      null,
+      { userId, referralCode: code }
+    );
+
+    return code;
   }
 
   async getReferralStatus(userId: string): Promise<any> {
-    const snap = await adminDb.collection("referralRelationships")
-      .where("referrerUid", "==", userId)
-      .get();
-    
+    if (!supabaseAdmin) {
+      throw new Error("SUPABASE_ADMIN_NOT_CONFIGURED");
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("referral_relationships")
+      .select("*")
+      .eq("referrer_uid", userId);
+
+    if (error) {
+      console.error(`[ReferralService] Failed to get referral status from Supabase for user ${userId}:`, error);
+      return {
+        successfulReferrals: 0,
+        relationships: []
+      };
+    }
+
+    const relationships = (data || []).map(row => ({
+      id: row.id,
+      referrerUid: row.referrer_uid,
+      referredUid: row.referred_uid,
+      status: row.status,
+      referralCode: row.referral_code,
+      source: row.source,
+      rewardStatus: row.reward_status,
+      rewardType: row.reward_type,
+      qualifiedOrderId: row.qualified_order_id,
+      convertedAt: row.converted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+
     return {
-      successfulReferrals: snap.size,
-      relationships: snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      successfulReferrals: relationships.length,
+      relationships
     };
   }
 
@@ -123,208 +166,215 @@ export class ReferralService {
     const cleanCode = referralCode.trim().toUpperCase();
     if (!cleanCode) return { success: false, message: "Kode referral tidak valid." };
 
-    const config = await this.getConfig();
-    if (!config.enabled) return { success: false, message: "Program referral sedang tidak aktif." };
-
-    // 1. Find Referrer by code
-    const referrerSnap = await adminDb.collection("users").where("referralCode", "==", cleanCode).limit(1).get();
-    if (referrerSnap.empty) {
-      return { success: false, message: "Kode referral tidak ditemukan." };
-    }
-    const referrerDoc = referrerSnap.docs[0];
-    const referrerUid = referrerDoc.id;
-
-    // 2. Self-referral check
-    if (referrerUid === referredUid && !config.allowSelfReferral) {
-      return { success: false, message: "Anda tidak dapat menggunakan kode referral milik sendiri." };
+    if (!supabaseAdmin) {
+      return { success: false, message: "Sistem rujukan database tidak tersedia." };
     }
 
-    // 3. Existing relationship check (First-Referrer wins)
-    const relationshipId = `REF_${referrerUid}_${referredUid}`;
-    const relRef = adminDb.collection("referralRelationships").doc(relationshipId);
-    
-    // Also check if referred user already has ANY referrer
-    const existingRef = await adminDb.collection("referralRelationships")
-      .where("referredUid", "==", referredUid)
-      .limit(1)
-      .get();
-    
-    if (!existingRef.empty) {
-      return { success: false, message: "Pelanggan sudah teratribusi ke referrer lain." };
+    // Call Supabase atomic attribution RPC
+    const { data, error } = await supabaseAdmin.rpc("attribute_customer_atomic", {
+      p_referred_uid: referredUid,
+      p_referral_code: cleanCode,
+      p_source: source
+    });
+
+    if (error) {
+      console.error("[ReferralService] attribute_customer_atomic RPC failed:", error);
+      const errText = error.message || String(error);
+      let errorMessage = "Terjadi kesalahan saat mengaitkan referral.";
+      if (errText.includes("R0001")) {
+        errorMessage = "Kode referral tidak valid atau kosong.";
+      } else if (errText.includes("R0002")) {
+        errorMessage = "Program referral sedang tidak aktif.";
+      } else if (errText.includes("R0003")) {
+        errorMessage = "Anda tidak dapat menggunakan kode referral milik sendiri.";
+      } else if (errText.includes("R0004")) {
+        errorMessage = "Pelanggan sudah teratribusi ke referrer lain.";
+      } else if (errText.includes("R0005")) {
+        errorMessage = "Kode referral tidak ditemukan.";
+      } else if (errText.includes("R0006")) {
+        errorMessage = "Pelanggan sudah memiliki kode rujukan sendiri.";
+      } else {
+        errorMessage = error.message || errorMessage;
+      }
+      return { success: false, message: errorMessage };
     }
 
-    const now = new Date().toISOString();
+    const result = data as any;
+    if (!result || !result.success) {
+      return { success: false, message: result?.message || "Gagal mengaitkan referral." };
+    }
+
     const relationship: ReferralRelationship = {
-      id: relationshipId,
-      referrerUid,
-      referredUid,
+      id: result.relationship_id,
+      referrerUid: result.referrer_uid,
+      referredUid: result.referred_uid,
       status: 'PENDING',
       referralCode: cleanCode,
       source,
       rewardStatus: 'PENDING',
-      rewardType: 'NONE', // Will be determined at qualification
-      createdAt: now,
-      updatedAt: now
+      rewardType: 'NONE',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    await adminDb.runTransaction(async (transaction) => {
-      // Set relationship
-      transaction.set(relRef, relationship);
-      
-      // Update referred user profile
-      const userRef = adminDb.collection("users").doc(referredUid);
-      transaction.update(userRef, { 
-        referredBy: referrerUid,
-        updatedAt: now
-      });
-    });
-
     await logCoreAudit(
-      { uid: referredUid, email: "system@istore.co.id" }, // Actor is the referred user (or system)
+      { uid: referredUid, email: "system@istore.co.id" },
       "customer",
       "REFERRAL_RELATIONSHIP_CREATED",
-      `referralRelationships/${relationshipId}`,
+      `referralRelationships/${result.relationship_id}`,
       null,
-      { referrerUid, referredUid, referralCode: cleanCode, source }
+      { referrerUid: result.referrer_uid, referredUid, referralCode: cleanCode, source }
     );
 
-    return { success: true, message: "Referral berhasil dikaitkan.", relationship };
+    return { success: true, message: result.message || "Referral berhasil dikaitkan.", relationship };
   }
 
   /**
    * Qualify a referral when an order reaches SUCCESS state
    */
   async qualifyReferral(orderId: string, orderData: any): Promise<void> {
-    const config = await this.getConfig();
-    if (!config.enabled) return;
-
-    // Safety check: only process if order is successful
-    if (orderData.transactionStatus !== 'success') return;
+    if (!supabaseAdmin) return;
 
     const referredUid = orderData.userId;
     if (!referredUid || referredUid === 'guest') return;
 
-    // 1. Find relationship
-    const relSnap = await adminDb.collection("referralRelationships")
-      .where("referredUid", "==", referredUid)
-      .where("status", "==", "PENDING")
-      .limit(1)
-      .get();
+    // Call Supabase qualify atomic RPC
+    const { data, error } = await supabaseAdmin.rpc('qualify_referral_atomic', {
+      p_order_id: orderId,
+      p_total_amount: Number(orderData.totalAmount || 0),
+      p_transaction_status: orderData.transactionStatus,
+      p_referred_uid: referredUid
+    });
 
-    if (relSnap.empty) return;
-    const relDoc = relSnap.docs[0];
-    const relationship = relDoc.data() as ReferralRelationship;
-
-    // 2. Validate Order Amount
-    if (orderData.totalAmount < config.minQualifyingOrderAmount) {
-      console.log(`[Referral] Order ${orderId} does not meet minimum amount ${config.minQualifyingOrderAmount}`);
+    if (error) {
+      console.error(`[ReferralService] RPC qualify_referral_atomic failed for order ${orderId}:`, error);
       return;
     }
 
-    // 3. Deterministic Reward Processing
-    const now = new Date().toISOString();
-    const referrerUid = relationship.referrerUid;
-
-    await adminDb.runTransaction(async (transaction) => {
-      // Update Relationship Status
-      transaction.update(relDoc.ref, {
-        status: 'CONVERTED',
-        qualifiedOrderId: orderId,
-        rewardStatus: 'GRANTED',
-        rewardType: config.referrerRewardType === 'BOTH' ? 'BOTH' : 
-                    (config.referrerRewardType !== 'NONE' ? config.referrerRewardType : 'NONE'),
-        convertedAt: now,
-        updatedAt: now
-      });
-    });
-
-    // 4. Grant Rewards (Non-blocking but audited)
-    
-    // A. Referrer Points
-    if (config.referrerRewardType === 'POINTS' || config.referrerRewardType === 'BOTH') {
-      try {
-        await this.loyaltyService.awardPointsGeneric(
-          referrerUid, 
-          config.referrerRewardPoints, 
-          `referral_reward_${orderId}`,
-          `Reward referral dari transaksi teman (${referredUid})`,
-          'REFERRAL_EARN',
-          orderId
-        );
-      } catch (e) {
-        console.error(`[Referral] Failed to award points to referrer ${referrerUid}`, e);
-      }
+    const result = data as any;
+    if (!result || !result.success) {
+      console.log(`[ReferralService] qualify_referral_atomic result not successful:`, result?.message);
+      return;
     }
 
-    // B. Referrer Commission
-    if (config.referrerRewardType === 'COMMISSION' || config.referrerRewardType === 'BOTH') {
-      try {
-        await this.commissionService.accrueCommissionForOrder(orderId, {
-          ...orderData,
-          referralCode: orderData.referralCode || relationship.referralCode
-        });
-      } catch (e) {
-        console.error(`[Referral] Failed to accrue commission for referrer ${referrerUid}`, e);
-      }
+    if (result.already_processed && !result.needs_distribution) {
+      console.log(`[ReferralService] Referral for order ${orderId} already processed and rewards distributed.`);
+      return;
     }
 
-    // C. Referred Customer Bonus (Welcome Points)
-    if (config.referredRewardType === 'POINTS') {
-      try {
-        await this.loyaltyService.awardPointsGeneric(
-          referredUid,
-          config.referredRewardPoints,
-          `referral_welcome_${orderId}`,
-          `Bonus selamat datang dari referral (${referrerUid})`,
-          'REFERRAL_EARN',
-          orderId
-        );
-      } catch (e) {
-        console.error(`[Referral] Failed to award welcome points to referred user ${referredUid}`, e);
+    if (result.needs_distribution) {
+      const referrerUid = result.referrer_uid;
+      const referredUid = result.referred_uid;
+      const referrerRewardType = result.referrer_reward_type;
+      const referredRewardType = result.referred_reward_type;
+      const referrerRewardPoints = Number(result.referrer_reward_points || 0);
+      const referredRewardPoints = Number(result.referred_reward_points || 0);
+      const relationshipId = result.relationship_id;
+
+      let referrerPointsAwarded = true;
+      let referrerCommissionAwarded = true;
+      let referredPointsAwarded = true;
+
+      // A. Referrer Points
+      if (referrerRewardType === 'POINTS' || referrerRewardType === 'BOTH') {
+        try {
+          await this.loyaltyService.awardPointsGeneric(
+            referrerUid, 
+            referrerRewardPoints, 
+            `referral_reward_${orderId}`,
+            `Reward referral dari transaksi teman (${referredUid})`,
+            'REFERRAL_EARN',
+            orderId
+          );
+        } catch (e) {
+          console.error(`[Referral] Failed to award points to referrer ${referrerUid}`, e);
+          referrerPointsAwarded = false;
+        }
+      }
+
+      // B. Referrer Commission
+      if (referrerRewardType === 'COMMISSION' || referrerRewardType === 'BOTH') {
+        try {
+          await this.commissionService.accrueCommissionForOrder(orderId, {
+            ...orderData,
+            referralCode: orderData.referralCode || result.referral_code
+          });
+        } catch (e) {
+          console.error(`[Referral] Failed to accrue commission for referrer ${referrerUid}`, e);
+          referrerCommissionAwarded = false;
+        }
+      }
+
+      // C. Referred Customer Bonus (Welcome Points)
+      if (referredRewardType === 'POINTS') {
+        try {
+          await this.loyaltyService.awardPointsGeneric(
+            referredUid,
+            referredRewardPoints,
+            `referral_welcome_${orderId}`,
+            `Bonus selamat datang dari referral (${referrerUid})`,
+            'REFERRAL_EARN',
+            orderId
+          );
+        } catch (e) {
+          console.error(`[Referral] Failed to award welcome points to referred user ${referredUid}`, e);
+          referredPointsAwarded = false;
+        }
+      }
+
+      // If everything succeeded, update reward_status to 'GRANTED'
+      if (referrerPointsAwarded && referrerCommissionAwarded && referredPointsAwarded) {
+        const { error: updateError } = await supabaseAdmin
+          .from("referral_relationships")
+          .update({
+            reward_status: 'GRANTED',
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", relationshipId)
+          .eq("qualified_order_id", orderId);
+
+        if (updateError) {
+          console.error(`[ReferralService] Failed to update reward status to GRANTED for relationship ${relationshipId}:`, updateError);
+        } else {
+          // Log success audit
+          await logCoreAudit(
+            { uid: "SYSTEM", email: "system@istore.co.id" },
+            "system",
+            "REFERRAL_REWARD_GRANTED",
+            `referralRelationships/${relationshipId}`,
+            null,
+            { relationshipId, orderId, referrerUid, referredUid }
+          );
+        }
+      } else {
+        console.warn(`[ReferralService] Reward distribution was partially successful or failed. Status remains PENDING for retry.`);
       }
     }
-
-    await logCoreAudit(
-      { uid: "SYSTEM", email: "system@istore.co.id" },
-      "system",
-      "REFERRAL_REWARD_GRANTED",
-      `referralRelationships/${relationship.id}`,
-      null,
-      { relationshipId: relationship.id, orderId, referrerUid, referredUid }
-    );
   }
 
   /**
    * Handle Reversal if order is refunded
    */
   async handleReferralRefund(orderId: string, refundKey: string, refundAmount: number): Promise<void> {
-     // Reversal for Commission is handled by CommissionService.handleOrderRefund
-     // We only need to handle Poin Reversal if we want to clawback referral points.
-     // For Phase C3, we rely on LoyaltyService.reverseOrderPoints if it matches the reference.
-     
-     // Find the relationship tied to this order
-     const relSnap = await adminDb.collection("referralRelationships")
-       .where("qualifiedOrderId", "==", orderId)
-       .limit(1)
-       .get();
-     
-     if (relSnap.empty) return;
-     const relationship = relSnap.docs[0].data() as ReferralRelationship;
+    if (!supabaseAdmin) return;
 
-     // Update reward status to REVERSED if full refund
-     // (Simplified: if any refund happens on a qualified order, we might flag it)
-     await adminDb.collection("referralRelationships").doc(relationship.id).update({
-       rewardStatus: 'REVERSED',
-       updatedAt: new Date().toISOString()
-     });
+    const { error } = await supabaseAdmin.rpc('handle_referral_refund_atomic', {
+      p_order_id: orderId
+    });
 
-     await logCoreAudit(
-       { uid: "SYSTEM", email: "system@istore.co.id" },
-       "system",
-       "REFERRAL_REWARD_REVERSED",
-       `referralRelationships/${relationship.id}`,
-       null,
-       { relationshipId: relationship.id, orderId, refundKey }
-     );
+    if (error) {
+      console.error(`[ReferralService] handle_referral_refund_atomic failed for order ${orderId}:`, error);
+      return;
+    }
+
+    await logCoreAudit(
+      { uid: "SYSTEM", email: "system@istore.co.id" },
+      "system",
+      "REFERRAL_REWARD_REVERSED",
+      `referralRelationships/order_${orderId}`,
+      null,
+      { orderId, refundKey, refundAmount }
+    );
   }
 }
+

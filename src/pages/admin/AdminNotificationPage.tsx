@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import { 
   Bell, 
   Search, 
@@ -51,7 +52,8 @@ export default function AdminNotificationPage() {
       if (isLoadMore && lastId) params.append("lastId", lastId);
       params.append("limit", "20");
 
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/admin/notifications?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -82,7 +84,8 @@ export default function AdminNotificationPage() {
 
   const markRead = async (id: string) => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/admin/notifications/${id}/read`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -98,7 +101,8 @@ export default function AdminNotificationPage() {
 
   const markAllRead = async () => {
     try {
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/admin/notifications/mark-all-read?scope=admin`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }

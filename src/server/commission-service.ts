@@ -1,4 +1,3 @@
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
 import { 
   CommissionConfig, 
@@ -11,6 +10,19 @@ import {
   PayoutAllocationItem,
   PayoutRecipientSnapshot
 } from "../types/commission";
+import { supabaseAdmin } from "./supabase-admin";
+import * as repo from "./commission-repository";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { OrderRepository } from "./supabase/order-repository";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { SupabaseRefundRepository } from "./supabase/refund-repository";
+
+function getSupabase() {
+  if (!supabaseAdmin) {
+    throw new Error("SUPABASE_ADMIN_NOT_CONFIGURED: Supabase service role client is not available.");
+  }
+  return supabaseAdmin;
+}
 
 const DEFAULT_COMMISSION_CONFIG: CommissionConfig = {
   enabled: false,
@@ -66,12 +78,11 @@ export class CommissionService {
    */
   async getConfig(): Promise<CommissionConfig> {
     try {
-      const snap = await adminDb.collection("systemConfigs").doc("commission_config").get();
-      if (!snap.exists) return DEFAULT_COMMISSION_CONFIG;
-      const data = snap.data();
-      return (data?.value || DEFAULT_COMMISSION_CONFIG) as CommissionConfig;
+      const data = await SystemConfigRepository.getInstance().getConfig("commission_config");
+      if (!data) return DEFAULT_COMMISSION_CONFIG;
+      return (data.value || data || DEFAULT_COMMISSION_CONFIG) as CommissionConfig;
     } catch (err) {
-      console.error("[CommissionService] Failed to load config, using default:", err);
+      console.error("[CommissionService] Failed to load config from Supabase, using default:", err);
       return DEFAULT_COMMISSION_CONFIG;
     }
   }
@@ -110,17 +121,9 @@ export class CommissionService {
    */
   async findRecipient(identifier: { type: 'ID' | 'CODE'; value: string }): Promise<CommissionRecipient | null> {
     if (identifier.type === 'ID') {
-      const snap = await adminDb.collection("commissionRecipients").doc(identifier.value).get();
-      if (!snap.exists) return null;
-      return { id: snap.id, ...snap.data() } as CommissionRecipient;
+      return repo.getRecipientById(identifier.value);
     } else {
-      const snap = await adminDb.collection("commissionRecipients")
-        .where("code", "==", identifier.value)
-        .limit(1)
-        .get();
-      if (snap.empty) return null;
-      const doc = snap.docs[0];
-      return { id: doc.id, ...doc.data() } as CommissionRecipient;
+      return repo.getRecipientByCode(identifier.value);
     }
   }
 
@@ -149,14 +152,9 @@ export class CommissionService {
     const todayStr = nowIso.slice(0, 10); // YYYY-MM-DD for comparison
 
     // Fetch active rules for AFFILIATE
-    const snap = await adminDb.collection("commissionRules")
-      .where("recipientType", "==", "AFFILIATE")
-      .where("status", "==", "ACTIVE")
-      .get();
+    const allRules = await repo.getRules({ status: "ACTIVE", recipientType: "AFFILIATE" });
 
-    if (snap.empty) return null;
-
-    const allRules = snap.docs.map(d => ({ id: d.id, ...d.data() } as CommissionRule));
+    if (!allRules || allRules.length === 0) return null;
 
     // Filter candidate rules
     const candidates = allRules.filter(rule => {
@@ -248,19 +246,18 @@ export class CommissionService {
       return order.pricingSnapshot.baseCost;
     }
 
-    // 2. Check variant doc if variantId exists
+    // 2. Check variant doc if variantId exists (from Supabase Catalog Repository)
     if (order.variantId) {
       try {
-        const variantSnap = await adminDb.collection("variants").doc(order.variantId).get();
-        if (variantSnap.exists) {
-          const varData = variantSnap.data();
-          const cost = varData?.pricing?.baseCost ?? varData?.baseCost;
+        const variant = await SupabaseCatalogRepository.getInstance().getVariant(order.variantId);
+        if (variant && variant.pricing) {
+          const cost = variant.pricing.baseCost;
           if (typeof cost === 'number' && !isNaN(cost) && cost >= 0) {
             return cost;
           }
         }
       } catch (err) {
-        console.warn(`[CommissionService] Failed to fetch variant ${order.variantId} baseCost:`, err);
+        console.warn(`[CommissionService] Failed to fetch variant ${order.variantId} baseCost from Supabase:`, err);
       }
     }
 
@@ -345,14 +342,14 @@ export class CommissionService {
     actor: { uid: string; email: string } = { uid: "SYSTEM", email: "system@istore.co.id" }
   ): Promise<AccrualResult> {
     try {
-      // 1. Fetch order data if not provided
+      // 1. Fetch order data if not provided (from Supabase OrderRepository)
       let order = orderData;
       if (!order) {
-        const orderSnap = await adminDb.collection("orders").doc(orderId).get();
-        if (!orderSnap.exists) {
+        const dbOrder = await OrderRepository.getInstance().getOrderById(orderId);
+        if (!dbOrder) {
           return { success: false, accrued: false, reason: "ORDER_NOT_FOUND" };
         }
-        order = { id: orderSnap.id, ...orderSnap.data() };
+        order = dbOrder;
       }
 
       // 2. Check Global Config
@@ -384,17 +381,33 @@ export class CommissionService {
       // 5. Deterministic Idempotency Key
       const actualOrderId = order.id || orderId;
       const commissionId = `comm_order_${actualOrderId}_${recipient.id}`;
-      const recordRef = adminDb.collection("commissionRecords").doc(commissionId);
 
-      // Check if already exists outside transaction for fast exit
-      const existingSnap = await recordRef.get();
-      if (existingSnap.exists) {
+      // Check if already exists in Supabase
+      const existingRecord = await repo.getRecordById(commissionId);
+      if (existingRecord) {
         console.log(`[Commission Idempotency] Record ${commissionId} already exists for order ${actualOrderId}`);
+        // Self-healing check: if commission is PAYABLE but ledger was not posted yet, attempt idempotent post
+        if (existingRecord.status === "PAYABLE" && existingRecord.ledgerStatus !== "POSTED") {
+          try {
+            const { recordCommissionAccrual } = await import("./ledger-service");
+            const ledgerResult = await recordCommissionAccrual(existingRecord, actor.uid || "SYSTEM");
+            await repo.updateRecord(commissionId, {
+              ledgerStatus: "POSTED",
+              ledgerJournalId: ledgerResult.docId,
+              ledgerPostedAt: new Date().toISOString()
+            });
+            existingRecord.ledgerStatus = "POSTED";
+            existingRecord.ledgerJournalId = ledgerResult.docId;
+          } catch (retryErr) {
+            console.error(`[Commission Ledger Retry Error] Failed to post ledger on duplicate invocation:`, retryErr);
+          }
+        }
+
         return { 
           success: true, 
           accrued: false, 
           reason: "ALREADY_ACCRUED", 
-          record: { id: existingSnap.id, ...existingSnap.data() } as CommissionRecord 
+          record: existingRecord 
         };
       }
 
@@ -461,44 +474,30 @@ export class CommissionService {
         }
       };
 
-      // 10. Atomic Firestore Transaction for Double-Accrual Protection
-      const transactionResult = await adminDb.runTransaction(async (transaction) => {
-        const docSnap = await transaction.get(recordRef);
-        if (docSnap.exists) {
-          return { isNew: false, record: { id: docSnap.id, ...docSnap.data() } as CommissionRecord };
-        }
-
-        transaction.set(recordRef, newRecord);
-        return { isNew: true, record: newRecord };
-      });
-
-      if (!transactionResult.isNew) {
-        // Self-healing check: if commission is PAYABLE but ledger was not posted yet, attempt idempotent post
-        if (transactionResult.record.status === "PAYABLE" && transactionResult.record.ledgerStatus !== "POSTED") {
-          try {
-            const { recordCommissionAccrual } = await import("./ledger-service");
-            const ledgerResult = await recordCommissionAccrual(transactionResult.record, actor.uid || "SYSTEM");
-            await recordRef.update({
-              ledgerStatus: "POSTED",
-              ledgerJournalId: ledgerResult.docId,
-              ledgerPostedAt: new Date().toISOString()
-            });
-            transactionResult.record.ledgerStatus = "POSTED";
-            transactionResult.record.ledgerJournalId = ledgerResult.docId;
-          } catch (retryErr) {
-            console.error(`[Commission Ledger Retry Error] Failed to post ledger on duplicate invocation:`, retryErr);
+      // 10. Thread-safe Insert into Supabase
+      let createdRecord: CommissionRecord;
+      try {
+        createdRecord = await repo.createRecord(newRecord);
+      } catch (insertErr: any) {
+        if (insertErr.code === "23505") {
+          // Unique key violation -> Concurrent write won. Fetch existing
+          const existing = await repo.getRecordById(commissionId);
+          if (!existing) {
+            throw new Error("CONCURRENT_ACCRUE_CONFLICT: Record insert failed but existing was not found.");
           }
+          return {
+            success: true,
+            accrued: false,
+            reason: "ALREADY_ACCRUED",
+            record: existing
+          };
+        } else {
+          console.error("[accrueCommissionForOrder Insert Error]", insertErr);
+          throw insertErr;
         }
-
-        return { 
-          success: true, 
-          accrued: false, 
-          reason: "ALREADY_ACCRUED", 
-          record: transactionResult.record 
-        };
       }
 
-      // 11. Core Audit Log (Sanitized: NO bank secrets, NO tokens)
+      // 11. Core Audit Log
       await logCoreAudit(
         actor,
         "system",
@@ -527,37 +526,35 @@ export class CommissionService {
 
       console.log(`[Commission Accrued] Created record ${commissionId} (Rp ${calcResult.commissionAmount}) for affiliate ${recipient.code}`);
 
-      // 12. Double-Entry Ledger Posting (Phase 3: Ledger Integration)
+      // 12. Double-Entry Ledger Posting
       try {
         const { recordCommissionAccrual } = await import("./ledger-service");
-        const ledgerResult = await recordCommissionAccrual(newRecord, actor.uid || "SYSTEM");
+        const ledgerResult = await recordCommissionAccrual(createdRecord, actor.uid || "SYSTEM");
 
-        await recordRef.update({
+        await repo.updateRecord(commissionId, {
           ledgerStatus: "POSTED",
           ledgerJournalId: ledgerResult.docId,
           ledgerPostedAt: new Date().toISOString()
         });
 
-        newRecord.ledgerStatus = "POSTED";
-        newRecord.ledgerJournalId = ledgerResult.docId;
-        newRecord.ledgerPostedAt = new Date().toISOString();
+        createdRecord.ledgerStatus = "POSTED";
+        createdRecord.ledgerJournalId = ledgerResult.docId;
+        createdRecord.ledgerPostedAt = new Date().toISOString();
       } catch (ledgerErr: any) {
         console.error(`[Commission Ledger Error] Failed to post commission ${commissionId} to ledger:`, ledgerErr);
 
-        // Mark commissionRecord as FAILED for ledger, but do not throw or rollback order SUCCESS
         try {
-          await recordRef.update({
+          await repo.updateRecord(commissionId, {
             ledgerStatus: "FAILED"
           });
-          newRecord.ledgerStatus = "FAILED";
+          createdRecord.ledgerStatus = "FAILED";
         } catch (updateErr) {
           console.error(`[Commission Ledger Error] Failed to update ledgerStatus for ${commissionId}:`, updateErr);
         }
 
-        // Enqueue retry job to ensure recovery via existing JobService
         try {
           const { JobService } = await import("./job-service");
-          await JobService.getInstance().enqueue({
+          await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
             type: "COMMISSION_LEDGER_POST",
             payload: { commissionId },
             idempotencyKey: `comm_ledger_job_${commissionId}`,
@@ -571,7 +568,7 @@ export class CommissionService {
       return {
         success: true,
         accrued: true,
-        record: newRecord
+        record: createdRecord
       };
     } catch (error: any) {
       console.error(`[Commission Accrual Error] Failed to accrue commission for order ${orderId}:`, error);
@@ -631,10 +628,11 @@ export class CommissionService {
     }
 
     try {
-      // 1. Authoritative check: verify refund exists and is SUCCEEDED
-      const refundDocSnap = await adminDb.collection("refunds").doc(cleanRefundKey).get();
-      if (!refundDocSnap.exists) {
-        console.warn(`[Commission Refund Reversal] Refund ${cleanRefundKey} not found in Firestore.`);
+      // 1. Authoritative check: verify refund exists and is SUCCEEDED in Supabase
+      const refundData: any = await SupabaseRefundRepository.getInstance().getRefundById(cleanRefundKey);
+
+      if (!refundData) {
+        console.warn(`[Commission Refund Reversal] Refund ${cleanRefundKey} not found in Supabase.`);
         return {
           success: false,
           orderId: cleanOrderId,
@@ -647,7 +645,6 @@ export class CommissionService {
         };
       }
 
-      const refundData = refundDocSnap.data()!;
       if (refundData.status !== "SUCCEEDED") {
         console.warn(`[Commission Refund Reversal] Refund ${cleanRefundKey} status is ${refundData.status}, not SUCCEEDED. Skipping.`);
         return {
@@ -662,180 +659,52 @@ export class CommissionService {
         };
       }
 
-      // 2. Compute authoritative cumulative SUCCEEDED refund amount for this order
-      const allRefundsSnap = await adminDb.collection("refunds")
-        .where("orderId", "==", cleanOrderId)
-        .where("status", "==", "SUCCEEDED")
-        .get();
+      // 2. Execute RPC atomic procedure in Supabase
+      const supabase = getSupabase();
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+        "handle_commission_refund_atomic",
+        {
+          p_order_id: cleanOrderId,
+          p_refund_key: cleanRefundKey,
+          p_refund_amount: refundAmount
+        }
+      );
 
-      let cumulativeRefundAmount = 0;
-      allRefundsSnap.docs.forEach(doc => {
-        const amt = Number(doc.data()?.amount) || 0;
-        cumulativeRefundAmount += amt;
-      });
+      if (rpcErr) {
+        console.error("[RPC Error handle_commission_refund_atomic]", rpcErr);
+        throw rpcErr;
+      }
 
-      // 3. Query all commission records for this orderId
-      const commSnap = await adminDb.collection("commissionRecords")
-        .where("orderId", "==", cleanOrderId)
-        .get();
-
-      if (commSnap.empty) {
-        console.log(`[Commission Refund Reversal] No commission records found for order ${cleanOrderId}.`);
+      if (!rpcRes || !rpcRes.success) {
         return {
-          success: true,
+          success: false,
           orderId: cleanOrderId,
           refundKey: cleanRefundKey,
           refundAmount,
           processedRecordsCount: 0,
           totalDeltaReversed: 0,
           results: [],
-          reason: "NO_COMMISSION_RECORDS"
+          reason: rpcRes?.message || "RPC_EXECUTION_FAILED"
         };
       }
 
+      const rpcResults = Array.isArray(rpcRes.results) ? rpcRes.results : [];
       const reversalResults: ReversalResult["results"] = [];
-      let totalDeltaReversed = 0;
+      let totalDeltaReversed = Number(rpcRes.totalDeltaReversed) || 0;
 
-      // 4. Process each commission record independently
-      for (const doc of commSnap.docs) {
-        const commissionId = doc.id;
-        const commRef = doc.ref;
+      for (const resItem of rpcResults) {
+        const delta = Number(resItem.deltaReversal) || 0;
+        let ledgerJournalId = resItem.ledgerJournalId || null;
 
-        // Execute atomic Firestore transaction for this commissionRecord
-        const txResult = await adminDb.runTransaction(async (transaction) => {
-          const currentSnap = await transaction.get(commRef);
-          if (!currentSnap.exists) {
-            return { skipped: true, reason: "RECORD_NOT_FOUND" };
-          }
+        // Fetch full updated record from Supabase for audit and ledger
+        const fullRecord = await repo.getRecordById(resItem.commissionId);
 
-          const record = currentSnap.data() as CommissionRecord;
-
-          // Scope boundary: only process records that are PAYABLE or previously partial-refunded
-          const previousStatus = record.status;
-          const originalCommissionAmount = Number(record.commissionAmount) || 0;
-          const sellingPriceSnapshot = Number(record.sellingPriceSnapshot) || 0;
-
-          if (originalCommissionAmount <= 0) {
-            return { skipped: true, reason: "ZERO_ORIGINAL_COMMISSION" };
-          }
-
-          // Basis S strictly locked to sellingPriceSnapshot
-          const S = sellingPriceSnapshot;
-          const C = originalCommissionAmount;
-
-          if (S <= 0) {
-            return { skipped: true, reason: "INVALID_SELLING_PRICE_SNAPSHOT" };
-          }
-
-          const prevCumulativeReversed = Number(record.cumulativeReversedAmount) || 0;
-
-          // Check if this refundKey has already been processed for this record (Idempotency)
-          const existingSnapshots = Array.isArray(record.reversalSnapshots) ? record.reversalSnapshots : [];
-          const existingForRefund = existingSnapshots.find(s => s.refundKey === cleanRefundKey);
-          if (existingForRefund) {
-            console.log(`[Commission Refund Reversal] Refund ${cleanRefundKey} already processed for ${commissionId}. Skipping calculation.`);
-            return {
-              skipped: false,
-              alreadyProcessed: true,
-              commissionId,
-              recipientId: record.recipientId,
-              previousStatus,
-              newStatus: record.status,
-              deltaReversal: existingForRefund.deltaReversedCommission,
-              cumulativeReversed: record.cumulativeReversedAmount || 0,
-              remainingPayable: record.remainingPayableAmount || 0,
-              ledgerJournalId: existingForRefund.ledgerJournalId
-            };
-          }
-
-          // Mathematical clawback calculation:
-          // TargetRemaining = round( C * max(0, S - cumulativeRefundAmount) / S )
-          const remainingRatio = Math.max(0, S - cumulativeRefundAmount) / S;
-          const targetRemaining = Math.max(0, Math.round(C * remainingRatio));
-          const targetCumulativeClawback = Math.max(0, Math.min(C, C - targetRemaining));
-
-          // Delta reversal for this specific refund step
-          const deltaReversal = Math.max(0, Math.min(C - prevCumulativeReversed, targetCumulativeClawback - prevCumulativeReversed));
-          const newCumulativeReversed = prevCumulativeReversed + deltaReversal;
-          const newRemainingPayable = Math.max(0, C - newCumulativeReversed);
-
-          const now = new Date().toISOString();
-          let newStatus: "PAYABLE" | "CANCELLED" = previousStatus;
-          let cancelReason = record.cancelReason || null;
-          let reversedAt = record.reversedAt || null;
-
-          if (newRemainingPayable === 0) {
-            newStatus = "CANCELLED";
-            cancelReason = "CANCELLED_BY_REFUND";
-            reversedAt = now;
-          }
-
-          const snapshotEntry = {
-            refundKey: cleanRefundKey,
-            refundAmount,
-            deltaReversedCommission: deltaReversal,
-            cumulativeReversedCommission: newCumulativeReversed,
-            remainingPayableCommission: newRemainingPayable,
-            ledgerJournalId: deltaReversal > 0 ? `ledger_commission_reversal_${commissionId}_${cleanRefundKey}` : null,
-            reversedAt: now
-          };
-
-          const updatedSnapshots = [...existingSnapshots, snapshotEntry];
-
-          // Apply update in transaction
-          transaction.update(commRef, {
-            status: newStatus,
-            cancelReason,
-            cumulativeReversedAmount: newCumulativeReversed,
-            remainingPayableAmount: newRemainingPayable,
-            reversedAt,
-            reversalSnapshots: updatedSnapshots,
-            updatedAt: now
-          });
-
-          return {
-            skipped: false,
-            alreadyProcessed: false,
-            commissionId,
-            recipientId: record.recipientId,
-            previousStatus,
-            newStatus,
-            deltaReversal,
-            cumulativeReversed: newCumulativeReversed,
-            remainingPayable: newRemainingPayable,
-            ledgerJournalId: snapshotEntry.ledgerJournalId,
-            fullRecord: { ...record, status: newStatus, cumulativeReversedAmount: newCumulativeReversed, remainingPayableAmount: newRemainingPayable }
-          };
-        });
-
-        if (txResult.skipped) {
-          continue;
-        }
-
-        if (txResult.alreadyProcessed) {
-          reversalResults.push({
-            commissionId: txResult.commissionId!,
-            recipientId: txResult.recipientId!,
-            previousStatus: txResult.previousStatus!,
-            newStatus: txResult.newStatus!,
-            deltaReversal: txResult.deltaReversal!,
-            cumulativeReversed: txResult.cumulativeReversed!,
-            remainingPayable: txResult.remainingPayable!,
-            ledgerJournalId: txResult.ledgerJournalId!
-          });
-          continue;
-        }
-
-        const delta = txResult.deltaReversal || 0;
-        totalDeltaReversed += delta;
-
-        // 5. Post to Double-Entry Ledger ONLY if deltaReversal > 0
-        let ledgerJournalId: string | null = null;
-        if (delta > 0) {
+        if (delta > 0 && fullRecord && !resItem.alreadyProcessed) {
+          // Double-Entry Ledger Posting
           try {
             const { safeRecordCommissionAccrualReversal } = await import("./ledger-service");
             const ledgerRes = await safeRecordCommissionAccrualReversal(
-              txResult.fullRecord,
+              fullRecord,
               cleanRefundKey,
               delta,
               actor.uid || "SYSTEM",
@@ -846,19 +715,19 @@ export class CommissionService {
               ledgerJournalId = ledgerRes.docId;
             }
           } catch (ledgerError: any) {
-            console.error(`[Commission Reversal Ledger Error] Failed for ${commissionId}:`, ledgerError);
+            console.error(`[Commission Reversal Ledger Error] Failed for ${resItem.commissionId}:`, ledgerError);
 
             // Enqueue retry job for resilient ledger posting
             try {
               const { JobService } = await import("./job-service");
-              await JobService.getInstance().enqueue({
+              await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
                 type: "COMMISSION_LEDGER_REVERSAL_POST",
                 payload: {
-                  commissionId,
+                  commissionId: resItem.commissionId,
                   refundKey: cleanRefundKey,
                   deltaReversal: delta
                 },
-                idempotencyKey: `comm_rev_ledger_${commissionId}_${cleanRefundKey}`,
+                idempotencyKey: `comm_rev_ledger_${resItem.commissionId}_${cleanRefundKey}`,
                 priority: "HIGH"
               });
             } catch (jobErr) {
@@ -867,36 +736,38 @@ export class CommissionService {
           }
         }
 
-        // 6. Log Core Audit event: COMMISSION_REVERSED / COMMISSION_PARTIAL_REVERSED
-        await logCoreAudit(
-          actor,
-          "system",
-          txResult.newStatus === "CANCELLED" ? "COMMISSION_CANCELLED_BY_REFUND" : "COMMISSION_PARTIAL_REVERSED",
-          `commissionRecords/${commissionId}`,
-          null,
-          {
-            commissionId,
-            orderId: cleanOrderId,
-            refundKey: cleanRefundKey,
-            refundAmount,
-            deltaReversal: delta,
-            cumulativeReversed: txResult.cumulativeReversed,
-            remainingPayable: txResult.remainingPayable,
-            previousStatus: txResult.previousStatus,
-            newStatus: txResult.newStatus,
-            ledgerJournalId
-          },
-          `Commission ${commissionId} ${txResult.newStatus === "CANCELLED" ? "fully cancelled" : "partially clawed back"} by refund ${cleanRefundKey} (Delta: Rp ${delta.toLocaleString('id-ID')})`
-        );
+        // Log Core Audit event if not already processed in this step
+        if (!resItem.alreadyProcessed && fullRecord) {
+          await logCoreAudit(
+            actor,
+            "system",
+            fullRecord.status === "CANCELLED" ? "COMMISSION_CANCELLED_BY_REFUND" : "COMMISSION_PARTIAL_REVERSED",
+            `commissionRecords/${resItem.commissionId}`,
+            null,
+            {
+              commissionId: resItem.commissionId,
+              orderId: cleanOrderId,
+              refundKey: cleanRefundKey,
+              refundAmount,
+              deltaReversal: delta,
+              cumulativeReversed: resItem.cumulativeReversed,
+              remainingPayable: resItem.remainingPayable,
+              previousStatus: resItem.previousStatus,
+              newStatus: resItem.newStatus,
+              ledgerJournalId
+            },
+            `Commission ${resItem.commissionId} ${fullRecord.status === "CANCELLED" ? "fully cancelled" : "partially clawed back"} by refund ${cleanRefundKey} (Delta: Rp ${delta.toLocaleString('id-ID')})`
+          );
+        }
 
         reversalResults.push({
-          commissionId: txResult.commissionId!,
-          recipientId: txResult.recipientId!,
-          previousStatus: txResult.previousStatus!,
-          newStatus: txResult.newStatus!,
+          commissionId: resItem.commissionId,
+          recipientId: resItem.recipientId,
+          previousStatus: resItem.previousStatus,
+          newStatus: resItem.newStatus,
           deltaReversal: delta,
-          cumulativeReversed: txResult.cumulativeReversed!,
-          remainingPayable: txResult.remainingPayable!,
+          cumulativeReversed: resItem.cumulativeReversed,
+          remainingPayable: resItem.remainingPayable,
           ledgerJournalId
         });
       }
@@ -906,7 +777,7 @@ export class CommissionService {
         orderId: cleanOrderId,
         refundKey: cleanRefundKey,
         refundAmount,
-        processedRecordsCount: reversalResults.length,
+        processedRecordsCount: rpcRes.processedRecordsCount || reversalResults.length,
         totalDeltaReversed,
         results: reversalResults
       };
@@ -944,15 +815,14 @@ export class CommissionService {
 
     const currentRecords: CommissionRecord[] = [];
     for (const item of allocations) {
-      const docSnap = await adminDb.collection("commissionRecords").doc(item.commissionId).get();
-      if (!docSnap.exists) {
+      const rec = await repo.getRecordById(item.commissionId);
+      if (!rec) {
         return {
           valid: false,
           staleReason: `Commission record '${item.commissionId}' not found in database.`
         };
       }
 
-      const rec = docSnap.data() as CommissionRecord;
       currentRecords.push(rec);
 
       if (rec.status !== "PAYABLE") {
@@ -995,12 +865,11 @@ export class CommissionService {
       return { success: false, message: "Penerima dan daftar komisi wajib dipilih." };
     }
 
-    // 1. Verify recipient and payout account
-    const recSnap = await adminDb.collection("commissionRecipients").doc(cleanRecipientId).get();
-    if (!recSnap.exists) {
+    // 1. Verify recipient and payout account in Supabase
+    const recipient = await repo.getRecipientById(cleanRecipientId);
+    if (!recipient) {
       return { success: false, message: `Penerima komisi '${cleanRecipientId}' tidak ditemukan.` };
     }
-    const recipient = recSnap.data() as CommissionRecipient;
     if (recipient.status !== "ACTIVE") {
       return { success: false, message: `Penerima komisi '${recipient.name}' tidak berstatus ACTIVE.` };
     }
@@ -1015,108 +884,114 @@ export class CommissionService {
     const batchId = `payout_batch_${cleanRecipientId}_${Date.now()}`;
     const batchNumber = `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-    // 3. Execute atomic Firestore transaction
+    // 3. Atomically update commission records in Supabase to ALLOCATED and calculate sum
+    const now = new Date().toISOString();
     try {
-      const createdBatch = await adminDb.runTransaction(async (transaction) => {
-        const allocations: PayoutAllocationItem[] = [];
-        let totalAmount = 0;
+      const allocations: PayoutAllocationItem[] = [];
+      let totalAmount = 0;
 
-        // Read all commission records
-        for (const commId of commissionRecordIds) {
-          const docRef = adminDb.collection("commissionRecords").doc(commId);
-          const docSnap = await transaction.get(docRef);
-
-          if (!docSnap.exists) {
-            throw new Error(`Commission record '${commId}' tidak ditemukan.`);
-          }
-
-          const rec = docSnap.data() as CommissionRecord;
-
-          // Invariant: Must belong to same recipient
-          if (rec.recipientId !== cleanRecipientId) {
-            throw new Error(`Integritas gagal: Komisi '${commId}' milik penerima '${rec.recipientId}', bukan '${cleanRecipientId}'.`);
-          }
-
-          // Invariant: Must be PAYABLE
-          if (rec.status !== "PAYABLE") {
-            throw new Error(`Komisi '${commId}' berstatus '${rec.status}', tidak dapat dialokasikan.`);
-          }
-
-          // Invariant: Ledger must be POSTED
-          if (rec.ledgerStatus !== "POSTED") {
-            throw new Error(`Komisi '${commId}' belum terakrual di Buku Besar (ledgerStatus: '${rec.ledgerStatus}').`);
-          }
-
-          // Invariant: Must be UNPAID and not locked by another batch
-          if (rec.payoutStatus && rec.payoutStatus !== "UNPAID") {
-            throw new Error(`Komisi '${commId}' telah berstatus '${rec.payoutStatus}' (Batch ID: ${rec.payoutBatchId || 'unknown'}).`);
-          }
-
-          const payable = typeof rec.remainingPayableAmount === "number"
-            ? rec.remainingPayableAmount
-            : rec.commissionAmount;
-
-          if (payable <= 0) {
-            throw new Error(`Komisi '${commId}' tidak memiliki sisa hak bayar (Rp 0).`);
-          }
-
-          allocations.push({
-            commissionId: commId,
-            orderId: rec.orderId,
-            allocatedAmount: payable
-          });
-
-          totalAmount += payable;
+      // Lock records atomically to prevent double allocation
+      const supabase = getSupabase();
+      
+      // Fetch and validate
+      for (const commId of commissionRecordIds) {
+        const rec = await repo.getRecordById(commId);
+        if (!rec) {
+          throw new Error(`Commission record '${commId}' tidak ditemukan.`);
         }
 
-        // Validate threshold
-        if (totalAmount < minThreshold && !overrideThreshold) {
-          throw new Error(`Total komisi (Rp ${totalAmount.toLocaleString('id-ID')}) berada di bawah batas minimum penarikan (Rp ${minThreshold.toLocaleString('id-ID')}).`);
+        // Invariant: Must belong to same recipient
+        if (rec.recipientId !== cleanRecipientId) {
+          throw new Error(`Integritas gagal: Komisi '${commId}' milik penerima '${rec.recipientId}', bukan '${cleanRecipientId}'.`);
         }
 
-        if (totalAmount < minThreshold && overrideThreshold && (!overrideReason || overrideReason.trim().length < 5)) {
-          throw new Error("Alasan override batas minimum penarikan wajib diisi (minimal 5 karakter).");
+        // Invariant: Must be PAYABLE
+        if (rec.status !== "PAYABLE") {
+          throw new Error(`Komisi '${commId}' berstatus '${rec.status}', tidak dapat dialokasikan.`);
         }
 
-        const now = new Date().toISOString();
-        const batchDocData: PayoutBatch = {
-          id: batchId,
-          batchNumber,
+        // Invariant: Ledger must be POSTED
+        if (rec.ledgerStatus !== "POSTED") {
+          throw new Error(`Komisi '${commId}' belum terakrual di Buku Besar (ledgerStatus: '${rec.ledgerStatus}').`);
+        }
+
+        // Invariant: Must be UNPAID and not locked by another batch
+        if (rec.payoutStatus && rec.payoutStatus !== "UNPAID") {
+          throw new Error(`Komisi '${commId}' telah berstatus '${rec.payoutStatus}' (Batch ID: ${rec.payoutBatchId || 'unknown'}).`);
+        }
+
+        const payable = typeof rec.remainingPayableAmount === "number"
+          ? rec.remainingPayableAmount
+          : rec.commissionAmount;
+
+        if (payable <= 0) {
+          throw new Error(`Komisi '${commId}' tidak memiliki sisa hak bayar (Rp 0).`);
+        }
+
+        allocations.push({
+          commissionId: commId,
+          orderId: rec.orderId,
+          allocatedAmount: payable
+        });
+
+        totalAmount += payable;
+      }
+
+      // Validate threshold
+      if (totalAmount < minThreshold && !overrideThreshold) {
+        throw new Error(`Total komisi (Rp ${totalAmount.toLocaleString('id-ID')}) berada di bawah batas minimum penarikan (Rp ${minThreshold.toLocaleString('id-ID')}).`);
+      }
+
+      if (totalAmount < minThreshold && overrideThreshold && (!overrideReason || overrideReason.trim().length < 5)) {
+        throw new Error("Alasan override batas minimum penarikan wajib diisi (minimal 5 karakter).");
+      }
+
+      // Try to acquire the payout locks atomically in Supabase using RPC
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('create_payout_batch_atomic', {
+        p_batch_id: batchId,
+        p_batch_number: batchNumber,
+        p_recipient_id: cleanRecipientId,
+        p_recipient_snapshot: {
           recipientId: cleanRecipientId,
-          recipientSnapshot: {
-            recipientId: cleanRecipientId,
-            name: recipient.name,
-            bankName: recipient.payoutAccount!.bankName,
-            accountHolderName: recipient.payoutAccount!.accountHolderName,
-            accountNumberMasked: recipient.payoutAccount!.accountNumberMasked
-          },
-          allocations,
-          commissionRecordIds,
-          totalCommissionAmount: totalAmount,
-          payoutFee: 0,
-          netPayoutAmount: totalAmount,
-          status: "DRAFT",
-          payoutMethod: "MANUAL_BANK_TRANSFER",
-          createdBy: actor.uid,
-          createdAt: now
-        };
-
-        // Write batch document
-        const batchRef = adminDb.collection("payoutBatches").doc(batchId);
-        transaction.set(batchRef, batchDocData);
-
-        // Lock all commission records as ALLOCATED
-        for (const item of allocations) {
-          const commRef = adminDb.collection("commissionRecords").doc(item.commissionId);
-          transaction.update(commRef, {
-            payoutStatus: "ALLOCATED",
-            payoutBatchId: batchId,
-            updatedAt: now
-          });
-        }
-
-        return batchDocData;
+          name: recipient.name,
+          bankName: recipient.payoutAccount!.bankName,
+          accountHolderName: recipient.payoutAccount!.accountHolderName,
+          accountNumberMasked: recipient.payoutAccount!.accountNumberMasked
+        },
+        p_allocations: allocations,
+        p_total_amount: totalAmount,
+        p_created_by: actor.uid
       });
+
+      if (rpcErr) {
+        throw rpcErr;
+      }
+
+      if (!rpcRes?.success) {
+        throw new Error(`Gagal membuat batch payout: ${rpcRes?.reason || 'Unknown error'}`);
+      }
+
+      const batchDocData: PayoutBatch = {
+        id: batchId,
+        batchNumber,
+        recipientId: cleanRecipientId,
+        recipientSnapshot: {
+          recipientId: cleanRecipientId,
+          name: recipient.name,
+          bankName: recipient.payoutAccount!.bankName,
+          accountHolderName: recipient.payoutAccount!.accountHolderName,
+          accountNumberMasked: recipient.payoutAccount!.accountNumberMasked
+        },
+        allocations,
+        commissionRecordIds,
+        totalCommissionAmount: totalAmount,
+        payoutFee: 0,
+        netPayoutAmount: totalAmount,
+        status: "DRAFT",
+        payoutMethod: "MANUAL_BANK_TRANSFER",
+        createdBy: actor.uid,
+        createdAt: now
+      };
 
       // Audit log
       await logCoreAudit(
@@ -1128,15 +1003,15 @@ export class CommissionService {
         {
           batchNumber,
           recipientId: cleanRecipientId,
-          totalCommissionAmount: createdBatch.totalCommissionAmount,
+          totalCommissionAmount: totalAmount,
           recordsCount: commissionRecordIds.length,
           overrideThreshold: !!overrideThreshold,
           overrideReason: overrideReason || null
         },
-        `Payout batch ${batchNumber} created for ${recipient.name} (Rp ${createdBatch.totalCommissionAmount.toLocaleString('id-ID')})`
+        `Payout batch ${batchNumber} created for ${recipient.name} (Rp ${totalAmount.toLocaleString('id-ID')})`
       );
 
-      return { success: true, batch: createdBatch };
+      return { success: true, batch: batchDocData };
     } catch (err: any) {
       console.error("[Create Payout Batch Error]", err);
       return { success: false, message: err.message || "Gagal membuat batch payout." };
@@ -1148,12 +1023,11 @@ export class CommissionService {
    * Revalidates against stale refund.
    */
   async submitPayoutBatch(batchId: string, actor: { uid: string; email: string }): Promise<{ success: boolean; message?: string }> {
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const batch = await repo.getPayoutBatchById(batchId);
+    if (!batch) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
 
-    const batch = batchSnap.data() as PayoutBatch;
     if (batch.status !== "DRAFT") {
       return { success: false, message: `Batch berstatus '${batch.status}', hanya batch DRAFT yang dapat diajukan.` };
     }
@@ -1161,10 +1035,10 @@ export class CommissionService {
     // Fresh Revalidation
     const reval = await this.revalidateBatchAllocations(batch);
     if (!reval.valid) {
-      await adminDb.collection("payoutBatches").doc(batchId).update({
+      await repo.updatePayoutBatchStatus(batchId, {
         status: "NEEDS_REVIEW",
-        reviewReason: reval.staleReason,
-        updatedAt: new Date().toISOString()
+        review_reason: reval.staleReason,
+        updated_at: new Date().toISOString()
       });
       return {
         success: false,
@@ -1173,11 +1047,11 @@ export class CommissionService {
     }
 
     const now = new Date().toISOString();
-    await adminDb.collection("payoutBatches").doc(batchId).update({
+    await repo.updatePayoutBatchStatus(batchId, {
       status: "PENDING_APPROVAL",
-      submittedBy: actor.uid,
-      submittedAt: now,
-      updatedAt: now
+      submitted_by: actor.uid,
+      submitted_at: now,
+      updated_at: now
     });
 
     await logCoreAudit(
@@ -1202,14 +1076,13 @@ export class CommissionService {
     batchId: string,
     actor: { uid: string; email: string; isOwner?: boolean }
   ): Promise<{ success: boolean; message?: string }> {
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const batch = await repo.getPayoutBatchById(batchId);
+    if (!batch) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
 
-    const batch = batchSnap.data() as PayoutBatch;
     if (batch.status !== "PENDING_APPROVAL") {
-      return { success: false, message: `Batch berstatus '${batch.status}', hanya batch PENDING_APPROVAL yang dapat disetujui.` };
+      return { success: false, message: `Batch berstatus '${batch.status}', only PENDING_APPROVAL can be approved.` };
     }
 
     // Maker-checker policy: approver must not be creator unless Owner
@@ -1223,10 +1096,10 @@ export class CommissionService {
     // Fresh Revalidation
     const reval = await this.revalidateBatchAllocations(batch);
     if (!reval.valid) {
-      await adminDb.collection("payoutBatches").doc(batchId).update({
+      await repo.updatePayoutBatchStatus(batchId, {
         status: "NEEDS_REVIEW",
-        reviewReason: reval.staleReason,
-        updatedAt: new Date().toISOString()
+        review_reason: reval.staleReason,
+        updated_at: new Date().toISOString()
       });
       return {
         success: false,
@@ -1235,11 +1108,11 @@ export class CommissionService {
     }
 
     const now = new Date().toISOString();
-    await adminDb.collection("payoutBatches").doc(batchId).update({
+    await repo.updatePayoutBatchStatus(batchId, {
       status: "PROCESSING",
-      approvedBy: actor.uid,
-      approvedAt: now,
-      updatedAt: now
+      approved_by: actor.uid,
+      approved_at: now,
+      updated_at: now
     });
 
     await logCoreAudit(
@@ -1257,7 +1130,6 @@ export class CommissionService {
 
   /**
    * Confirm Payout Paid (PROCESSING -> PAID).
-   * Strict 12-Gate Transaction.
    * Posts Ledger: DR 2100_COMMISSION_PAYABLE / CR 1200_BANK_PRIMARY.
    * AC-6, AC-7, AC-10, AC-14, AC-15.
    */
@@ -1275,12 +1147,10 @@ export class CommissionService {
       return { success: false, message: "Nomor referensi transfer bank wajib diisi (minimal 5 karakter)." };
     }
 
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const currentBatchData = await repo.getPayoutBatchById(batchId);
+    if (!currentBatchData) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
-
-    const currentBatchData = batchSnap.data() as PayoutBatch;
 
     // Idempotency: If already PAID with same reference, return success
     if (currentBatchData.status === "PAID") {
@@ -1294,139 +1164,44 @@ export class CommissionService {
       return { success: false, message: `Batch sudah berstatus PAID dengan referensi '${currentBatchData.transferReference}'.` };
     }
 
-    // Gate 1: Batch must be in PROCESSING status
-    if (currentBatchData.status !== "PROCESSING") {
-      return { success: false, message: `Batch berstatus '${currentBatchData.status}', hanya batch PROCESSING yang dapat dikonfirmasi lunas.` };
+    // Gate 1: Batch must be in PROCESSING/PENDING_APPROVAL/NEEDS_REVIEW status (per RPC whitelist)
+    const allowedStatuses = ['PROCESSING', 'PENDING_APPROVAL', 'NEEDS_REVIEW'];
+    if (!allowedStatuses.includes(currentBatchData.status)) {
+      return { success: false, message: `Batch berstatus '${currentBatchData.status}', tidak dapat dikonfirmasi lunas.` };
     }
 
-    // Gate 10: Global uniqueness of transferReference across other PAID batches
-    // We use a dedicated reservation document in Firestore collection 'payoutReferenceReservations'
-    // with docId: `ref_${cleanTransferRef.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`
-    const refDocId = `ref_${cleanTransferRef.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
-    const refDocRef = adminDb.collection("payoutReferenceReservations").doc(refDocId);
-
-    const now = new Date().toISOString();
-
     try {
-      // Execute strict atomic transaction
-      await adminDb.runTransaction(async (transaction) => {
-        // Check Reference Reservation uniqueness
-        const refSnap = await transaction.get(refDocRef);
-        if (refSnap.exists) {
-          const refData = refSnap.data()!;
-          if (refData.batchId !== batchId) {
-            throw new Error(`TRANSFER_REF_ALREADY_USED: Referensi transfer '${cleanTransferRef}' telah digunakan pada batch ${refData.batchNumber || refData.batchId}.`);
-          }
-        }
-
-        // Fresh read batch inside transaction
-        const bSnap = await transaction.get(adminDb.collection("payoutBatches").doc(batchId));
-        if (!bSnap.exists) throw new Error("Batch tidak ditemukan.");
-        const batch = bSnap.data() as PayoutBatch;
-
-        if (batch.status !== "PROCESSING") {
-          throw new Error(`Batch status invalid: '${batch.status}', expected 'PROCESSING'.`);
-        }
-
-        // Gate 2: Recipient is active
-        const recSnap = await transaction.get(adminDb.collection("commissionRecipients").doc(batch.recipientId));
-        if (!recSnap.exists || recSnap.data()?.status !== "ACTIVE") {
-          throw new Error(`Penerima komisi '${batch.recipientId}' tidak aktif.`);
-        }
-
-        // Gate 3 - 8: Validate every allocation
-        let calculatedSum = 0;
-        const allocations = Array.isArray(batch.allocations) ? batch.allocations : [];
-
-        for (const item of allocations) {
-          const cRef = adminDb.collection("commissionRecords").doc(item.commissionId);
-          const cSnap = await transaction.get(cRef);
-
-          if (!cSnap.exists) {
-            throw new Error(`Commission record '${item.commissionId}' tidak ditemukan.`);
-          }
-
-          const rec = cSnap.data() as CommissionRecord;
-
-          // Gate 4: Still PAYABLE
-          if (rec.status !== "PAYABLE") {
-            throw new Error(`Komisi '${item.commissionId}' berstatus '${rec.status}', bukan 'PAYABLE'.`);
-          }
-
-          // Gate 5: payoutStatus === ALLOCATED
-          if (rec.payoutStatus !== "ALLOCATED") {
-            throw new Error(`Komisi '${item.commissionId}' memiliki payoutStatus '${rec.payoutStatus}', bukan 'ALLOCATED'.`);
-          }
-
-          // Gate 6: payoutBatchId === batch.id
-          if (rec.payoutBatchId !== batchId) {
-            throw new Error(`Komisi '${item.commissionId}' terikat pada batch '${rec.payoutBatchId}', bukan '${batchId}'.`);
-          }
-
-          // Gate 7: Anti-stale barrier (allocatedAmount === current remainingPayableAmount)
-          const currentPayable = typeof rec.remainingPayableAmount === "number"
-            ? rec.remainingPayableAmount
-            : rec.commissionAmount;
-
-          if (currentPayable !== item.allocatedAmount) {
-            throw new Error(`COMMISSION_ALLOCATION_STALE_DUE_TO_REFUND: Komisi '${item.commissionId}' dialokasikan Rp ${item.allocatedAmount.toLocaleString('id-ID')}, tetapi sisa hak komisi saat ini adalah Rp ${currentPayable.toLocaleString('id-ID')}.`);
-          }
-
-          calculatedSum += item.allocatedAmount;
-        }
-
-        // Gate 8: Sum equals totalCommissionAmount and netPayoutAmount
-        if (calculatedSum !== batch.totalCommissionAmount || calculatedSum !== batch.netPayoutAmount) {
-          throw new Error(`Ketidakcocokan nominal: Total alokasi (Rp ${calculatedSum.toLocaleString('id-ID')}) tidak cocok dengan batch amount.`);
-        }
-
-        // Gate 12: Check that ledger journal does not already exist
-        const expectedJournalId = `ledger_commission_payout_${batchId}`;
-        const journalRef = adminDb.collection("ledgerJournalEntries").doc(expectedJournalId);
-        const journalSnap = await transaction.get(journalRef);
-        if (journalSnap.exists) {
-          // Already posted
-          console.log(`[Confirm Paid] Ledger journal ${expectedJournalId} already exists.`);
-        }
-
-        // Reserve reference doc
-        transaction.set(refDocRef, {
-          reference: cleanTransferRef,
-          batchId,
-          batchNumber: batch.batchNumber,
-          reservedAt: now,
-          actor: actor.email
-        });
-
-        // Update Batch to PAID
-        transaction.update(adminDb.collection("payoutBatches").doc(batchId), {
-          status: "PAID",
-          transferReference: cleanTransferRef,
-          proofReference: proofReference || null,
-          paidBy: actor.uid,
-          paidAt: now,
-          updatedAt: now
-        });
-
-        // Update all Commission Records to PAID
-        for (const item of allocations) {
-          const cRef = adminDb.collection("commissionRecords").doc(item.commissionId);
-          transaction.update(cRef, {
-            payoutStatus: "PAID",
-            paidAt: now,
-            updatedAt: now
-          });
-        }
+      const supabase = getSupabase();
+      
+      // Execute strict atomic logic via RPC
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('confirm_payout_paid_atomic', {
+        p_batch_id: batchId,
+        p_transfer_reference: cleanTransferRef,
+        p_proof_reference: proofReference || null,
+        p_paid_by: actor.uid,
+        p_ledger_journal_id: null // Will be updated after ledger posting
       });
-    } catch (err: any) {
-      console.error("[Confirm Payout Paid Transaction Aborted]", err);
 
-      // If stale detected, transition batch to NEEDS_REVIEW
-      if (err.message && err.message.includes("COMMISSION_ALLOCATION_STALE_DUE_TO_REFUND")) {
-        await adminDb.collection("payoutBatches").doc(batchId).update({
+      if (rpcErr) {
+        throw rpcErr;
+      }
+
+      if (!rpcRes?.success) {
+        if (rpcRes?.alreadyPaid) {
+          return { success: true, message: "Batch sudah dikonfirmasi lunas (Idempotent)." };
+        }
+        throw new Error(`Gagal konfirmasi pembayaran: ${rpcRes?.reason || 'SQL_ERROR'}`);
+      }
+
+    } catch (err: any) {
+      console.error("[Confirm Payout Paid Logic Aborted]", err);
+
+      // If stale detected via RAISE EXCEPTION in RPC, handle message
+      if (err.message && err.message.includes("Refund Race Detected")) {
+        await repo.updatePayoutBatchStatus(batchId, {
           status: "NEEDS_REVIEW",
-          reviewReason: err.message,
-          updatedAt: new Date().toISOString()
+          review_reason: err.message,
+          updated_at: new Date().toISOString()
         });
       }
 
@@ -1434,8 +1209,10 @@ export class CommissionService {
     }
 
     // Post Double-Entry Ledger
-    const updatedBatchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    const updatedBatch = updatedBatchSnap.data() as PayoutBatch;
+    const updatedBatch = await repo.getPayoutBatchById(batchId);
+    if (!updatedBatch) {
+       return { success: false, message: "Gagal mengambil data batch setelah konfirmasi." };
+    }
 
     let ledgerJournalId: string | null = null;
     try {
@@ -1443,14 +1220,15 @@ export class CommissionService {
       const ledgerResult = await recordCommissionPayout(updatedBatch, actor.email);
       ledgerJournalId = ledgerResult.docId;
 
-      await adminDb.collection("payoutBatches").doc(batchId).update({
-        ledgerJournalId: ledgerResult.docId
+      // Update journal ID in Supabase
+      await repo.updatePayoutBatchStatus(batchId, {
+        ledger_journal_id: ledgerResult.docId,
+        updated_at: new Date().toISOString()
       });
     } catch (ledgerErr: any) {
       console.error("[Ledger Payout Posting Failed - Enqueueing Retry]", ledgerErr);
-      // Resilience AC-7: Enqueue retry job so ledger is eventually posted
       const { JobService } = await import("./job-service");
-      await JobService.getInstance().enqueue({
+      await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
         type: "COMMISSION_PAYOUT_LEDGER_POST" as any,
         payload: { payoutBatchId: batchId },
         priority: "HIGH",
@@ -1464,7 +1242,7 @@ export class CommissionService {
       "admin",
       "COMMISSION_PAYOUT_CONFIRMED_PAID",
       `payoutBatches/${batchId}`,
-      { status: "PROCESSING" },
+      { status: currentBatchData.status },
       {
         status: "PAID",
         transferReference: cleanTransferRef,
@@ -1490,51 +1268,37 @@ export class CommissionService {
   }): Promise<{ success: boolean; message?: string }> {
     const { batchId, cancellationReason, actor } = params;
 
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const batch = await repo.getPayoutBatchById(batchId);
+    if (!batch) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
 
-    const batch = batchSnap.data() as PayoutBatch;
     if (batch.status === "PAID") {
-      return { success: false, message: "Batch yang sudah PAID tidak dapat dibatalkan (Hubungi Finance Head untuk prosedur khusus)." };
+      return { success: false, message: "Batch yang sudah PAID tidak dapat dibatalkan." };
     }
 
     if (batch.status === "CANCELLED") {
       return { success: true, message: "Batch sudah berstatus CANCELLED." };
     }
 
-    const now = new Date().toISOString();
-
     try {
-      await adminDb.runTransaction(async (transaction) => {
-        // Unlock all commission records back to UNPAID
-        const allocations = Array.isArray(batch.allocations) ? batch.allocations : [];
-        for (const item of allocations) {
-          const cRef = adminDb.collection("commissionRecords").doc(item.commissionId);
-          const cSnap = await transaction.get(cRef);
-          if (cSnap.exists) {
-            const rec = cSnap.data() as CommissionRecord;
-            // Only unlock if still pointing to this batch
-            if (rec.payoutBatchId === batchId) {
-              transaction.update(cRef, {
-                payoutStatus: "UNPAID",
-                payoutBatchId: null,
-                updatedAt: now
-              });
-            }
-          }
-        }
-
-        // Update batch status to CANCELLED
-        transaction.update(adminDb.collection("payoutBatches").doc(batchId), {
-          status: "CANCELLED",
-          cancelledBy: actor.uid,
-          cancelledAt: now,
-          cancellationReason: cancellationReason || "Dibatalkan oleh admin",
-          updatedAt: now
-        });
+      const supabase = getSupabase();
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('cancel_payout_batch_atomic', {
+        p_batch_id: batchId,
+        p_cancelled_by: actor.uid,
+        p_cancellation_reason: cancellationReason || "Dibatalkan oleh admin"
       });
+
+      if (rpcErr) {
+        throw rpcErr;
+      }
+
+      if (!rpcRes?.success) {
+        if (rpcRes?.alreadyCancelled) {
+          return { success: true, message: "Batch sudah berstatus CANCELLED." };
+        }
+        throw new Error(`Gagal membatalkan batch: ${rpcRes?.reason || 'SQL_ERROR'}`);
+      }
 
       await logCoreAudit(
         actor,
@@ -1565,12 +1329,11 @@ export class CommissionService {
   }): Promise<{ success: boolean; message?: string }> {
     const { batchId, failureReason, actor } = params;
 
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const batch = await repo.getPayoutBatchById(batchId);
+    if (!batch) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
 
-    const batch = batchSnap.data() as PayoutBatch;
     if (batch.status === "PAID") {
       return { success: false, message: "Batch yang sudah PAID tidak dapat ditandai FAILED." };
     }
@@ -1578,30 +1341,26 @@ export class CommissionService {
     const now = new Date().toISOString();
 
     try {
-      await adminDb.runTransaction(async (transaction) => {
-        // Unlock all commission records back to UNPAID
-        const allocations = Array.isArray(batch.allocations) ? batch.allocations : [];
-        for (const item of allocations) {
-          const cRef = adminDb.collection("commissionRecords").doc(item.commissionId);
-          const cSnap = await transaction.get(cRef);
-          if (cSnap.exists) {
-            const rec = cSnap.data() as CommissionRecord;
-            if (rec.payoutBatchId === batchId) {
-              transaction.update(cRef, {
-                payoutStatus: "UNPAID",
-                payoutBatchId: null,
-                updatedAt: now
-              });
-            }
-          }
-        }
+      // Unlock all commission records in Supabase back to UNPAID
+      const supabase = getSupabase();
+      const { error: updateErr } = await supabase
+        .from("commission_records")
+        .update({
+          payout_status: "UNPAID",
+          payout_batch_id: null,
+          updated_at: now
+        })
+        .eq("payout_batch_id", batchId);
 
-        // Update batch status to FAILED
-        transaction.update(adminDb.collection("payoutBatches").doc(batchId), {
-          status: "FAILED",
-          failureReason: failureReason || "Transfer bank gagal",
-          updatedAt: now
-        });
+      if (updateErr) {
+        throw updateErr;
+      }
+
+      // Update batch status to FAILED in Supabase
+      await repo.updatePayoutBatchStatus(batchId, {
+        status: "FAILED",
+        failure_reason: failureReason || "Transfer bank gagal",
+        updated_at: now
       });
 
       await logCoreAudit(
@@ -1629,20 +1388,18 @@ export class CommissionService {
     batchId: string,
     actor: { uid: string; email: string }
   ): Promise<{ success: boolean; csvContent?: string; filename?: string; message?: string }> {
-    const batchSnap = await adminDb.collection("payoutBatches").doc(batchId).get();
-    if (!batchSnap.exists) {
+    const batch = await repo.getPayoutBatchById(batchId);
+    if (!batch) {
       return { success: false, message: `Batch '${batchId}' tidak ditemukan.` };
     }
-
-    const batch = batchSnap.data() as PayoutBatch;
 
     // AC-16: Revalidate against stale refund before generating transfer instruction
     const reval = await this.revalidateBatchAllocations(batch);
     if (!reval.valid) {
-      await adminDb.collection("payoutBatches").doc(batchId).update({
+      await repo.updatePayoutBatchStatus(batchId, {
         status: "NEEDS_REVIEW",
-        reviewReason: reval.staleReason,
-        updatedAt: new Date().toISOString()
+        review_reason: reval.staleReason,
+        updated_at: new Date().toISOString()
       });
       return {
         success: false,
@@ -1650,12 +1407,11 @@ export class CommissionService {
       };
     }
 
-    // Fetch recipient to decrypt bank account in memory
-    const recSnap = await adminDb.collection("commissionRecipients").doc(batch.recipientId).get();
-    if (!recSnap.exists) {
+    // Fetch recipient from Supabase to decrypt bank account in memory
+    const recipient = await repo.getRecipientById(batch.recipientId);
+    if (!recipient) {
       return { success: false, message: `Penerima '${batch.recipientId}' tidak ditemukan.` };
     }
-    const recipient = recSnap.data() as any;
 
     let plaintextAccountNumber = "";
     if (recipient.payoutAccount?.encryptedAccountNumber) {
@@ -1665,14 +1421,11 @@ export class CommissionService {
       } catch (err) {
         plaintextAccountNumber = recipient.payoutAccount.accountNumberMasked || "";
       }
-    } else if (recipient.payoutAccount?.accountNumber) {
-      plaintextAccountNumber = recipient.payoutAccount.accountNumber;
     } else {
       plaintextAccountNumber = recipient.payoutAccount?.accountNumberMasked || "";
     }
 
     // Generate Generic Bank Transfer CSV
-    // Format: Recipient Name, Bank Name, Account Number, Transfer Amount, Transfer Note / Reference
     const headers = ["Recipient Name", "Bank Name", "Account Number", "Transfer Amount", "Transfer Note / Reference"];
     const row = [
       `"${(batch.recipientSnapshot.name || "").replace(/"/g, '""')}"`,

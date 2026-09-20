@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { ReferralService } from "./referral-service";
 import { AuthenticatedRequest, requireAuth, requireAdmin } from "./middleware";
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
+import { supabaseAdmin } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 
 const router = Router();
 const referralService = ReferralService.getInstance();
@@ -33,7 +34,7 @@ router.put("/config", requireAuth, requireAdmin, async (req: AuthenticatedReques
       updatedBy: actor.email
     };
 
-    await adminDb.collection("systemConfigs").doc("referral_config").set(updatedConfig);
+    await SystemConfigRepository.getInstance().upsertConfig("referral_config", updatedConfig);
     
     await logCoreAudit(
       actor,
@@ -56,28 +57,56 @@ router.put("/config", requireAuth, requireAdmin, async (req: AuthenticatedReques
 router.get("/relationships", requireAuth, requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
-    let query: FirebaseFirestore.Query = adminDb.collection("referralRelationships");
+    const p = Number(page);
+    const l = Number(limit);
+    const startIndex = (p - 1) * l;
+    const endIndex = startIndex + l - 1;
 
-    if (status && status !== 'ALL') {
-      query = query.where("status", "==", status);
+    if (!supabaseAdmin) {
+      throw new Error("SUPABASE_ADMIN_NOT_CONFIGURED");
     }
 
-    const snap = await query.orderBy("createdAt", "desc").get();
-    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let query = supabaseAdmin
+      .from("referral_relationships")
+      .select("*", { count: "exact" });
 
-    // Manual pagination for simplicity in MVP
-    const total = items.length;
-    const startIndex = (Number(page) - 1) * Number(limit);
-    const paginatedItems = items.slice(startIndex, startIndex + Number(limit));
+    if (status && status !== 'ALL') {
+      query = query.eq("status", status);
+    }
+
+    const { data, count, error } = await query
+      .order("created_at", { ascending: false })
+      .range(startIndex, endIndex);
+
+    if (error) {
+      throw error;
+    }
+
+    const mappedItems = (data || []).map(row => ({
+      id: row.id,
+      referrerUid: row.referrer_uid,
+      referredUid: row.referred_uid,
+      status: row.status,
+      referralCode: row.referral_code,
+      source: row.source,
+      rewardStatus: row.reward_status,
+      rewardType: row.reward_type,
+      qualifiedOrderId: row.qualified_order_id,
+      convertedAt: row.converted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+
+    const total = count || 0;
 
     res.json({
       success: true,
-      data: paginatedItems,
+      data: mappedItems,
       pagination: {
         total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / Number(limit))
+        page: p,
+        limit: l,
+        totalPages: Math.ceil(total / l)
       }
     });
   } catch (error: any) {

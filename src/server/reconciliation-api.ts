@@ -1,44 +1,50 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 import { reconcileOrder, runReconciliationBatch } from "./reconciliation-service";
 import { logCoreAudit } from "./core-service";
+import { OrderRepository } from "./supabase/order-repository";
 
 export async function getReconciliationOverviewApi(req: AuthenticatedRequest, res: Response) {
   try {
     const [
-      totalRuns,
-      totalRecordsChecked,
-      openMismatches,
-      resolvedMismatches,
-      statusMismatchCount,
-      amountMismatchCount,
-      providerPendingCount,
-      lastRunSnap
+      totalRunsRes,
+      totalRecordsRes,
+      openMismatchesRes,
+      resolvedMismatchesRes,
+      statusMismatchCountRes,
+      amountMismatchCountRes,
+      providerPendingCountRes,
+      lastRunRes
     ] = await Promise.all([
-      adminDb.collection("reconciliationRuns").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").where("resolution", "==", "OPEN").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").where("resolution", "==", "RESOLVED").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").where("mismatchType", "==", "STATUS_MISMATCH").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").where("mismatchType", "==", "AMOUNT_MISMATCH").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRecords").where("mismatchType", "==", "PROVIDER_PENDING").count().get().then(s => s.data().count),
-      adminDb.collection("reconciliationRuns").orderBy("createdAt", "desc").limit(1).get()
+      supabaseAdmin!.from("reconciliation_runs").select("id", { count: "exact", head: true }),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }).eq("resolution_status", "OPEN"),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }).eq("resolution_status", "RESOLVED"),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }).eq("type", "STATUS_MISMATCH"),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }).eq("type", "AMOUNT_MISMATCH"),
+      supabaseAdmin!.from("reconciliation_records").select("id", { count: "exact", head: true }).eq("type", "PROVIDER_PENDING"),
+      supabaseAdmin!.from("reconciliation_runs").select("*").order("created_at", { ascending: false }).limit(1).maybeSingle()
     ]);
 
-    const lastRun = !lastRunSnap.empty ? lastRunSnap.docs[0].data() : null;
-
+    const openMismatches = openMismatchesRes.count || 0;
+    
     return res.status(200).json({
       success: true,
       data: {
-        totalRuns,
-        totalRecordsChecked,
+        totalRuns: totalRunsRes.count || 0,
+        totalRecordsChecked: totalRecordsRes.count || 0,
         openMismatches,
-        resolvedMismatches,
-        statusMismatchCount,
-        amountMismatchCount,
-        providerPendingCount,
-        lastRun,
+        resolvedMismatches: resolvedMismatchesRes.count || 0,
+        statusMismatchCount: statusMismatchCountRes.count || 0,
+        amountMismatchCount: amountMismatchCountRes.count || 0,
+        providerPendingCount: providerPendingCountRes.count || 0,
+        lastRun: lastRunRes.data ? {
+          id: lastRunRes.data.id,
+          executedBy: lastRunRes.data.executed_by,
+          status: lastRunRes.data.status,
+          createdAt: lastRunRes.data.created_at
+        } : null,
         healthStatus: openMismatches === 0 ? "HEALTHY" : "ATTENTION_REQUIRED"
       }
     });
@@ -50,9 +56,18 @@ export async function getReconciliationOverviewApi(req: AuthenticatedRequest, re
 
 export async function getReconciliationRunsApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const snapshot = await adminDb.collection("reconciliationRuns").orderBy("createdAt", "desc").limit(50).get();
-    const runs = snapshot.docs.map(doc => doc.data());
-
+    const { data } = await supabaseAdmin!.from("reconciliation_runs").select("*").order("created_at", { ascending: false }).limit(50);
+    const runs = (data || []).map(row => ({
+      id: row.id,
+      executedBy: row.executed_by,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      status: row.status,
+      totalOrdersScanned: row.total_orders_scanned,
+      mismatchCount: row.mismatch_count,
+      createdAt: row.created_at
+    }));
+    
     return res.status(200).json({
       success: true,
       data: runs
@@ -66,18 +81,40 @@ export async function getReconciliationRunsApi(req: AuthenticatedRequest, res: R
 export async function getReconciliationRunDetailApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const doc = await adminDb.collection("reconciliationRuns").doc(id).get();
-    if (!doc.exists) {
+    
+    const { data: runData } = await supabaseAdmin!.from("reconciliation_runs").select("*").eq("id", id).maybeSingle();
+    if (!runData) {
       return res.status(404).json({ success: false, message: "Reconciliation run not found" });
     }
-
-    const recordsSnap = await adminDb.collection("reconciliationRecords").where("runId", "==", id).get();
-    const records = recordsSnap.docs.map(d => d.data());
+    
+    const { data: recordsData } = await supabaseAdmin!.from("reconciliation_records").select("*").eq("run_id", id);
+    const records = (recordsData || []).map(row => ({
+      id: row.id,
+      runId: row.run_id,
+      orderId: row.order_id,
+      mismatchType: row.type,
+      resolution: row.resolution_status,
+      localState: row.local_state,
+      providerState: row.provider_state,
+      expectedAmount: row.expected_amount,
+      actualAmount: row.actual_amount,
+      resolutionReason: row.resolution_reason,
+      createdAt: row.created_at
+    }));
 
     return res.status(200).json({
       success: true,
       data: {
-        run: doc.data(),
+        run: {
+          id: runData.id,
+          executedBy: runData.executed_by,
+          startedAt: runData.started_at,
+          completedAt: runData.completed_at,
+          status: runData.status,
+          totalOrdersScanned: runData.total_orders_scanned,
+          mismatchCount: runData.mismatch_count,
+          createdAt: runData.created_at
+        },
         records
       }
     });
@@ -100,27 +137,41 @@ export async function getReconciliationRecordsApi(req: AuthenticatedRequest, res
     const pageNum = parseInt(page as string, 10) || 1;
     const limitNum = Math.min(parseInt(limit as string, 10) || 25, 100);
 
-    let query: FirebaseFirestore.Query = adminDb.collection("reconciliationRecords");
+    let query = supabaseAdmin!.from("reconciliation_records").select("*");
 
     if (resolution && resolution !== "ALL") {
-      query = query.where("resolution", "==", resolution);
+      query = query.eq("resolution_status", resolution);
     }
 
     if (mismatchType && mismatchType !== "ALL") {
-      query = query.where("mismatchType", "==", mismatchType);
+      query = query.eq("type", mismatchType);
     }
 
-    query = query.orderBy("detectedAt", "desc");
+    // Since we fetch all and paginate in memory like before for search
+    const { data: recordsData } = await query.order("created_at", { ascending: false });
 
-    const snapshot = await query.get();
-    let records = snapshot.docs.map(doc => doc.data());
+    let records = (recordsData || []).map(row => ({
+      id: row.id,
+      runId: row.run_id,
+      orderId: row.order_id,
+      mismatchType: row.type,
+      resolution: row.resolution_status,
+      localState: row.local_state,
+      providerState: row.provider_state,
+      expectedAmount: row.expected_amount,
+      actualAmount: row.actual_amount,
+      resolutionReason: row.resolution_reason,
+      createdAt: row.created_at,
+      detectedAt: row.created_at, // Map detectedAt to createdAt for frontend compat
+      message: row.resolution_reason // Map message
+    }));
 
     if (search && typeof search === "string" && search.trim() !== "") {
       const term = search.toLowerCase();
       records = records.filter(r => 
-        r.orderId?.toLowerCase().includes(term) ||
-        r.id?.toLowerCase().includes(term) ||
-        r.message?.toLowerCase().includes(term)
+        (r.orderId && r.orderId.toLowerCase().includes(term)) ||
+        (r.id && r.id.toLowerCase().includes(term)) ||
+        (r.message && r.message.toLowerCase().includes(term))
       );
     }
 
@@ -157,13 +208,9 @@ export async function reconcileSingleOrder(req: AuthenticatedRequest, res: Respo
       return res.status(400).json({ success: false, message: "ID pesanan wajib diisi." });
     }
 
-    const beforeSnap = await adminDb.collection("orders").doc(id).get();
-    const beforeData = beforeSnap.exists ? beforeSnap.data() : null;
-
+    const beforeData = await OrderRepository.getInstance().getOrderById(id);
     const result = await reconcileOrder(id, actorUid);
-
-    const afterSnap = await adminDb.collection("orders").doc(id).get();
-    const afterData = afterSnap.exists ? afterSnap.data() : null;
+    const afterData = await OrderRepository.getInstance().getOrderById(id);
 
     await logCoreAudit(
       { uid: actorUid, email: actorEmail },
@@ -198,7 +245,7 @@ export async function triggerReconciliationBatch(req: AuthenticatedRequest, res:
       { uid: actorUid, email: actorEmail },
       actorRole,
       "TRIGGER_RECONCILIATION_BATCH",
-      "reconciliationRuns/batch",
+      "reconciliation_runs/batch",
       null,
       result,
       "Triggered manual batch reconciliation run"

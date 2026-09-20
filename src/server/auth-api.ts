@@ -1,7 +1,8 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
-import { createRole, updateRole, deleteRole, assignUserRole, getRole, updateUserProfile } from "./auth-service";
+import { createRole, updateRole, deleteRole, assignUserRole, getRole, updateUserProfile, getUserRole } from "./auth-service";
+import { AuthRepository } from "./supabase/auth-repository";
+import { supabaseAdmin } from "./supabase-admin";
 
 export async function updateProfileApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -10,13 +11,10 @@ export async function updateProfileApi(req: AuthenticatedRequest, res: Response)
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ success: false, message: "Nama tidak boleh kosong" });
     }
+    const sanitizedName = name.trim().slice(0, 100);
 
-    const sanitizedName = name.trim().slice(0, 100); // Reasonable limit
-    
-    // Authorization: Handled by requireAuth middleware providing req.user
     const actor = { uid: req.user.uid, email: req.user.email };
-    const userDoc = await adminDb.collection("users").doc(actor.uid).get();
-    const actorRole = userDoc.exists ? userDoc.data()?.role : "customer";
+    const actorRole = await getUserRole(actor.uid, actor.email);
 
     const result = await updateUserProfile(actor, actorRole, sanitizedName);
     return res.status(200).json({ success: true, data: result });
@@ -28,8 +26,7 @@ export async function updateProfileApi(req: AuthenticatedRequest, res: Response)
 
 export async function getRoles(req: AuthenticatedRequest, res: Response) {
   try {
-    const rolesSnap = await adminDb.collection("roles").get();
-    const roles = rolesSnap.docs.map(doc => doc.data());
+    const roles = await AuthRepository.getInstance().getAllRoles();
     return res.status(200).json({ success: true, data: roles });
   } catch (error: any) {
     console.error("[Auth API Error] getRoles:", error);
@@ -41,8 +38,7 @@ export async function createRoleApi(req: AuthenticatedRequest, res: Response) {
   try {
     const roleData = req.body;
     const actor = { uid: req.user.uid, email: req.user.email };
-    const userDoc = await adminDb.collection("users").doc(actor.uid).get();
-    const actorRole = userDoc.exists ? userDoc.data()?.role : "admin";
+    const actorRole = await getUserRole(actor.uid, actor.email);
     
     const newRole = await createRole(actor, actorRole, roleData);
     return res.status(201).json({ success: true, data: newRole });
@@ -56,8 +52,7 @@ export async function updateRoleApi(req: AuthenticatedRequest, res: Response) {
     const { id } = req.params;
     const updates = req.body;
     const actor = { uid: req.user.uid, email: req.user.email };
-    const userDoc = await adminDb.collection("users").doc(actor.uid).get();
-    const actorRole = userDoc.exists ? userDoc.data()?.role : "admin";
+    const actorRole = await getUserRole(actor.uid, actor.email);
     
     const updatedRole = await updateRole(actor, actorRole, id, updates);
     return res.status(200).json({ success: true, data: updatedRole });
@@ -70,8 +65,7 @@ export async function deleteRoleApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
     const actor = { uid: req.user.uid, email: req.user.email };
-    const userDoc = await adminDb.collection("users").doc(actor.uid).get();
-    const actorRole = userDoc.exists ? userDoc.data()?.role : "admin";
+    const actorRole = await getUserRole(actor.uid, actor.email);
     
     await deleteRole(actor, actorRole, id);
     return res.status(200).json({ success: true, message: "Role deleted" });
@@ -85,8 +79,7 @@ export async function assignRoleApi(req: AuthenticatedRequest, res: Response) {
     const { uid } = req.params;
     const { roleId } = req.body;
     const actor = { uid: req.user.uid, email: req.user.email };
-    const userDoc = await adminDb.collection("users").doc(actor.uid).get();
-    const actorRole = userDoc.exists ? userDoc.data()?.role : "admin";
+    const actorRole = await getUserRole(actor.uid, actor.email);
     
     await assignUserRole(actor, actorRole, uid, roleId);
     return res.status(200).json({ success: true, message: "Role assigned" });
@@ -98,16 +91,16 @@ export async function assignRoleApi(req: AuthenticatedRequest, res: Response) {
 export async function getUserPermissionsApi(req: AuthenticatedRequest, res: Response) {
   try {
     const uid = req.user.uid;
-    const userDoc = await adminDb.collection("users").doc(uid).get();
-    let role = userDoc.exists ? userDoc.data()?.role : "customer";
+    const email = req.user.email;
+    const role = await getUserRole(uid, email);
     
     if (role === "customer") {
       return res.status(200).json({ success: true, data: [] });
     }
-
+    
     const roleData = await getRole(role);
-    if (!roleData && role !== "pemilik") {
-       return res.status(200).json({ success: true, data: [] });
+    if (!roleData && role !== "pemilik") { 
+      return res.status(200).json({ success: true, data: [] });
     }
     
     const permissions = role === "pemilik" 
@@ -123,16 +116,17 @@ export async function getUserPermissionsApi(req: AuthenticatedRequest, res: Resp
 
 export async function getAdminUsersApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const usersSnap = await adminDb.collection("users").get();
-    const users = usersSnap.docs.map(doc => {
-      const data = doc.data();
+    const { data, error } = await supabaseAdmin!.from("profiles").select("*");
+    if (error) throw error;
+    
+    const users = (data || []).map(doc => {
       return {
         uid: doc.id,
-        name: data.name || data.displayName || data.email?.split("@")[0] || "Pengguna",
-        email: data.email || "-",
-        role: data.role || "customer",
-        status: data.status || "active",
-        createdAt: data.createdAt || null
+        name: doc.display_name || doc.email?.split("@")[0] || "Pengguna",
+        email: doc.email || "-",
+        role: doc.role_id || "customer",
+        status: doc.status || "active",
+        createdAt: doc.created_at || null
       };
     });
     return res.status(200).json({ success: true, data: users });
@@ -144,7 +138,6 @@ export async function getAdminUsersApi(req: AuthenticatedRequest, res: Response)
 
 export async function checkPermissionApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const { resource, action, scope } = req.query;
     // handled by requirePermission middleware
     return res.status(200).json({ success: true, allowed: true });
   } catch (error: any) {

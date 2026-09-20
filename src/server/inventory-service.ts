@@ -1,5 +1,6 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 import { Stock, Quota, StockMovement, Reservation } from "../types/core";
+import * as crypto from "crypto";
 
 export class InventoryService {
   private static instance: InventoryService;
@@ -13,219 +14,178 @@ export class InventoryService {
     return InventoryService.instance;
   }
 
-  // --- QUOTA MANAGEMENT ---
   async getQuotas(): Promise<Quota[]> {
-    const snap = await adminDb.collection("quotas").get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Quota));
+    const { data } = await supabaseAdmin!.from("quotas").select("*");
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      ...d
+    })) as Quota[];
+  }
+
+  async getAllStocks(): Promise<Stock[]> {
+    const { data, error } = await supabaseAdmin!.from("stocks").select("*");
+    if (error) throw new Error(`Supabase select stocks error: ${error.message}`);
+    return (data || []).map((d: any) => ({
+      id: d.id,
+      variantId: d.variant_id,
+      quantity: d.quantity,
+      reservedQuantity: d.reserved_quantity,
+      availableQuantity: d.available_quantity,
+      status: d.status || "active",
+      updatedAt: d.updated_at
+    })) as unknown as Stock[];
   }
 
   async saveQuota(data: Partial<Quota>): Promise<Quota> {
-    const ref = data.id ? adminDb.collection("quotas").doc(data.id) : adminDb.collection("quotas").doc();
-    const payload = {
-      ...data,
-      id: ref.id,
-      updatedAt: new Date().toISOString()
-    };
-    await ref.set(payload, { merge: true });
-    return payload as Quota;
+    if (data.id) {
+      await supabaseAdmin!.from("quotas").update({
+        ...data,
+        updated_at: new Date().toISOString()
+      }).eq("id", data.id);
+      return data as Quota;
+    } else {
+      const newId = crypto.randomUUID();
+      const payload = {
+        ...data,
+        id: newId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      await supabaseAdmin!.from("quotas").insert(payload);
+      return payload as unknown as Quota;
+    }
   }
 
-  // --- STOCK MANAGEMENT ---
   async getStockForVariant(variantId: string): Promise<Stock | null> {
-    const snap = await adminDb.collection("stocks").where("variantId", "==", variantId).limit(1).get();
-    if (snap.empty) return null;
-    return { id: snap.docs[0].id, ...snap.docs[0].data() } as Stock;
+    const { data } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", variantId).limit(1).maybeSingle();
+    if (!data) return null;
+    return {
+      id: data.id,
+      variantId: data.variant_id,
+      quantity: data.quantity,
+      reservedQuantity: data.reserved_quantity,
+      availableQuantity: data.available_quantity,
+      updatedAt: data.updated_at
+    } as unknown as Stock;
   }
 
   async adjustStock(variantId: string, quantityChange: number, actor: string, reason: string): Promise<Stock> {
-    return await adminDb.runTransaction(async (t) => {
-      const snap = await t.get(adminDb.collection("stocks").where("variantId", "==", variantId).limit(1));
-      
-      let stock: Partial<Stock>;
-      let docRef;
-      
-      if (snap.empty) {
-        docRef = adminDb.collection("stocks").doc();
-        if (quantityChange < 0) throw new Error("Cannot set negative initial stock");
-        stock = {
-          id: docRef.id,
-          variantId,
-          quantity: quantityChange,
-          reservedQuantity: 0,
-          availableQuantity: quantityChange,
-          lowStockThreshold: 0,
-          status: 'active',
-          updatedAt: new Date().toISOString(),
-          updatedBy: actor
-        };
-      } else {
-        docRef = snap.docs[0].ref;
-        const current = snap.docs[0].data() as Stock;
-        const newQty = current.quantity + quantityChange;
-        const newAvail = current.availableQuantity + quantityChange;
-        
-        if (newAvail < 0) throw new Error("Insufficient stock availability");
-        
-        stock = {
-          ...current,
-          quantity: newQty,
-          availableQuantity: newAvail,
-          updatedAt: new Date().toISOString(),
-          updatedBy: actor
-        };
-      }
-
-      t.set(docRef, stock);
-
-      // Record movement
-      const moveRef = adminDb.collection("stockMovements").doc();
-      const movement: StockMovement = {
-        id: moveRef.id,
-        variantId,
-        type: quantityChange >= 0 ? 'RECEIVE' : 'ADJUST',
-        quantity: Math.abs(quantityChange),
-        before: snap.empty ? 0 : snap.docs[0].data().quantity,
-        after: stock.quantity!,
-        actor,
-        reason,
-        timestamp: new Date().toISOString()
-      };
-      t.set(moveRef, movement);
-
-      return stock as Stock;
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", variantId).limit(1).maybeSingle();
+    
+    let currentQty = 0;
+    let stockId = null;
+    
+    if (stockData) {
+      currentQty = stockData.quantity || 0;
+      stockId = stockData.id;
+    } else {
+      stockId = crypto.randomUUID();
+    }
+    
+    const newQty = currentQty + quantityChange;
+    if (newQty < 0) throw new Error("Stok tidak mencukupi");
+    
+    const payload = {
+      variant_id: variantId,
+      quantity: newQty,
+      updated_at: new Date().toISOString()
+    };
+    
+    if (stockData) {
+      await supabaseAdmin!.from("stocks").update(payload).eq("id", stockId);
+    } else {
+      await supabaseAdmin!.from("stocks").insert({ id: stockId, ...payload });
+    }
+    
+    await supabaseAdmin!.from("stock_movements").insert({
+      id: crypto.randomUUID(),
+      stock_id: stockId,
+      variant_id: variantId,
+      delta: quantityChange,
+      reason,
+      created_at: new Date().toISOString()
     });
+    
+    return { id: stockId, ...payload } as unknown as Stock;
   }
 
-  // --- RESERVATION ---
   async reserveStock(orderId: string, variantId: string, quantity: number): Promise<boolean> {
-    return await adminDb.runTransaction(async (t) => {
-      const snap = await t.get(adminDb.collection("stocks").where("variantId", "==", variantId).limit(1));
-      if (snap.empty) return true; // If no stock record exists, we treat it as unmanaged/digital topup
-
-      const current = snap.docs[0].data() as Stock;
-      if (current.status !== 'active') throw new Error("Stock is inactive");
-      if (current.availableQuantity < quantity) throw new Error("Out of stock");
-
-      const newReserved = current.reservedQuantity + quantity;
-      const newAvail = current.availableQuantity - quantity;
-
-      t.update(snap.docs[0].ref, {
-        reservedQuantity: newReserved,
-        availableQuantity: newAvail,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "SYSTEM_CHECKOUT"
-      });
-
-      const resRef = adminDb.collection("reservations").doc(orderId);
-      const res: Reservation = {
-        id: orderId,
-        orderId,
-        variantId,
-        quantity,
-        status: 'ACTIVE',
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 15 * 60000).toISOString() // 15 mins expiry
-      };
-      t.set(resRef, res);
-
-      const moveRef = adminDb.collection("stockMovements").doc();
-      const movement: StockMovement = {
-        id: moveRef.id,
-        variantId,
-        type: 'RESERVE',
-        quantity,
-        before: current.quantity, // Physical quantity remains the same
-        after: current.quantity,
-        referenceId: orderId,
-        actor: "SYSTEM_CHECKOUT",
-        reason: "Order checkout reservation",
-        timestamp: new Date().toISOString()
-      };
-      t.set(moveRef, movement);
-
-      return true;
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", variantId).limit(1).maybeSingle();
+    if (!stockData) return false;
+    
+    const currentQty = stockData.quantity || 0;
+    if (currentQty < quantity) return false;
+    
+    const newQty = currentQty - quantity;
+    
+    await supabaseAdmin!.from("stocks").update({
+      quantity: newQty,
+      updated_at: new Date().toISOString()
+    }).eq("id", stockData.id);
+    
+    await supabaseAdmin!.from("reservations").insert({
+      id: orderId,
+      variant_id: variantId,
+      quantity,
+      expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
+      created_at: new Date().toISOString()
     });
+    
+    await supabaseAdmin!.from("stock_movements").insert({
+      id: crypto.randomUUID(),
+      stock_id: stockData.id,
+      variant_id: variantId,
+      delta: -quantity,
+      reason: "RESERVE",
+      reference_id: orderId,
+      created_at: new Date().toISOString()
+    });
+    
+    return true;
   }
 
   async consumeReservation(orderId: string): Promise<void> {
-    await adminDb.runTransaction(async (t) => {
-      const resSnap = await t.get(adminDb.collection("reservations").doc(orderId));
-      if (!resSnap.exists) return; // Unmanaged stock
-      
-      const res = resSnap.data() as Reservation;
-      if (res.status !== 'ACTIVE') return;
-
-      const stockSnap = await t.get(adminDb.collection("stocks").where("variantId", "==", res.variantId).limit(1));
-      if (stockSnap.empty) return;
-
-      const current = stockSnap.docs[0].data() as Stock;
-      const newQty = current.quantity - res.quantity;
-      const newReserved = current.reservedQuantity - res.quantity;
-
-      t.update(stockSnap.docs[0].ref, {
-        quantity: newQty,
-        reservedQuantity: newReserved,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "SYSTEM_FULFILLMENT"
+    const { data: resData } = await supabaseAdmin!.from("reservations").select("*").eq("id", orderId).maybeSingle();
+    if (!resData) return;
+    
+    await supabaseAdmin!.from("reservations").delete().eq("id", orderId);
+    
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
+    if (stockData) {
+      await supabaseAdmin!.from("stock_movements").insert({
+        id: crypto.randomUUID(),
+        stock_id: stockData.id,
+        variant_id: resData.variant_id,
+        delta: 0,
+        reason: "COMMIT_RESERVATION",
+        reference_id: orderId,
+        created_at: new Date().toISOString()
       });
-
-      t.update(resSnap.ref, { status: 'CONSUMED' });
-
-      const moveRef = adminDb.collection("stockMovements").doc();
-      const movement: StockMovement = {
-        id: moveRef.id,
-        variantId: res.variantId,
-        type: 'CONSUME',
-        quantity: res.quantity,
-        before: current.quantity,
-        after: newQty,
-        referenceId: orderId,
-        actor: "SYSTEM_FULFILLMENT",
-        reason: "Order fulfilled",
-        timestamp: new Date().toISOString()
-      };
-      t.set(moveRef, movement);
-    });
+    }
   }
 
   async releaseReservation(orderId: string): Promise<void> {
-    await adminDb.runTransaction(async (t) => {
-      const resSnap = await t.get(adminDb.collection("reservations").doc(orderId));
-      if (!resSnap.exists) return;
+    const { data: resData } = await supabaseAdmin!.from("reservations").select("*").eq("id", orderId).maybeSingle();
+    if (!resData) return;
+    
+    await supabaseAdmin!.from("reservations").delete().eq("id", orderId);
+    
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
+    if (stockData) {
+      await supabaseAdmin!.from("stocks").update({
+        quantity: (stockData.quantity || 0) + resData.quantity,
+        updated_at: new Date().toISOString()
+      }).eq("id", stockData.id);
       
-      const res = resSnap.data() as Reservation;
-      if (res.status !== 'ACTIVE') return;
-
-      const stockSnap = await t.get(adminDb.collection("stocks").where("variantId", "==", res.variantId).limit(1));
-      if (stockSnap.empty) return;
-
-      const current = stockSnap.docs[0].data() as Stock;
-      const newReserved = current.reservedQuantity - res.quantity;
-      const newAvail = current.availableQuantity + res.quantity;
-
-      t.update(stockSnap.docs[0].ref, {
-        reservedQuantity: newReserved,
-        availableQuantity: newAvail,
-        updatedAt: new Date().toISOString(),
-        updatedBy: "SYSTEM_RELEASE"
+      await supabaseAdmin!.from("stock_movements").insert({
+        id: crypto.randomUUID(),
+        stock_id: stockData.id,
+        variant_id: resData.variant_id,
+        delta: resData.quantity,
+        reason: "CANCEL_RESERVATION",
+        reference_id: orderId,
+        created_at: new Date().toISOString()
       });
-
-      t.update(resSnap.ref, { status: 'RELEASED' });
-
-      const moveRef = adminDb.collection("stockMovements").doc();
-      const movement: StockMovement = {
-        id: moveRef.id,
-        variantId: res.variantId,
-        type: 'RELEASE',
-        quantity: res.quantity,
-        before: current.quantity,
-        after: current.quantity,
-        referenceId: orderId,
-        actor: "SYSTEM_RELEASE",
-        reason: "Order failed/cancelled/expired",
-        timestamp: new Date().toISOString()
-      };
-      t.set(moveRef, movement);
-    });
+    }
   }
 }

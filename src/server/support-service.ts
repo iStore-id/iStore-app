@@ -1,16 +1,15 @@
-import { adminDb } from "./firebase-admin";
-import { SupportCase, Support360 } from "../types/support";
+import { supabaseAdmin } from "./supabase-admin";
+import { SupportCase } from "../types/support";
 import { CustomerService } from "./customer-service";
-import { processCheckout } from "./order-engine"; // We don't need OrderEngine class, we'll fetch from adminDb
 import { MembershipService } from "./membership-service";
 import { LoyaltyService } from "./loyalty-service";
 import { ReferralService } from "./referral-service";
 import { SLAService } from "./sla-service";
+import { OrderRepository } from "./supabase/order-repository";
 
 export class SupportService {
   private static instance: SupportService;
   private customerService = CustomerService.getInstance();
-  // OrderEngine is functions, so we just use adminDb here for details
   private membershipService = MembershipService.getInstance();
   private loyaltyService = LoyaltyService.getInstance();
   private referralService = ReferralService.getInstance();
@@ -25,25 +24,59 @@ export class SupportService {
     return SupportService.instance;
   }
 
-  async getSupport360(caseId: string): Promise<any> {
-    const caseSnap = await adminDb.collection("supportCases").doc(caseId).get();
-    if (!caseSnap.exists) throw new Error("Support case not found");
-    const caseData = { id: caseSnap.id, ...caseSnap.data() } as SupportCase;
+  private mapRowToCase(row: any): SupportCase {
+    return {
+      id: row.id,
+      customerUid: row.customer_uid,
+      customerEmail: row.customer_email || "",
+      customerName: row.customer_name || "",
+      description: row.description || "",
+      channel: row.channel || "WEB",
+      orderId: row.order_id,
+      subject: row.subject,
+      category: row.category,
+      priority: row.priority,
+      status: row.status,
+      assignedTo: row.assigned_to,
+      assignedAt: row.assigned_at,
+      closedAt: row.closed_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      metadata: row.metadata
+    };
+  }
 
-    // Fetch context in parallel
-    const [customer, orderSnap, membership, loyalty, referral, previousCases, slaPolicies, messagesSnap] = await Promise.all([
+  async getSupport360(caseId: string): Promise<any> {
+    const { data: caseRow } = await supabaseAdmin!
+      .from("support_cases")
+      .select("*")
+      .eq("id", caseId)
+      .maybeSingle();
+
+    if (!caseRow) throw new Error("Support case not found");
+    const caseData = this.mapRowToCase(caseRow);
+
+    const [customer, order, membership, loyalty, referral, previousCases, slaPolicies, messagesData] = await Promise.all([
       this.customerService.getCustomerById(caseData.customerUid),
-      caseData.orderId ? adminDb.collection("orders").doc(caseData.orderId).get() : Promise.resolve(null),
+      caseData.orderId ? OrderRepository.getInstance().getOrderById(caseData.orderId) : Promise.resolve(null),
       this.membershipService.getCustomerMembership(caseData.customerUid),
       this.loyaltyService.getBalance(caseData.customerUid),
       this.referralService.getReferralStatus(caseData.customerUid),
       this.getPreviousCases(caseData.customerUid, caseData.id),
       this.slaService.getPolicies(),
-      adminDb.collection("messages").where("caseId", "==", caseId).orderBy("createdAt", "asc").get()
+      supabaseAdmin!.from("support_messages").select("*").eq("case_id", caseId).order("created_at", { ascending: true })
     ]);
 
-    const order = orderSnap && orderSnap.exists ? { id: orderSnap.id, ...orderSnap.data() } : null;
-    const messages = messagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const messages = (messagesData.data || []).map(m => ({
+      id: m.id,
+      caseId: m.case_id,
+      authorUid: m.author_uid,
+      authorName: m.author_name,
+      authorType: m.author_type,
+      content: m.content,
+      isInternal: m.is_internal,
+      createdAt: m.created_at
+    }));
 
     const sla = await this.slaService.calculateSupportSLA(caseData, slaPolicies);
 
@@ -61,34 +94,36 @@ export class SupportService {
   }
 
   private async getPreviousCases(customerUid: string, currentCaseId: string): Promise<SupportCase[]> {
-    const snap = await adminDb.collection("supportCases")
-      .where("customerUid", "==", customerUid)
-      .limit(10)
-      .get();
+    const { data } = await supabaseAdmin!
+      .from("support_cases")
+      .select("*")
+      .eq("customer_uid", customerUid)
+      .neq("id", currentCaseId)
+      .limit(10);
     
-    return snap.docs
-      .map(doc => ({ id: doc.id, ...doc.data() } as SupportCase))
-      .filter(c => c.id !== currentCaseId);
+    return (data || []).map(row => this.mapRowToCase(row));
   }
 
   async getAdminQueue(filters: { status?: string, priority?: string, category?: string, assignedTo?: string } = {}): Promise<SupportCase[]> {
-    let query: any = adminDb.collection("supportCases").orderBy("updatedAt", "desc");
-
-    if (filters.status) query = query.where("status", "==", filters.status);
-    if (filters.priority) query = query.where("priority", "==", filters.priority);
-    if (filters.category) query = query.where("category", "==", filters.category);
-    if (filters.assignedTo) query = query.where("assignedTo", "==", filters.assignedTo);
-
-    const snap = await query.limit(100).get();
-    return snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as SupportCase));
+    let query = supabaseAdmin!.from("support_cases").select("*").order("updated_at", { ascending: false });
+    
+    if (filters.status) query = query.eq("status", filters.status);
+    if (filters.priority) query = query.eq("priority", filters.priority);
+    if (filters.category) query = query.eq("category", filters.category);
+    if (filters.assignedTo) query = query.eq("assigned_to", filters.assignedTo);
+    
+    const { data } = await query.limit(100);
+    return (data || []).map(row => this.mapRowToCase(row));
   }
 
   async getCustomerCases(customerUid: string): Promise<SupportCase[]> {
-    const snap = await adminDb.collection("supportCases")
-      .where("customerUid", "==", customerUid)
-      .orderBy("updatedAt", "desc")
-      .limit(50)
-      .get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SupportCase));
+    const { data } = await supabaseAdmin!
+      .from("support_cases")
+      .select("*")
+      .eq("customer_uid", customerUid)
+      .order("updated_at", { ascending: false })
+      .limit(50);
+    
+    return (data || []).map(row => this.mapRowToCase(row));
   }
 }

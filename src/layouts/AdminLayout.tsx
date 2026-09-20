@@ -1,6 +1,5 @@
 import { Outlet, Link, useNavigate, Navigate, useLocation } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { supabaseSignOut } from "../lib/supabase-auth";
 import { useAuthStore } from "../store/auth-store";
 import { 
   LogOut, 
@@ -22,12 +21,16 @@ interface NavLinkProps {
   key?: string;
   item: NavItem;
   pathname: string;
+  search?: string;
   can: (resource: string, action: string) => boolean;
 }
 
-const NavLink = ({ item, pathname, can }: NavLinkProps) => {
-  const isActive = pathname === item.href || 
-                  (item.href !== '/admin' && pathname.startsWith(item.href));
+const NavLink = ({ item, pathname, search = '', can }: NavLinkProps) => {
+  const currentFull = pathname + search;
+  const isExactQuery = item.href.includes('?');
+  const isActive = isExactQuery
+    ? currentFull === item.href
+    : (pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href) && !search.includes('tab=')));
   
   // Rule: Expose ACTIVE and IN_DEVELOPMENT
   if (item.status !== 'ACTIVE' && item.status !== 'IN_DEVELOPMENT') {
@@ -56,7 +59,7 @@ const NavLink = ({ item, pathname, can }: NavLinkProps) => {
       to={item.href} 
       className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group ${
         isActive 
-          ? 'bg-blue-600 text-white shadow-md shadow-blue-900/20' 
+          ? 'bg-brand-600 text-white shadow-md shadow-brand-900/20' 
           : 'text-slate-400 hover:text-white hover:bg-slate-800'
       }`}
     >
@@ -64,7 +67,7 @@ const NavLink = ({ item, pathname, can }: NavLinkProps) => {
         <item.icon className={`w-4.5 h-4.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`} />
         <span className="text-sm font-medium truncate">{item.title}</span>
         {item.status === 'IN_DEVELOPMENT' && (
-          <span className="text-[8px] px-1 py-0.5 bg-blue-950/40 text-blue-400 border border-blue-900 rounded font-bold uppercase tracking-wider scale-95 shrink-0">Dev</span>
+          <span className="text-[8px] px-1 py-0.5 bg-brand-950/40 text-brand-400 border border-brand-900 rounded font-bold uppercase tracking-wider scale-95 shrink-0">Dev</span>
         )}
       </div>
     </Link>
@@ -75,12 +78,13 @@ interface NavSectionProps {
   key?: string;
   group: NavGroup;
   pathname: string;
+  search?: string;
   can: (resource: string, action: string) => boolean;
   expandedGroups: string[];
   toggleGroup: (title: string) => void;
 }
 
-const NavSection = ({ group, pathname, can, expandedGroups, toggleGroup }: NavSectionProps) => {
+const NavSection = ({ group, pathname, search = '', can, expandedGroups, toggleGroup }: NavSectionProps) => {
   const isExpanded = expandedGroups.includes(group.title);
   
   // Check if any item in group is visible (authorized or locked, ACTIVE or IN_DEVELOPMENT)
@@ -109,7 +113,7 @@ const NavSection = ({ group, pathname, can, expandedGroups, toggleGroup }: NavSe
             className="overflow-hidden space-y-1 mt-1"
           >
             {group.items.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} can={can} />
+              <NavLink key={item.href} item={item} pathname={pathname} search={search} can={can} />
             ))}
           </motion.div>
         )}
@@ -132,10 +136,11 @@ export default function AdminLayout() {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  console.log("AdminLayout: role", role, "loading", loading);
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="w-12 h-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-slate-500 font-medium">Memuat Panel Admin...</p>
       </div>
     );
@@ -148,9 +153,7 @@ export default function AdminLayout() {
 
   const handleLogout = async () => {
     try {
-      if (auth) {
-        await signOut(auth);
-      }
+      await supabaseSignOut();
     } catch (e) {
       console.error("Sign out error:", e);
     }
@@ -186,7 +189,7 @@ export default function AdminLayout() {
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 flex flex-col transform transition-transform duration-300 ease-in-out border-r border-slate-800 shadow-2xl lg:shadow-none ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="h-16 flex items-center justify-between px-6 bg-slate-950 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-inner">i</div>
+            <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center font-bold text-white text-lg shadow-inner">i</div>
             <span className="font-bold text-lg text-white tracking-tight">iStore Panel</span>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="lg:hidden p-1 text-slate-400 hover:text-white rounded-md hover:bg-slate-800 transition-colors">
@@ -200,6 +203,7 @@ export default function AdminLayout() {
               key={group.title} 
               group={group} 
               pathname={location.pathname}
+              search={location.search}
               can={can}
               expandedGroups={expandedGroups}
               toggleGroup={toggleGroup}
@@ -213,11 +217,11 @@ export default function AdminLayout() {
             className="flex items-center gap-3 mb-4 px-2 py-1.5 rounded-xl hover:bg-slate-800/80 transition-all group"
             title="Pengaturan Akun & Kata Sandi"
           >
-            <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-blue-400 border border-slate-700 group-hover:border-blue-500 transition-colors">
+            <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-brand-400 border border-slate-700 group-hover:border-brand-500 transition-colors">
               <User className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate group-hover:text-blue-400 transition-colors">{user?.displayName || "Admin"}</p>
+              <p className="text-sm font-medium text-white truncate group-hover:text-brand-400 transition-colors">{user?.displayName || "Admin"}</p>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{role === 'pemilik' ? 'Owner' : 'Admin'}</p>
             </div>
           </Link>
@@ -238,7 +242,7 @@ export default function AdminLayout() {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+              className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -253,19 +257,19 @@ export default function AdminLayout() {
           <div className="flex items-center gap-2 sm:gap-4">
             <Link 
               to="/account" 
-              className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+              className="p-2 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all"
               title="Akun & Keamanan"
             >
               <User className="w-5 h-5" />
             </Link>
-            <button className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all relative">
+            <button className="p-2 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition-all relative">
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></span>
             </button>
             <div className="w-px h-6 bg-slate-200 mx-1 sm:mx-2 hidden sm:block"></div>
             <Link 
               to="/" 
-              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-xl transition-all group"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-brand-600 hover:bg-brand-50 rounded-xl transition-all group"
             >
               <span className="hidden sm:inline">Lihat Toko</span>
               <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />

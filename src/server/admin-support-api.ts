@@ -2,7 +2,7 @@ import { Router } from "express";
 import { TicketService } from "./ticket-service";
 import { SupportService } from "./support-service";
 import { requirePermission, AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 
 const router = Router();
 const ticketService = TicketService.getInstance();
@@ -28,19 +28,7 @@ router.get("/cases", requirePermission('support', 'view'), async (req: Authentic
 router.get("/cases/:id", requirePermission('support', 'view'), async (req: AuthenticatedRequest, res) => {
   try {
     const context = await supportService.getSupport360(req.params.id);
-    
-    // Also fetch all messages (including internal notes)
-    const messagesSnap = await adminDb.collection("supportCases").doc(req.params.id)
-      .collection("messages")
-      .orderBy("createdAt", "asc")
-      .get();
-    
-    const messages = messagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    res.json({
-      ...context,
-      messages
-    });
+    res.json(context);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -52,10 +40,9 @@ router.post("/cases/:id/messages", requirePermission('support', 'reply'), async 
     const actor = {
       uid: req.user.uid,
       email: req.user.email,
-      name: req.user.name || "Agent",
+      name: (req.user as any).displayName || req.user.email || "Agent",
       type: 'AGENT' as const
     };
-
     const message = await ticketService.addMessage(req.params.id, req.body, actor);
     res.status(201).json(message);
   } catch (error: any) {
@@ -68,7 +55,7 @@ router.post("/cases/:id/assign", requirePermission('support', 'assign'), async (
   try {
     await ticketService.assignAgent(req.params.id, req.body.agentUid, {
       uid: req.user.uid,
-      email: req.user.email
+      email: req.user.email || "admin@istore.co.id"
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -81,7 +68,7 @@ router.patch("/cases/:id/status", requirePermission('support', 'edit'), async (r
   try {
     await ticketService.updateStatus(req.params.id, req.body.status, {
       uid: req.user.uid,
-      email: req.user.email
+      email: req.user.email || "admin@istore.co.id"
     });
     res.json({ success: true });
   } catch (error: any) {
@@ -94,7 +81,7 @@ router.patch("/cases/:id/priority", requirePermission('support', 'escalate'), as
   try {
     await ticketService.updatePriority(req.params.id, req.body.priority, {
       uid: req.user.uid,
-      email: req.user.email
+      email: req.user.email || "admin@istore.co.id"
     });
     res.json({ success: true });
   } catch (error: any) {

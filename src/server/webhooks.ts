@@ -1,11 +1,11 @@
-import { adminDb } from "./firebase-admin";
+import { OrderRepository } from "./supabase/order-repository";
 import { verifySignatureKey } from "./midtrans";
 import { getTokoVoucherServerConfig } from "./providers";
 import { dispatchFulfillment } from "./fulfillment-dispatcher";
 import { transitionOrderState } from "./state-machine";
 import { safeRecordPaymentReceived } from "./ledger-service";
 import { logSystem } from "./system-log-service";
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 export async function midtransWebhook(req: any, res: any) {
   try {
@@ -32,8 +32,9 @@ export async function midtransWebhook(req: any, res: any) {
     }
 
     // 2. Fetch Order & Validate Amount
-    const orderSnap = await adminDb.collection("orders").doc(order_id).get();
-    if (!orderSnap.exists) {
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = await orderRepo.getOrderById(order_id);
+    if (!orderData) {
        logSystem("WARN", "WEBHOOK", "MIDTRANS_ORDER_NOT_FOUND", `Order tidak ditemukan pada webhook Midtrans: ${order_id}`, "midtrans-webhook", {
          orderId: order_id,
          httpStatus: 404,
@@ -41,10 +42,9 @@ export async function midtransWebhook(req: any, res: any) {
        });
        return res.status(404).json({ success: false, message: "Order not found" });
     }
-    const orderData = orderSnap.data()!;
     
     // Explicit order identity check (if payload order_id matched doc ID)
-    if (orderSnap.id !== order_id) {
+    if (orderData.id !== order_id) {
         return res.status(404).json({ success: false, message: "Order ID mismatch" });
     }
     
@@ -104,9 +104,8 @@ export async function midtransWebhook(req: any, res: any) {
           });
           
           // CRASH RECOVERY: If webhook is late but the order is PAID, ensure payment ledger is recorded and trigger dispatch
-          const refreshedOrderSnap = await adminDb.collection("orders").doc(order_id).get();
-          if (refreshedOrderSnap.exists) {
-             const refreshedOrderData = refreshedOrderSnap.data()!;
+          const refreshedOrderData = await orderRepo.getOrderById(order_id);
+          if (refreshedOrderData) {
              if (refreshedOrderData.paymentStatus === 'paid') {
                 await safeRecordPaymentReceived(order_id, refreshedOrderData, "SYSTEM", { source: "Webhook Retry" });
                 if (refreshedOrderData.transactionStatus === 'pending') {
@@ -179,10 +178,10 @@ export async function apigamesWebhook(req: any, res: any) {
        return res.status(400).json({ success: false, message: "Invalid reference ID format" });
     }
 
-    const orderSnap = await adminDb.collection("orders").where("fulfillment.ref_id", "==", ref_id).get();
-    if (orderSnap.empty) return res.status(404).json({ success: false, message: "Order not found" });
-    const orderDoc = orderSnap.docs[0];
-    const orderId = orderDoc.id;
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = await orderRepo.getOrderByProviderReferenceId(ref_id);
+    if (!orderData) return res.status(404).json({ success: false, message: "Order not found" });
+    const orderId = orderData.id;
 
     logSystem("INFO", "PROVIDER", "APIGAMES_WEBHOOK_RECEIVED", `Webhook APIGames diterima untuk order ${orderId}: ${status}`, "apigames-webhook", {
       orderId,
@@ -245,22 +244,17 @@ export async function tokovoucherWebhook(req: any, res: any) {
     if (!ref_id || typeof ref_id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(ref_id)) {
         return res.status(400).json({ success: false, message: "Invalid reference ID format" });
      }
-    const orderSnap = await adminDb.collection("orders").where("fulfillment.ref_id", "==", ref_id).get();
-    let orderDoc: any = null;
-    if (orderSnap.empty) {
-      const directDoc = await adminDb.collection("orders").doc(ref_id).get();
-      if (directDoc.exists) {
-        orderDoc = directDoc;
-      }
-    } else {
-      orderDoc = orderSnap.docs[0];
+    const orderRepo = OrderRepository.getInstance();
+    let orderData = await orderRepo.getOrderByProviderReferenceId(ref_id);
+    if (!orderData) {
+      orderData = await orderRepo.getOrderById(ref_id);
     }
 
-    if (!orderDoc || !orderDoc.exists) {
+    if (!orderData) {
       return res.status(404).json({ success: false, message: "Order not found for ref_id" });
     }
 
-    const orderId = orderDoc.id;
+    const orderId = orderData.id;
 
     logSystem("INFO", "PROVIDER", "TOKOVOUCHER_WEBHOOK_RECEIVED", `Webhook TokoVoucher diterima untuk order ${orderId}: ${status}`, "tokovoucher-webhook", {
       orderId,

@@ -1,4 +1,5 @@
-import { adminDb } from "./firebase-admin";
+import { SupabaseReviewRepository } from "./supabase/review-repository";
+import { OrderRepository } from "./supabase/order-repository";
 
 export interface ReviewItem {
   id: string;
@@ -17,6 +18,13 @@ export interface ReviewItem {
 
 export class ReviewService {
   private static instance: ReviewService;
+  private reviewRepo: SupabaseReviewRepository;
+  private orderRepo: OrderRepository;
+
+  private constructor() {
+    this.reviewRepo = SupabaseReviewRepository.getInstance();
+    this.orderRepo = OrderRepository.getInstance();
+  }
 
   public static getInstance(): ReviewService {
     if (!ReviewService.instance) {
@@ -26,24 +34,14 @@ export class ReviewService {
   }
 
   async getPublicReviewsForProduct(productId: string): Promise<ReviewItem[]> {
-    if (!productId) return [];
-    const snap = await adminDb.collection("reviews")
-      .where("productId", "==", productId)
-      .where("status", "==", "published")
-      .orderBy("createdAt", "desc")
-      .get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewItem));
+    return this.reviewRepo.getPublicReviewsForProduct(productId);
   }
 
   async getProductRatingSummary(productId: string): Promise<{ averageRating: number; reviewCount: number }> {
-    const reviews = await this.getPublicReviewsForProduct(productId);
-    if (reviews.length === 0) return { averageRating: 0, reviewCount: 0 };
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-    const averageRating = Number((sum / reviews.length).toFixed(1));
-    return { averageRating, reviewCount: reviews.length };
+    return this.reviewRepo.getProductRatingSummary(productId);
   }
 
-  async createReview(customerId: string, data: { productId: string; variantId?: string; orderId?: string; rating: number; content: string }): Promise<ReviewItem> {
+  async createReview(customerId: string, data: { productId: string; variantId?: string; orderId?: string; rating: number; content: string; customerName?: string }): Promise<ReviewItem> {
     if (!customerId || customerId === 'guest') {
       throw new Error("Silakan login untuk memberikan ulasan.");
     }
@@ -62,69 +60,48 @@ export class ReviewService {
     }
 
     // Check duplicate review (one review per customer per product)
-    const existingSnap = await adminDb.collection("reviews")
-      .where("customerId", "==", customerId)
-      .where("productId", "==", data.productId)
-      .get();
-
-    if (!existingSnap.empty) {
+    const existing = await this.reviewRepo.getReviewByCustomerAndProduct(customerId, data.productId);
+    if (existing) {
       throw new Error("Anda sudah pernah memberikan ulasan untuk produk ini.");
     }
 
     // Check verified purchase if orderId is provided
     let verifiedPurchase = false;
     if (data.orderId) {
-      const orderDoc = await adminDb.collection("orders").doc(data.orderId).get();
-      if (orderDoc.exists) {
-        const orderData = orderDoc.data();
-        if (orderData?.userId === customerId) {
-          verifiedPurchase = true;
-        }
+      const order = await this.orderRepo.getOrderById(data.orderId);
+      if (order && order.userId === customerId) {
+        verifiedPurchase = true;
       }
     }
 
-    const ref = adminDb.collection("reviews").doc();
-    const review: ReviewItem = {
-      id: ref.id,
+    return this.reviewRepo.createReview({
       customerId,
+      customerName: data.customerName,
       productId: data.productId,
       variantId: data.variantId || undefined,
       orderId: data.orderId || undefined,
       rating,
       content: data.content.trim(),
-      status: 'published', // default published or moderated
-      verifiedPurchase,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    await ref.set(review);
-    return review;
+      status: 'published',
+      verifiedPurchase
+    });
   }
 
   async getAdminReviews(): Promise<ReviewItem[]> {
-    const snap = await adminDb.collection("reviews").orderBy("createdAt", "desc").limit(200).get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ReviewItem));
+    return this.reviewRepo.getAdminReviews(200);
   }
 
   async updateReviewStatus(reviewId: string, status: 'published' | 'hidden' | 'rejected', adminUid: string): Promise<ReviewItem> {
-    const ref = adminDb.collection("reviews").doc(reviewId);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Ulasan tidak ditemukan.");
+    const existing = await this.reviewRepo.getReviewById(reviewId);
+    if (!existing) throw new Error("Ulasan tidak ditemukan.");
 
-    const updateData = {
-      status,
-      updatedAt: new Date().toISOString()
-    };
-    await ref.update(updateData);
-    const updatedSnap = await ref.get();
-    return { id: updatedSnap.id, ...updatedSnap.data() } as ReviewItem;
+    return this.reviewRepo.updateReviewStatus(reviewId, status);
   }
 
   async deleteReview(reviewId: string, adminUid: string): Promise<void> {
-    const ref = adminDb.collection("reviews").doc(reviewId);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Ulasan tidak ditemukan.");
-    await ref.delete();
+    const existing = await this.reviewRepo.getReviewById(reviewId);
+    if (!existing) throw new Error("Ulasan tidak ditemukan.");
+
+    await this.reviewRepo.deleteReview(reviewId);
   }
 }

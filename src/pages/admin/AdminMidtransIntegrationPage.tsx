@@ -9,6 +9,7 @@ export default function AdminMidtransIntegrationPage() {
   const [serverKey, setServerKey] = useState("");
   const [serverKeyMasked, setServerKeyMasked] = useState("");
   const [isProduction, setIsProduction] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [configured, setConfigured] = useState(false);
   const [lastTestedAt, setLastTestedAt] = useState<string | null>(null);
   const [lastTestResult, setLastTestResult] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function AdminMidtransIntegrationPage() {
         setMerchantId(data.data.merchantId || "");
         setClientKey(data.data.clientKey || "");
         setIsProduction(data.data.isProduction || false);
+        setIsActive(data.data.isActive !== false);
         setConfigured(data.data.configured || false);
         setServerKeyMasked(data.data.serverKeyMasked || "");
         setLastTestedAt(data.data.lastTestedAt || null);
@@ -78,7 +80,8 @@ export default function AdminMidtransIntegrationPage() {
           merchantId,
           clientKey: clientKey.trim(),
           serverKey: serverKey.trim() || undefined,
-          isProduction
+          isProduction,
+          isActive
         })
       });
       const data = await res.json();
@@ -147,6 +150,7 @@ export default function AdminMidtransIntegrationPage() {
         setServerKey("");
         setServerKeyMasked("");
         setIsProduction(false);
+        setIsActive(true);
         setConfigured(false);
         setSuccessMsg("Konfigurasi Midtrans berhasil dihapus.");
       } else {
@@ -274,6 +278,20 @@ export default function AdminMidtransIntegrationPage() {
                 <option value="production">Production (Live / Transaksi Nyata)</option>
               </select>
               <p className="text-xs text-slate-400 mt-1">Pilih Sandbox untuk pengujian atau Production untuk operasional live.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className={`w-full px-4 py-2.5 rounded-xl border font-medium flex items-center justify-between ${isActive ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+              >
+                {isActive ? 'ACTIVE' : 'INACTIVE'}
+                <div className={`w-10 h-5 rounded-full p-1 transition-all flex ${isActive ? 'bg-emerald-500 justify-end' : 'bg-slate-300 justify-start'}`}>
+                  <div className="w-3 h-3 bg-white rounded-full"></div>
+                </div>
+              </button>
+              <p className="text-xs text-slate-400 mt-1">Nonaktifkan untuk menghentikan penggunaan gateway ini di runtime.</p>
             </div>
           </div>
 

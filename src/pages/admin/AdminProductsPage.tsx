@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import { Product, Game, ProductVariant, Category } from "../../types/core";
 import { 
   Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, 
@@ -9,6 +7,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuthStore } from "../../store/auth-store";
+import { useSearchParams } from "react-router-dom";
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -16,6 +15,9 @@ export default function AdminProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const gameIdFilter = searchParams.get("gameId");
+  
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [loadingVariants, setLoadingVariants] = useState(false);
@@ -26,21 +28,131 @@ export default function AdminProductsPage() {
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [editingVariant, setEditingVariant] = useState<ProductVariant | null>(null);
 
+  const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([]);
+  const [isBulkPricingModalOpen, setIsBulkPricingModalOpen] = useState(false);
+  const [bulkPricingScope, setBulkPricingScope] = useState<'product' | 'variant'>('product');
+  const [bulkPricingMethod, setBulkPricingMethod] = useState<'fixed' | 'markup_fixed' | 'markup_percentage' | 'target_margin'>('markup_percentage');
+  const [bulkPricingValue, setBulkPricingValue] = useState<number>(10);
+  const [isSubmittingBulk, setIsSubmittingBulk] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+
+  const [resetModal, setResetModal] = useState<{
+    isOpen: boolean;
+    productId: string;
+    productName: string;
+    loading: boolean;
+    preview: {
+      productName: string;
+      variantCount: number;
+      mappingCount: number;
+      hasTransactions: boolean;
+      linkedOrders: string[];
+    } | null;
+    error: string | null;
+  }>({
+    isOpen: false,
+    productId: "",
+    productName: "",
+    loading: false,
+    preview: null,
+    error: null
+  });
+
   const { user } = useAuthStore();
+
+  const fetchResetPreview = async (productId: string) => {
+    try {
+      const idToken = await user?.getIdToken();
+      const res = await fetch(`/api/admin/products/${productId}/reset-preview`, {
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setResetModal(prev => ({
+          ...prev,
+          loading: false,
+          preview: json.data,
+          error: null
+        }));
+      } else {
+        setResetModal(prev => ({
+          ...prev,
+          loading: false,
+          error: json.message
+        }));
+      }
+    } catch (err: any) {
+      setResetModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || "Gagal memuat preview reset."
+      }));
+    }
+  };
+
+  const handleResetProduct = async () => {
+    try {
+      setResetModal(prev => ({ ...prev, loading: true }));
+      const idToken = await user?.getIdToken();
+      const res = await fetch(`/api/admin/products/${resetModal.productId}/reset`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setResetModal({
+          isOpen: false,
+          productId: "",
+          productName: "",
+          loading: false,
+          preview: null,
+          error: null
+        });
+        setSelectedProduct(null);
+        fetchData();
+      } else {
+        setResetModal(prev => ({
+          ...prev,
+          loading: false,
+          error: json.message
+        }));
+      }
+    } catch (err: any) {
+      setResetModal(prev => ({
+        ...prev,
+        loading: false,
+        error: err.message || "Gagal melakukan reset produk."
+      }));
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const prodSnap = await getDocs(query(collection(db, "products"), orderBy("sortOrder", "asc")));
-      setProducts(prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
+      const idToken = await user?.getIdToken();
 
-      const gameSnap = await getDocs(query(collection(db, "games"), orderBy("name", "asc")));
-      setGames(gameSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Game)));
+      const prodUrl = gameIdFilter 
+        ? `/api/admin/catalog/products?gameId=${gameIdFilter}` 
+        : "/api/admin/catalog/products";
 
-      const catSnap = await getDocs(query(collection(db, "categories"), orderBy("name", "asc")));
-      setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
+      const [prodRes, gameRes, catRes] = await Promise.all([
+        fetch(prodUrl, { headers: { "Authorization": `Bearer ${idToken}` } }),
+        fetch("/api/admin/catalog/games", { headers: { "Authorization": `Bearer ${idToken}` } }),
+        fetch("/api/admin/catalog/categories", { headers: { "Authorization": `Bearer ${idToken}` } })
+      ]);
+
+      const [prodJson, gameJson, catJson] = await Promise.all([
+        prodRes.json(),
+        gameRes.json(),
+        catRes.json()
+      ]);
+
+      if (prodJson.success) setProducts(prodJson.data || []);
+      if (gameJson.success) setGames(gameJson.data || []);
+      if (catJson.success) setCategories(catJson.data || []);
+
     } catch (err) {
-      console.error("Error fetching products:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
     }
@@ -49,9 +161,16 @@ export default function AdminProductsPage() {
   const fetchVariants = async (productId: string) => {
     try {
       setLoadingVariants(true);
-      const q = query(collection(db, "productVariants"), where("productId", "==", productId), orderBy("sortOrder", "asc"));
-      const snap = await getDocs(q);
-      setVariants(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductVariant)));
+      const idToken = await user?.getIdToken();
+
+      const res = await fetch(`/api/admin/catalog/variants?productId=${productId}`, {
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
+      const json = await res.json();
+      
+      if (json.success) {
+        setVariants(json.data || []);
+      }
     } catch (err) {
       console.error("Error fetching variants:", err);
     } finally {
@@ -64,6 +183,7 @@ export default function AdminProductsPage() {
   }, []);
 
   useEffect(() => {
+    setSelectedVariantIds([]);
     if (selectedProduct) {
       fetchVariants(selectedProduct.id!);
     }
@@ -174,6 +294,67 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleSaveBulkPricing = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    let variantIdsToSend: string[] = [];
+    if (bulkPricingScope === 'product') {
+      variantIdsToSend = variants.map(v => v.id!);
+    } else {
+      variantIdsToSend = selectedVariantIds;
+    }
+
+    if (variantIdsToSend.length === 0) {
+      setBulkError("Silakan pilih minimal satu varian terlebih dahulu.");
+      return;
+    }
+
+    try {
+      setIsSubmittingBulk(true);
+      setBulkError(null);
+      const idToken = await user?.getIdToken();
+
+      const payload = {
+        scope: bulkPricingScope,
+        scopeId: bulkPricingScope === 'product' ? selectedProduct.id : undefined,
+        variantIds: variantIdsToSend,
+        rule: {
+          name: bulkPricingScope === 'product'
+            ? `Bulk Product Rule - ${selectedProduct.name}`
+            : `Bulk Variant Rule - ${selectedProduct.name}`,
+          description: `Aturan harga massal bertipe ${bulkPricingMethod} bernilai ${bulkPricingValue}`,
+          method: bulkPricingMethod,
+          value: bulkPricingValue,
+          priority: bulkPricingScope === 'product' ? 10 : 20
+        }
+      };
+
+      const res = await fetch("/api/admin/pricing/bulk-refresh", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        setIsBulkPricingModalOpen(false);
+        setSelectedVariantIds([]);
+        fetchVariants(selectedProduct.id!);
+      } else {
+        setBulkError(result.message || "Gagal menerapkan harga massal.");
+      }
+    } catch (err: any) {
+      console.error("Error applying bulk pricing:", err);
+      setBulkError(err.message || "Gagal menerapkan harga massal.");
+    } finally {
+      setIsSubmittingBulk(false);
+    }
+  };
+
   const formatRupiah = (num: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
   };
@@ -276,12 +457,32 @@ export default function AdminProductsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); setEditingProduct(p); setIsProductModalOpen(true); }}
-                          className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
-                        >
-                          <Settings className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-end items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => { setEditingProduct(p); setIsProductModalOpen(true); }}
+                            className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                            title="Edit Produk"
+                          >
+                            <Settings className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setResetModal({
+                                isOpen: true,
+                                productId: p.id!,
+                                productName: p.name,
+                                loading: true,
+                                preview: null,
+                                error: null
+                              });
+                              fetchResetPreview(p.id!);
+                            }}
+                            className="p-2 hover:bg-white hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                            title="Reset Produk & Mapping"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -319,16 +520,53 @@ export default function AdminProductsPage() {
                 </h2>
                 <p className="text-xs text-slate-500">Kelola nominal top up dan mapping SKU.</p>
               </div>
-              <button 
-                onClick={() => { setEditingVariant(null); setIsVariantModalOpen(true); }}
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-all shadow-sm font-medium text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Tambah Varian
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {variants.length > 0 && (
+                  <button 
+                    onClick={() => {
+                      setBulkPricingScope(selectedVariantIds.length > 0 ? 'variant' : 'product');
+                      setBulkError(null);
+                      setIsBulkPricingModalOpen(true);
+                    }}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm font-medium text-sm"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Atur Harga Massal {selectedVariantIds.length > 0 ? `(${selectedVariantIds.length})` : ''}
+                  </button>
+                )}
+                <button 
+                  onClick={() => { setEditingVariant(null); setIsVariantModalOpen(true); }}
+                  className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl transition-all shadow-sm font-medium text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Tambah Varian
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {variants.length > 0 && !loadingVariants && (
+                <div className="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium font-sans">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={variants.length > 0 && selectedVariantIds.length === variants.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVariantIds(variants.map(v => v.id!));
+                        } else {
+                          setSelectedVariantIds([]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span>Pilih Semua Varian ({variants.length})</span>
+                  </label>
+                  {selectedVariantIds.length > 0 && (
+                    <span className="text-blue-600 font-bold bg-blue-50 px-2.5 py-1 rounded-full">{selectedVariantIds.length} varian terpilih</span>
+                  )}
+                </div>
+              )}
               <div className="divide-y divide-slate-100">
                 {loadingVariants ? (
                   <div className="p-12 text-center text-slate-400 animate-pulse">Memuat varian...</div>
@@ -339,8 +577,20 @@ export default function AdminProductsPage() {
                   </div>
                 ) : (
                   variants.map((v) => (
-                    <div key={v.id} className="p-4 hover:bg-slate-50 transition-colors group">
-                      <div className="flex items-start justify-between gap-4">
+                    <div key={v.id} className="p-4 hover:bg-slate-50 transition-colors group flex items-start gap-3">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedVariantIds.includes(v.id!)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedVariantIds(prev => [...prev, v.id!]);
+                          } else {
+                            setSelectedVariantIds(prev => prev.filter(id => id !== v.id!));
+                          }
+                        }}
+                        className="mt-1.5 w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer shrink-0"
+                      />
+                      <div className="flex-1 flex items-start justify-between gap-4 font-sans">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-800">{v.displayName}</span>
@@ -593,6 +843,249 @@ export default function AdminProductsPage() {
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setIsVariantModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold">Batal</button>
                   <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold">Simpan Varian</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Product and Mapping Modal */}
+      <AnimatePresence>
+        {resetModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => !resetModal.loading && setResetModal(prev => ({ ...prev, isOpen: false }))} />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative z-10">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-800">Reset Produk & Mapping</h2>
+                <button disabled={resetModal.loading} onClick={() => setResetModal(prev => ({ ...prev, isOpen: false }))} className="p-2 hover:bg-slate-100 rounded-full disabled:opacity-50"><XCircle className="w-6 h-6 text-slate-400" /></button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="text-sm text-slate-600">
+                  Anda akan mereset produk <strong className="text-slate-800">{resetModal.productName}</strong>. Tindakan ini akan membersihkan produk, varian, dan mapping-nya untuk keperluan import ulang.
+                </div>
+
+                {resetModal.loading && !resetModal.preview && !resetModal.error && (
+                  <div className="py-8 flex flex-col items-center justify-center gap-3">
+                    <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-slate-500 font-medium">Memeriksa dependensi produk...</span>
+                  </div>
+                )}
+
+                {resetModal.error && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl space-y-2">
+                    <div className="flex gap-2 items-center text-rose-800 font-bold text-sm">
+                      <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600" />
+                      Gagal Memvalidasi Reset
+                    </div>
+                    <div className="text-xs text-rose-700 leading-relaxed">
+                      {resetModal.error}
+                    </div>
+                  </div>
+                )}
+
+                {resetModal.preview && (
+                  <div className="space-y-4">
+                    {resetModal.preview.hasTransactions ? (
+                      <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl space-y-2">
+                        <div className="flex gap-2 items-start text-rose-800 font-bold text-sm">
+                          <AlertTriangle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+                          <span>Reset Dibatalkan (Dependensi Aktif)</span>
+                        </div>
+                        <p className="text-xs text-rose-700 leading-relaxed">
+                          Produk ini memiliki riwayat transaksi aktif. Demi menjaga integritas data finansial, Anda tidak diizinkan menghapus atau mereset produk ini.
+                        </p>
+                        {resetModal.preview.linkedOrders.length > 0 && (
+                          <div className="pt-1.5 space-y-1">
+                            <div className="text-[10px] uppercase font-bold text-rose-800">Invoice Terkait:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {resetModal.preview.linkedOrders.map(invoice => (
+                                <span key={invoice} className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-mono font-bold">
+                                  {invoice}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                          <div className="text-xs text-emerald-800 font-bold mb-2 flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Produk Aman untuk Direset
+                          </div>
+                          <p className="text-xs text-emerald-700 leading-relaxed">
+                            Tidak ditemukan dependensi transaksi. Anda aman untuk melakukan reset bersih.
+                          </p>
+                        </div>
+
+                        <div className="border border-slate-100 rounded-2xl divide-y divide-slate-100 overflow-hidden">
+                          <div className="p-3 bg-slate-50 flex justify-between items-center text-xs">
+                            <span className="font-semibold text-slate-500 uppercase">Item yang akan Dihapus</span>
+                          </div>
+                          <div className="p-3 flex justify-between items-center text-sm">
+                            <span className="text-slate-600">iStore Product</span>
+                            <span className="font-bold text-slate-800">1</span>
+                          </div>
+                          <div className="p-3 flex justify-between items-center text-sm">
+                            <span className="text-slate-600">iStore Variant SKU</span>
+                            <span className="font-bold text-slate-800">{resetModal.preview.variantCount}</span>
+                          </div>
+                          <div className="p-3 flex justify-between items-center text-sm">
+                            <span className="text-slate-600">Provider Mapping</span>
+                            <span className="font-bold text-slate-800">{resetModal.preview.mappingCount}</span>
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-[11px] text-amber-800 leading-relaxed">
+                          <strong>Note:</strong> Game, Kategori, Provider, dan data Provider SKU tidak akan dihapus. Hanya produk lokal iStore ini beserta mapping variannya yang akan di-reset.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button" 
+                    disabled={resetModal.loading}
+                    onClick={() => setResetModal(prev => ({ ...prev, isOpen: false }))} 
+                    className="flex-1 px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="button"
+                    disabled={resetModal.loading || !resetModal.preview || resetModal.preview.hasTransactions}
+                    onClick={handleResetProduct}
+                    className="flex-1 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  >
+                    {resetModal.loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      'Reset Sekarang'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Pricing Modal */}
+      <AnimatePresence>
+        {isBulkPricingModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" 
+              onClick={() => setIsBulkPricingModalOpen(false)} 
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }} 
+              className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden relative z-10 font-sans"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-800">Atur Harga Massal</h2>
+                <button 
+                  onClick={() => setIsBulkPricingModalOpen(false)} 
+                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <XCircle className="w-6 h-6 text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+              <form onSubmit={handleSaveBulkPricing} className="p-6 space-y-4">
+                
+                {bulkError && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs text-rose-700">
+                    {bulkError}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700">Scope Penerapan</label>
+                  <select 
+                    value={bulkPricingScope} 
+                    onChange={(e) => setBulkPricingScope(e.target.value as any)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none text-sm font-medium focus:border-blue-500 transition-colors"
+                  >
+                    <option value="product">Semua Varian pada Produk ({variants.length} item)</option>
+                    <option value="variant">Hanya Varian Terpilih ({selectedVariantIds.length} item)</option>
+                  </select>
+                  {bulkPricingScope === 'variant' && selectedVariantIds.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">⚠️ Anda belum mencentang varian apa pun. Silakan centang varian terlebih dahulu atau pilih mode 'Semua Varian'.</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700">Metode Harga</label>
+                    <select 
+                      value={bulkPricingMethod} 
+                      onChange={(e) => setBulkPricingMethod(e.target.value as any)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:border-blue-500 transition-colors"
+                    >
+                      <option value="fixed">Fixed Price</option>
+                      <option value="markup_fixed">Fixed Markup (IDR)</option>
+                      <option value="markup_percentage">Percentage Markup (%)</option>
+                      <option value="target_margin">Target Margin (%)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-700">Nilai Aturan</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={bulkPricingValue} 
+                      onChange={(e) => setBulkPricingValue(parseFloat(e.target.value) || 0)}
+                      required 
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:border-blue-500 transition-colors" 
+                      placeholder="Contoh: 10 atau 5000"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs text-slate-500 leading-relaxed space-y-1">
+                  <span className="font-bold text-slate-700">Penjelasan Metode:</span>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li><strong>Fixed Price:</strong> Harga jual langsung ditetapkan seharga nilai ini.</li>
+                    <li><strong>Fixed Markup:</strong> Harga jual = modal + nilai rupiah ini.</li>
+                    <li><strong>Percentage Markup:</strong> Harga jual = modal + markup % dari modal.</li>
+                    <li><strong>Target Margin:</strong> Harga jual dihitung agar memperoleh % margin target.</li>
+                  </ul>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsBulkPricingModalOpen(false)} 
+                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingBulk || (bulkPricingScope === 'variant' && selectedVariantIds.length === 0)}
+                    className="flex-1 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                  >
+                    {isSubmittingBulk ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Memproses...
+                      </>
+                    ) : (
+                      'Terapkan & Refresh'
+                    )}
+                  </button>
                 </div>
               </form>
             </motion.div>

@@ -1,6 +1,9 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 import { SLAPolicy, SLAStatus, SLAMeasurement, SLAResource, OrderSLA, Job } from "../types/core";
 import { BusinessCalendarService } from "./business-calendar-service";
+
+const SLA_POLICIES_KEY = "sla_policies";
 
 export class SLAService {
   private static instance: SLAService;
@@ -16,13 +19,27 @@ export class SLAService {
   }
 
   async getPolicies(): Promise<SLAPolicy[]> {
-    const snap = await adminDb.collection("slaPolicies").orderBy("priority", "desc").get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SLAPolicy));
+    const raw = await SystemConfigRepository.getInstance().getConfig(SLA_POLICIES_KEY);
+    const list: SLAPolicy[] = Array.isArray(raw) ? raw : (Array.isArray(raw?.policies) ? raw.policies : []);
+    return list.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+  }
+
+  async getPolicyById(id: string): Promise<SLAPolicy | null> {
+    const policies = await this.getPolicies();
+    return policies.find(p => p.id === id) || null;
   }
 
   async createPolicy(policy: Partial<SLAPolicy>, actorUid: string): Promise<SLAPolicy> {
+    if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+      throw new Error("Supabase Admin client is not configured.");
+    }
     const now = new Date().toISOString();
+    const id = typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `sla_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
     const policyData: SLAPolicy = {
+      id,
       name: policy.name || "Unnamed Policy",
       resource: policy.resource || "ORDER_TOTAL",
       targetDuration: policy.targetDuration || 300,
@@ -34,24 +51,55 @@ export class SLAService {
       createdAt: now,
       updatedAt: now,
       createdBy: actorUid,
-      updatedBy: actorUid
+      updatedBy: actorUid,
+      ...(policy.useBusinessHours !== undefined ? { useBusinessHours: policy.useBusinessHours } : {})
     };
 
-    const ref = await adminDb.collection("slaPolicies").add(policyData);
-    return { id: ref.id, ...policyData };
+    const currentPolicies = await this.getPolicies();
+    const updatedPolicies = [...currentPolicies, policyData];
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(SLA_POLICIES_KEY, updatedPolicies);
+    } catch (error: any) {
+      throw new Error(`Failed to save SLA policy to SystemConfigRepository: ${error.message}`);
+    }
+
+    return policyData;
   }
 
   async updatePolicy(id: string, policy: Partial<SLAPolicy>, actorUid: string): Promise<void> {
     const now = new Date().toISOString();
-    await adminDb.collection("slaPolicies").doc(id).update({
+    const currentPolicies = await this.getPolicies();
+    const index = currentPolicies.findIndex(p => p.id === id);
+    if (index === -1) {
+      throw new Error(`SLA Policy ${id} not found.`);
+    }
+
+    currentPolicies[index] = {
+      ...currentPolicies[index],
       ...policy,
+      id,
       updatedAt: now,
       updatedBy: actorUid
-    });
+    };
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(SLA_POLICIES_KEY, currentPolicies);
+    } catch (error: any) {
+      throw new Error(`Failed to update SLA policy in SystemConfigRepository: ${error.message}`);
+    }
   }
 
   async deletePolicy(id: string): Promise<void> {
-    await adminDb.collection("slaPolicies").doc(id).delete();
+    const now = new Date().toISOString();
+    const currentPolicies = await this.getPolicies();
+    const filtered = currentPolicies.filter(p => p.id !== id);
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(SLA_POLICIES_KEY, filtered);
+    } catch (error: any) {
+      throw new Error(`Failed to delete SLA policy from SystemConfigRepository: ${error.message}`);
+    }
   }
 
   /**

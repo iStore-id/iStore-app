@@ -1,9 +1,11 @@
-import { adminDb } from "./firebase-admin";
+import { OrderRepository } from "./supabase/order-repository";
+import { ReconciliationRepository } from "./supabase/reconciliation-repository";
 import { checkMidtransStatus } from "./midtrans";
 import { transitionOrderState } from "./state-machine";
 import { dispatchFulfillment } from "./fulfillment-dispatcher";
 import { IncidentService } from "./incident-service";
-import crypto from "crypto";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
+import * as crypto from "crypto";
 
 export interface ReconcileResult {
   orderId: string;
@@ -21,12 +23,11 @@ export async function reconcileOrder(
   runId: string | null = null
 ): Promise<ReconcileResult> {
   // 1. Load Order
-  const orderRef = adminDb.collection("orders").doc(orderId);
-  const orderSnap = await orderRef.get();
-  if (!orderSnap.exists) {
+  const orderRepo = OrderRepository.getInstance();
+  const order = await orderRepo.getOrderById(orderId);
+  if (!order) {
     throw new Error(`ORDER_NOT_FOUND: ${orderId}`);
   }
-  const order = orderSnap.data()!;
 
   // Determine local logical state (consistent with state-machine.ts)
   let localState = 'UNKNOWN';
@@ -122,31 +123,50 @@ export async function reconcileOrder(
   let recordId: string | undefined;
 
   if (resultType !== 'MATCHED') {
-    // Generate deterministic incident ID: sha256(orderId + "_" + mismatchType)
-    recordId = crypto.createHash("sha256")
-      .update(`${orderId}_${resultType}`)
-      .digest("hex");
+    // Generate deterministic incident ID: sha256(orderId + "_" + mismatchType) (We take first 32 chars to make a mock UUID if needed, but wait: recordId is uuid too!)
+    // If it requires UUID format, we should use uuid version 5 or just standard uuid. 
+    // Let's generate a proper UUID v5 based on the deterministic string, or just use crypto.randomUUID() if deterministic is strictly required...
+    // The previous implementation used hex string from sha256 which is 64 chars. A standard UUID is 36 chars.
+    // Let's use crypto.randomUUID() but try to look it up by orderId and type instead.
+    
+    const reconRepo = ReconciliationRepository.getInstance();
+    // Since we need to look up an open incident, let's just create a new record if we don't have a good deterministic ID that is a UUID, or we can use UUIDv5.
+    // However, since recordId was just for lookup, let's use UUIDv5 with a fixed namespace.
+    const NAMESPACE = '1b671a64-40d5-491e-99b0-da01ff1f3341';
+    // If UUIDv5 isn't available easily without a library, we can just hash it and format as UUID:
+    const hash = crypto.createHash("md5").update(`${orderId}_${resultType}`).digest("hex");
+    recordId = `${hash.substring(0,8)}-${hash.substring(8,12)}-4${hash.substring(13,16)}-a${hash.substring(17,20)}-${hash.substring(20,32)}`;
 
-    const recordRef = adminDb.collection("reconciliationRecords").doc(recordId);
-    const recordSnap = await recordRef.get();
+    const recordData = await reconRepo.getRecordById(recordId);
     const now = new Date().toISOString();
+    
+    let currentRunId = runId;
+    if (!currentRunId) {
+      currentRunId = crypto.randomUUID();
+      await reconRepo.createRun({
+        id: currentRunId,
+        executedBy: actorUid || 'system',
+        startedAt: now,
+        status: 'COMPLETED',
+        totalOrdersScanned: 1,
+        mismatchCount: 1
+      });
+    }
 
-    if (recordSnap.exists) {
-      // Update lastCheckedAt to keep single incident track
-      await recordRef.update({
-        runId: runId || "manual",
+    if (recordData) {
+      // Update incident
+      await reconRepo.updateRecord(recordId, {
+        runId: currentRunId,
         localState,
         providerState,
         expectedAmount,
-        actualAmount,
-        lastCheckedAt: now,
-        updatedAt: now
+        actualAmount
       });
     } else {
       // Create a new OPEN incident
-      await recordRef.set({
+      await reconRepo.createRecord({
         id: recordId,
-        runId: runId || "manual",
+        runId: currentRunId,
         orderId,
         type: resultType,
         resolutionStatus: 'OPEN',
@@ -154,10 +174,8 @@ export async function reconcileOrder(
         providerState,
         expectedAmount,
         actualAmount,
-        firstDetectedAt: now,
-        lastCheckedAt: now,
-        createdAt: now,
-        updatedAt: now
+        resolutionReason: message,
+        createdAt: now
       });
     }
 
@@ -177,13 +195,12 @@ export async function reconcileOrder(
     }
 
     // Write detection log
-    const auditLogRef = adminDb.collection("auditLogs").doc();
-    await auditLogRef.set({
-      id: auditLogRef.id,
+    await AuditLogRepository.getInstance().createLog({
+      actor: { uid: "system", email: "system@reconciliation" },
+      role: "system",
       action: "RECONCILIATION_DETECTION",
-      resource: "orders",
-      resourceId: orderId,
-      payload: {
+      target: `orders/${orderId}`,
+      after: {
         reconciliationType: resultType,
         localState,
         providerState,
@@ -192,7 +209,8 @@ export async function reconcileOrder(
         runId: runId || "manual",
         recordId
       },
-      createdAt: now
+      reason: `Reconciliation detection: ${resultType}`,
+      timestamp: now
     });
   }
 
@@ -234,14 +252,11 @@ export async function reconcileOrder(
         // Update reconciliation record to RESOLVED
         if (recordId) {
           const now = new Date().toISOString();
-          const recordRef = adminDb.collection("reconciliationRecords").doc(recordId);
-          await recordRef.update({
+          const reconRepo = ReconciliationRepository.getInstance();
+          await reconRepo.updateRecord(recordId, {
             resolutionStatus: 'RESOLVED',
-            resolutionAction: 'AUTO_RESOLVE',
             resolutionReason,
-            actorUid: 'system',
-            resolvedAt: now,
-            updatedAt: now
+            resolvedAt: now
           });
         }
       } catch (transitionErr: any) {
@@ -255,23 +270,57 @@ export async function reconcileOrder(
   // 6. If previously open incident is now MATCHED (e.g. solved manually or via webhook afterward), mark it RESOLVED
   if (resultType === 'MATCHED') {
     // Check both potential mismatch records for this order to mark them RESOLVED if they exist and are OPEN
-    const statusRecordId = crypto.createHash("sha256").update(`${orderId}_STATUS_MISMATCH`).digest("hex");
-    const amountRecordId = crypto.createHash("sha256").update(`${orderId}_AMOUNT_MISMATCH`).digest("hex");
+    const hashStatus = crypto.createHash("md5").update(`${orderId}_STATUS_MISMATCH`).digest("hex");
+    const statusRecordId = `${hashStatus.substring(0,8)}-${hashStatus.substring(8,12)}-4${hashStatus.substring(13,16)}-a${hashStatus.substring(17,20)}-${hashStatus.substring(20,32)}`;
+    
+    const hashAmount = crypto.createHash("md5").update(`${orderId}_AMOUNT_MISMATCH`).digest("hex");
+    const amountRecordId = `${hashAmount.substring(0,8)}-${hashAmount.substring(8,12)}-4${hashAmount.substring(13,16)}-a${hashAmount.substring(17,20)}-${hashAmount.substring(20,32)}`;
 
+    const reconRepo = ReconciliationRepository.getInstance();
     for (const recId of [statusRecordId, amountRecordId]) {
-      const recordRef = adminDb.collection("reconciliationRecords").doc(recId);
-      const recordSnap = await recordRef.get();
-      if (recordSnap.exists && recordSnap.data()?.resolutionStatus === 'OPEN') {
+      const recordData = await reconRepo.getRecordById(recId);
+      if (recordData && recordData.resolutionStatus === 'OPEN') {
         const now = new Date().toISOString();
-        await recordRef.update({
+        await reconRepo.updateRecord(recId, {
           resolutionStatus: 'RESOLVED',
-          resolutionAction: 'AUTO_RESOLVE',
           resolutionReason: "Order reconciled successfully: status is now in sync",
-          actorUid: 'system',
-          resolvedAt: now,
-          updatedAt: now
+          resolvedAt: now
         });
       }
+    }
+  }
+
+  // Crash Recovery & TokoVoucher Reconciliation Check:
+  // If order is PAID and in PROCESSING state, check TokoVoucher provider status if applicable
+  const providerCode = order.providerId || "";
+  if (localState === 'PROCESSING' && (providerCode === 'tokovoucher' || providerCode.toLowerCase().includes('tokovoucher'))) {
+    try {
+       const { getProvider } = await import("./providers");
+       const tokoVoucherProvider = getProvider('tokovoucher');
+       // Check status at TokoVoucher using orderId (ref_id)
+       const checkResult = await tokoVoucherProvider.checkTransaction(orderId);
+       
+       if (checkResult.status === 'success') {
+         console.log(`[Reconciliation TokoVoucher] Order ${orderId} confirmed SUCCESS at TokoVoucher. Transitioning...`);
+         const payload: Record<string, any> = {};
+         if (checkResult.serialNumber && checkResult.serialNumber !== "SN-FOUND" && checkResult.serialNumber !== "SN-RESOLVED") {
+            payload.serialNumber = checkResult.serialNumber;
+            payload.providerReference = checkResult.serialNumber;
+         }
+         await transitionOrderState(orderId, 'SUCCESS', payload, "Reconciliation: Confirmed success at TokoVoucher");
+         resolution = 'AUTO_RESOLVED';
+         message = "Transaksi TokoVoucher dikonfirmasi sukses oleh provider.";
+       } else if (checkResult.status === 'failed') {
+         console.log(`[Reconciliation TokoVoucher] Order ${orderId} confirmed FAILED at TokoVoucher. Transitioning...`);
+         const reason = checkResult.message || "Provider reported failure";
+         await transitionOrderState(orderId, 'FAILED', { reason }, "Reconciliation: Confirmed failure at TokoVoucher");
+         resolution = 'AUTO_RESOLVED';
+         message = "Transaksi TokoVoucher dikonfirmasi gagal oleh provider.";
+       } else {
+         console.log(`[Reconciliation TokoVoucher] Order ${orderId} remains PROCESSING at TokoVoucher.`);
+       }
+    } catch (tvErr: any) {
+       console.error(`[Reconciliation TokoVoucher Error] Error checking status for ${orderId}:`, tvErr?.message || tvErr);
     }
   }
 
@@ -307,36 +356,31 @@ export async function reconcileOrder(
 
 export async function runReconciliationBatch(actorUid: string): Promise<any> {
   const startedAt = new Date().toISOString();
-  const runId = `run_${crypto.randomBytes(8).toString("hex")}`;
+  const runId = crypto.randomUUID();
+  const reconRepo = ReconciliationRepository.getInstance();
   
-  const runRef = adminDb.collection("reconciliationRuns").doc(runId);
-  await runRef.set({
+  await reconRepo.createRun({
     id: runId,
     executedBy: actorUid,
     startedAt,
-    completedAt: "",
     status: "RUNNING",
     totalOrdersScanned: 0,
-    mismatchCount: 0,
-    createdAt: startedAt
+    mismatchCount: 0
   });
   
   try {
     // Query recent pending orders to scan
-    const ordersSnap = await adminDb.collection("orders")
-      .orderBy("createdAt", "desc")
-      .limit(100)
-      .get();
+    const orderRepo = OrderRepository.getInstance();
+    const recentOrders = await orderRepo.getRecentOrders(100);
       
     let totalOrdersScanned = 0;
-    let mismatchCount = 0;
     
     const { JobService } = await import("./job-service");
     const jobService = JobService.getInstance();
 
-    for (const doc of ordersSnap.docs) {
+    for (const order of recentOrders) {
       totalOrdersScanned++;
-      const orderId = doc.id;
+      const orderId = order.id;
       
       await jobService.enqueue({
         type: 'RECONCILIATION',
@@ -348,7 +392,7 @@ export async function runReconciliationBatch(actorUid: string): Promise<any> {
     }
     
     const completedAt = new Date().toISOString();
-    await runRef.update({
+    await reconRepo.updateRun(runId, {
       status: "COMPLETED",
       completedAt,
       totalOrdersScanned,
@@ -358,7 +402,7 @@ export async function runReconciliationBatch(actorUid: string): Promise<any> {
     return { runId, totalOrdersScanned, status: "ENQUEUED" };
   } catch (err: any) {
     console.error("[Reconciliation Batch Error]", err);
-    await runRef.update({
+    await reconRepo.updateRun(runId, {
       status: "FAILED",
       completedAt: new Date().toISOString()
     });

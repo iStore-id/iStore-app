@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { queryAuditLogs, getAuditMetrics, sanitizeAuditData } from "./audit-service";
 import { logCoreAudit } from "./core-service";
-import { adminDb } from "./firebase-admin";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 export async function getAuditLogsApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -66,23 +66,10 @@ export async function getAuditDetailApi(req: AuthenticatedRequest, res: Response
       return res.status(400).json({ success: false, message: "ID audit log diperlukan" });
     }
 
-    const docSnap = await adminDb.collection("auditLogs").doc(id).get();
-    if (!docSnap.exists) {
+    const log = await AuditLogRepository.getInstance().getLogById(id);
+    if (!log) {
       return res.status(404).json({ success: false, message: "Catatan audit tidak ditemukan" });
     }
-
-    const data = docSnap.data()!;
-    const log = {
-      id: docSnap.id,
-      actor: data.actor || { uid: "unknown", email: "system" },
-      role: data.role || "system",
-      action: data.action || "UNKNOWN",
-      target: data.target || "-",
-      before: sanitizeAuditData(data.before),
-      after: sanitizeAuditData(data.after),
-      reason: data.reason || "-",
-      timestamp: data.timestamp || new Date().toISOString()
-    };
 
     return res.status(200).json({
       success: true,

@@ -1,6 +1,10 @@
 import { DateTime, Interval } from "luxon";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 import { BusinessCalendarConfig, CalendarException, TimeWindow, DaySchedule } from "../types/core";
+
+const CONFIG_KEY = "business_calendar_config";
+const EXCEPTIONS_KEY = "business_calendar_exceptions";
 
 export class BusinessCalendarService {
   private static instance: BusinessCalendarService;
@@ -26,9 +30,9 @@ export class BusinessCalendarService {
   }
 
   async loadConfig() {
-    const configDoc = await adminDb.collection("businessCalendarConfig").doc("default").get();
-    if (configDoc.exists) {
-      this.config = configDoc.data() as BusinessCalendarConfig;
+    const rawConfig = await SystemConfigRepository.getInstance().getConfig(CONFIG_KEY);
+    if (rawConfig) {
+      this.config = rawConfig as BusinessCalendarConfig;
     } else {
       // Default config: Asia/Jakarta, 08:00 - 22:00 every day
       const defaultSchedule: Record<number, DaySchedule> = {};
@@ -43,10 +47,9 @@ export class BusinessCalendarService {
       };
     }
 
-    const exceptionsSnap = await adminDb.collection("businessCalendarExceptions")
-      .where("isEnabled", "==", true)
-      .get();
-    this.exceptions = exceptionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CalendarException));
+    const rawExceptions = await SystemConfigRepository.getInstance().getConfig(EXCEPTIONS_KEY);
+    const allExceptions: CalendarException[] = Array.isArray(rawExceptions) ? rawExceptions : [];
+    this.exceptions = allExceptions.filter(e => e.isEnabled === true);
     this.lastLoaded = Date.now();
   }
 
@@ -202,41 +205,94 @@ export class BusinessCalendarService {
   }
 
   async getAllExceptionsAdmin(): Promise<CalendarException[]> {
-    const snap = await adminDb.collection("businessCalendarExceptions").orderBy("updatedAt", "desc").get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as CalendarException));
+    const raw = await SystemConfigRepository.getInstance().getConfig(EXCEPTIONS_KEY);
+    const list: CalendarException[] = Array.isArray(raw) ? raw : [];
+    return list.sort((a, b) => {
+      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }
+
+  async getExceptionById(id: string): Promise<CalendarException | null> {
+    const list = await this.getAllExceptionsAdmin();
+    return list.find(e => e.id === id) || null;
   }
 
   async updateConfig(config: Partial<BusinessCalendarConfig>, actorUid: string) {
     const now = new Date().toISOString();
     const current = await this.getConfig();
     const updated = { ...current, ...config, updatedAt: now, updatedBy: actorUid };
-    await adminDb.collection("businessCalendarConfig").doc("default").set(updated);
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(CONFIG_KEY, updated);
+    } catch (error: any) {
+      throw new Error(`Failed to save calendar config: ${error.message}`);
+    }
+
     this.config = updated;
+    this.lastLoaded = Date.now();
   }
 
   async upsertException(exception: Partial<CalendarException>, actorUid: string) {
     const now = new Date().toISOString();
+    const raw = await SystemConfigRepository.getInstance().getConfig(EXCEPTIONS_KEY);
+    let list: CalendarException[] = Array.isArray(raw) ? [...raw] : [];
+
     if (exception.id) {
-        const id = exception.id;
-        delete exception.id;
-        const data = { ...exception, updatedAt: now, updatedBy: actorUid };
-        await adminDb.collection("businessCalendarExceptions").doc(id).update(data);
-    } else {
-        const data = {
-            ...exception,
-            isEnabled: exception.isEnabled ?? true,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: actorUid,
-            updatedBy: actorUid
+      const targetId = exception.id;
+      const idx = list.findIndex(e => e.id === targetId);
+      if (idx >= 0) {
+        list[idx] = {
+          ...list[idx],
+          ...exception,
+          id: targetId,
+          updatedAt: now,
+          updatedBy: actorUid
         };
-        await adminDb.collection("businessCalendarExceptions").add(data);
+      } else {
+        list.push({
+          ...(exception as CalendarException),
+          id: targetId,
+          updatedAt: now,
+          updatedBy: actorUid
+        });
+      }
+    } else {
+      const newId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `exc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const newException: CalendarException = {
+        ...(exception as any),
+        id: newId,
+        isEnabled: exception.isEnabled ?? true,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actorUid,
+        updatedBy: actorUid
+      };
+      list.push(newException);
     }
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(EXCEPTIONS_KEY, list);
+    } catch (error: any) {
+      throw new Error(`Failed to save calendar exception: ${error.message}`);
+    }
+
     await this.loadConfig();
   }
 
   async deleteException(id: string) {
-    await adminDb.collection("businessCalendarExceptions").doc(id).delete();
+    const now = new Date().toISOString();
+    const raw = await SystemConfigRepository.getInstance().getConfig(EXCEPTIONS_KEY);
+    let list: CalendarException[] = Array.isArray(raw) ? [...raw] : [];
+    list = list.filter(e => e.id !== id);
+
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(EXCEPTIONS_KEY, list);
+    } catch (error: any) {
+      throw new Error(`Failed to delete calendar exception: ${error.message}`);
+    }
+
     await this.loadConfig();
   }
 }

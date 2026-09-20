@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { FAQService } from "./faq-service";
-import { adminDb } from "./firebase-admin";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 const faqService = FAQService.getInstance();
 
@@ -12,15 +12,13 @@ async function logFaqAudit(
   payload: any
 ) {
   try {
-    const auditRef = adminDb.collection("auditLogs").doc();
-    await auditRef.set({
-      id: auditRef.id,
-      actorUid: req.user?.uid || "system",
-      actorEmail: req.user?.email || "system",
+    await AuditLogRepository.getInstance().createLog({
+      actor: { uid: req.user?.uid || "system", email: req.user?.email || "system" },
+      role: req.user?.role || "admin",
       action,
-      resource: "faq",
-      resourceId,
-      payload,
+      target: `faq/${resourceId}`,
+      after: payload,
+      reason: payload?.reason || "FAQ operation",
       timestamp: new Date().toISOString()
     });
   } catch (error) {

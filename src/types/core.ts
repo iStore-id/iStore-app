@@ -49,6 +49,44 @@ export interface StoreConfiguration {
   primaryColor?: string;
   secondaryColor?: string;
   brandTextColor?: string;
+  
+  // Expanded Branding Settings
+  backgroundColor?: string;
+  surfaceColor?: string;
+  textColor?: string;
+  textSecondaryColor?: string;
+  borderColor?: string;
+  accentColor?: string;
+  hoverColor?: string;
+  headerBackgroundColor?: string;
+  headerTextColor?: string;
+  logoStyle?: 'natural' | 'circle' | 'rounded-box';
+  logoShowName?: boolean;
+  catalogMarqueeText?: string;
+  
+  // Custom Homepage Background Settings
+  homepageBackgroundColor?: string;
+  homepageBackgroundImage?: string;
+  homepageBackgroundMode?: 'color' | 'image';
+  
+  // Custom Footer Background Settings
+  footerBackgroundColor?: string;
+  footerBackgroundImage?: string;
+  footerBackgroundMode?: 'color' | 'image';
+  
+  // Custom Transaction Card Transparency & Blur Settings
+  transactionCardColor?: string;
+  transactionCardOpacity?: number;
+  transactionCardBlur?: 'none' | 'sm' | 'md' | 'lg';
+  
+  headerScrollEffect?: boolean;
+  logoHoverEffect?: boolean;
+  navIndicator?: boolean;
+  
+  borderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
+  buttonStyle?: 'solid' | 'outline' | 'ghost' | 'soft';
+  themePreference?: 'light' | 'dark' | 'system';
+  
   updatedAt: string;
   createdAt: string;
 }
@@ -74,6 +112,10 @@ export interface Game {
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+  productCount?: number;
+  variantCount?: number;
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 export interface Category {
@@ -340,8 +382,8 @@ export interface AuditLog {
   role: string;
   action: string;
   target: string;
-  before: any;
-  after: any;
+  before?: any;
+  after?: any;
   reason?: string;
   timestamp: string;
 }
@@ -565,6 +607,15 @@ export interface SettlementRecord {
   gatewaySettledAt?: string;
   sourceRowHash?: string;
   createdAt: string;
+}
+
+export interface ProcessResult {
+  success: boolean;
+  message?: string;
+  code?: string;
+  batch?: any;
+  recordsCount?: number;
+  data?: any;
 }
 
 export interface SecuritySettings {

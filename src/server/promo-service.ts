@@ -1,4 +1,4 @@
-import { adminDb } from "./firebase-admin";
+import { SupabasePromoRepository } from "./supabase/promo-repository";
 
 export interface PromoData {
   id?: string;
@@ -24,6 +24,11 @@ export interface PromoData {
 
 export class PromoService {
   private static instance: PromoService;
+  private promoRepo: SupabasePromoRepository;
+
+  private constructor() {
+    this.promoRepo = SupabasePromoRepository.getInstance();
+  }
 
   public static getInstance(): PromoService {
     if (!PromoService.instance) {
@@ -33,16 +38,11 @@ export class PromoService {
   }
 
   async getPromos(): Promise<PromoData[]> {
-    const snapshot = await adminDb.collection("promos").orderBy("createdAt", "desc").get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PromoData));
+    return this.promoRepo.getPromos(false);
   }
 
   async getPromoByCode(code: string): Promise<PromoData | null> {
-    const normalizedCode = code.trim().toUpperCase();
-    const snapshot = await adminDb.collection("promos").where("code", "==", normalizedCode).limit(1).get();
-    if (snapshot.empty) return null;
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as PromoData;
+    return this.promoRepo.getPromoByCode(code);
   }
 
   async createPromo(data: Omit<PromoData, 'id' | 'usageCount' | 'createdAt' | 'updatedAt'>, actorUid: string): Promise<PromoData> {
@@ -52,52 +52,44 @@ export class PromoService {
       throw new Error(`Promo dengan kode ${normalizedCode} sudah ada.`);
     }
 
-    const promoRef = adminDb.collection("promos").doc();
-    const now = new Date().toISOString();
-    const promoData: PromoData = {
-      id: promoRef.id,
+    return this.promoRepo.createPromo({
       ...data,
-      code: normalizedCode,
-      usageCount: 0,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await promoRef.set(promoData);
-    return promoData;
+      code: normalizedCode
+    });
   }
 
   async updatePromo(id: string, data: Partial<PromoData>, actorUid: string): Promise<PromoData> {
-    const promoRef = adminDb.collection("promos").doc(id);
-    const snap = await promoRef.get();
-    if (!snap.exists) {
+    const existing = await this.promoRepo.getPromo(id);
+    if (!existing) {
       throw new Error("Promo tidak ditemukan.");
     }
 
-    const updatePayload: any = {
-      ...data,
-      updatedAt: new Date().toISOString()
-    };
-    if (updatePayload.code) {
-      updatePayload.code = updatePayload.code.trim().toUpperCase();
+    let updatePayload: Partial<PromoData> = { ...data };
+    if (data.code) {
+      const normalizedCode = data.code.trim().toUpperCase();
+      if (normalizedCode !== existing.code) {
+        const duplicate = await this.getPromoByCode(normalizedCode);
+        if (duplicate && duplicate.id !== id) {
+          throw new Error(`Promo dengan kode ${normalizedCode} sudah ada.`);
+        }
+      }
+      updatePayload.code = normalizedCode;
     }
 
-    await promoRef.update(updatePayload);
-    const updatedSnap = await promoRef.get();
-    return { id: updatedSnap.id, ...updatedSnap.data() } as PromoData;
+    await this.promoRepo.updatePromo(id, updatePayload);
+    const updated = await this.promoRepo.getPromo(id);
+    if (!updated) {
+      throw new Error("Promo tidak ditemukan.");
+    }
+    return updated;
   }
 
   async deletePromo(id: string, actorUid: string): Promise<void> {
-    const promoRef = adminDb.collection("promos").doc(id);
-    const snap = await promoRef.get();
-    if (!snap.exists) {
+    const existing = await this.promoRepo.getPromo(id);
+    if (!existing) {
       throw new Error("Promo tidak ditemukan.");
     }
-    // Soft archive / deactivate or delete
-    await promoRef.update({
-      status: 'inactive',
-      updatedAt: new Date().toISOString()
-    });
+    await this.promoRepo.deletePromo(id);
   }
 
   async validateAndCalculateDiscount(
@@ -132,13 +124,9 @@ export class PromoService {
 
     // Per-customer usage check if required
     if (promo.perCustomerUsageLimit && userId && userId !== 'guest') {
-      const usageSnap = await adminDb.collection("orders")
-        .where("userId", "==", userId)
-        .where("promoId", "==", promo.id)
-        .where("paymentStatus", "in", ["paid", "pending"])
-        .get();
+      const userUsageCount = await this.promoRepo.getUserPromoUsageCount(userId, promo.id!);
       
-      if (usageSnap.size >= promo.perCustomerUsageLimit) {
+      if (userUsageCount >= promo.perCustomerUsageLimit) {
         throw new Error(`Anda telah mencapai batas maksimal penggunaan promo ini (${promo.perCustomerUsageLimit}x).`);
       }
     }
@@ -196,16 +184,6 @@ export class PromoService {
   }
 
   async incrementUsage(promoId: string): Promise<void> {
-    const promoRef = adminDb.collection("promos").doc(promoId);
-    await adminDb.runTransaction(async (transaction) => {
-      const snap = await transaction.get(promoRef);
-      if (!snap.exists) return;
-      const data = snap.data()!;
-      const currentCount = data.usageCount || 0;
-      transaction.update(promoRef, {
-        usageCount: currentCount + 1,
-        updatedAt: new Date().toISOString()
-      });
-    });
+    await this.promoRepo.incrementUsage(promoId);
   }
 }

@@ -1,5 +1,5 @@
 import { SecretManagerServiceClient } from "@google-cloud/secret-manager";
-import { ISTORE_PROJECT_ID } from "./firebase-admin";
+const ISTORE_PROJECT_ID = "gen-lang-client-0242466730";
 
 const client = new SecretManagerServiceClient();
 

@@ -2,7 +2,6 @@ import { Response } from "express";
 import { BusinessCalendarService } from "./business-calendar-service";
 import { AuthenticatedRequest } from "./middleware";
 import { logCoreAudit } from "./core-service";
-import { adminDb } from "./firebase-admin";
 
 const calendarService = BusinessCalendarService.getInstance();
 
@@ -38,8 +37,7 @@ export async function upsertCalendarException(req: AuthenticatedRequest, res: Re
     
     let before = null;
     if (id) {
-        const snap = await adminDb.collection("businessCalendarExceptions").doc(id).get();
-        if (snap.exists) before = snap.data();
+      before = await calendarService.getExceptionById(id);
     }
     
     await calendarService.upsertException(req.body, req.user.uid);
@@ -57,8 +55,7 @@ export async function deleteCalendarException(req: AuthenticatedRequest, res: Re
     const { id } = req.params;
     const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
     
-    const snap = await adminDb.collection("businessCalendarExceptions").doc(id).get();
-    const before = snap.exists ? snap.data() : null;
+    const before = await calendarService.getExceptionById(id);
     
     await calendarService.deleteException(id);
     

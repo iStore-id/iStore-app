@@ -1,20 +1,18 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { CampaignService } from "./campaign-service";
-import { adminDb } from "./firebase-admin";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 const campaignService = CampaignService.getInstance();
 
 async function logAudit(req: AuthenticatedRequest, action: string, resourceId: string, payload: any) {
-  const auditRef = adminDb.collection("auditLogs").doc();
-  await auditRef.set({
-    id: auditRef.id,
-    actorUid: req.user?.uid || "system",
-    actorEmail: req.user?.email || "system",
+  await AuditLogRepository.getInstance().createLog({
+    actor: { uid: req.user?.uid || "system", email: req.user?.email || "system" },
+    role: req.user?.role || "admin",
     action,
-    resource: "campaigns",
-    resourceId,
-    payload,
+    target: `campaigns/${resourceId}`,
+    after: payload,
+    reason: payload?.reason || "Campaign operation",
     timestamp: new Date().toISOString()
   });
 }

@@ -42,6 +42,39 @@ export interface LedgerLineItem {
   credit: number; // Non-negative integer IDR
 }
 
+export interface LedgerListOptions {
+  limit?: number;
+  offset?: number;
+  page?: number;
+  eventType?: string;
+  startDate?: string;
+  endDate?: string;
+  accountId?: string;
+  sourceType?: string;
+  sourceId?: string;
+  search?: string;
+}
+
+export interface LedgerOverview {
+  totalEntries: number;
+  totalDebit: number;
+  totalCredit: number;
+  accountSummary: Record<string, {
+    debit: number;
+    credit: number;
+    net: number;
+    name: string;
+  }>;
+}
+
+export interface ILedgerRepository {
+  getJournalEntryById(id: string): Promise<LedgerJournalEntry | null>;
+  getJournalEntryByIdempotencyKey(key: string): Promise<LedgerJournalEntry | null>;
+  listJournalEntries(options?: LedgerListOptions): Promise<{ entries: LedgerJournalEntry[], total: number }>;
+  getLedgerOverview(): Promise<LedgerOverview>;
+  getFinancialMetrics(startTime: string, endTime: string): Promise<any>;
+}
+
 export interface LedgerJournalEntry {
   id: string; // Document ID: `ledger_${idempotencyKey}`
   idempotencyKey: string;

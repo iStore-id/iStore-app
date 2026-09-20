@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || "Unknown error"}
             </div>
             <button
-              className="bg-blue-600 text-white px-6 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors"
+              className="bg-brand-600 text-white px-6 py-2 rounded-full font-medium hover:bg-brand-700 transition-colors"
               onClick={() => window.location.reload()}
             >
               Coba Lagi

@@ -1,15 +1,18 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { SupabaseCMSRepository } from "./supabase/cms-repository";
 import { SEOSettings, PublicSEOSettings } from "../types/seo";
 import { logCoreAudit } from "./core-service";
 
-const SEO_DOC_PATH = "seoSettings/global";
+const SEO_DOC_PATH = "system_configs/seo_settings";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_SEO_SETTINGS: SEOSettings = {
   id: "global",
-  siteName: "iStore.id",
+  siteName: "",
   titleSeparator: " | ",
-  defaultTitle: "iStore.id - Solusi Top Up Game & Voucher Digital Terpercaya",
+  defaultTitle: "Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
   defaultKeywords: [
     "top up game",
@@ -22,7 +25,7 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
   canonicalBaseUrl: "",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
+    altText: " - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
@@ -89,23 +92,13 @@ class SEOService {
     }
 
     try {
-      const docRef = adminDb.collection("seoSettings").doc("global");
-      const snap = await docRef.get();
+      const data = (await SystemConfigRepository.getInstance().getConfig("seo_settings")) as Partial<SEOSettings> | null;
 
-      if (!snap.exists) {
-        // Initialize with default
-        const initData: SEOSettings = {
-          ...DEFAULT_SEO_SETTINGS,
-          updatedAt: new Date().toISOString(),
-          updatedBy: "system"
-        };
-        await docRef.set(initData);
-        this.cachedSettings = initData;
+      if (!data) {
+        this.cachedSettings = DEFAULT_SEO_SETTINGS;
         this.cacheExpiresAt = now + CACHE_TTL_MS;
-        return initData;
+        return DEFAULT_SEO_SETTINGS;
       }
-
-      const data = snap.data() as Partial<SEOSettings>;
       // Deep merge with defaults to ensure complete structure
       const resolved: SEOSettings = {
         id: "global",
@@ -156,7 +149,7 @@ class SEOService {
       this.cacheExpiresAt = now + CACHE_TTL_MS;
       return resolved;
     } catch (err) {
-      console.error("[SEOService] Failed to fetch SEO settings from Firestore, fallback to defaults:", err);
+      console.error("[SEOService] Failed to fetch SEO settings from Supabase, fallback to defaults:", err);
       return DEFAULT_SEO_SETTINGS;
     }
   }
@@ -256,8 +249,11 @@ class SEOService {
       updatedBy: actor.email || actor.uid
     };
 
-    const docRef = adminDb.collection("seoSettings").doc("global");
-    await docRef.set(newSettings);
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig("seo_settings", newSettings);
+    } catch (error: any) {
+      throw new Error(`Failed to save SEO settings to SystemConfigRepository: ${error.message}`);
+    }
 
     // Audit log
     await logCoreAudit(
@@ -285,8 +281,11 @@ class SEOService {
       updatedBy: actor.email || actor.uid
     };
 
-    const docRef = adminDb.collection("seoSettings").doc("global");
-    await docRef.set(resetData);
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig("seo_settings", resetData);
+    } catch (error: any) {
+      throw new Error(`Failed to reset SEO settings in SystemConfigRepository: ${error.message}`);
+    }
 
     await logCoreAudit(
       actor,
@@ -312,7 +311,7 @@ class SEOService {
     // Non-production or indexing disabled by owner: disallow all crawlers to prevent staging indexing
     if (isNonProd || !settings.robotsPolicy.allowIndexing) {
       return [
-        "# robots.txt for iStore.id (Staging / Indexing Paused)",
+        "# robots.txt for  (Staging / Indexing Paused)",
         "User-agent: *",
         "Disallow: /",
         ""
@@ -320,7 +319,7 @@ class SEOService {
     }
 
     const lines: string[] = [
-      "# robots.txt for iStore.id",
+      "# robots.txt for ",
       "User-agent: *",
       "Allow: /"
     ];
@@ -383,12 +382,9 @@ class SEOService {
     // 2. Active, published games
     if (settings.sitemapPolicy.includeGames) {
       try {
-        const gamesSnap = await adminDb.collection("games")
-          .where("status", "==", "active")
-          .get();
+        const games = await SupabaseCatalogRepository.getInstance().listGames(true);
 
-        gamesSnap.forEach(doc => {
-          const g = doc.data();
+        games.forEach(g => {
           if (g.slug && g.availability !== "unavailable") {
             const modDate = g.updatedAt ? g.updatedAt.split("T")[0] : todayIso;
             urls.push({
@@ -414,14 +410,9 @@ class SEOService {
       });
 
       try {
-        const blogSnap = await adminDb.collection("blogs")
-          .where("published", "==", true)
-          .where("enabled", "==", true)
-          .where("isArchived", "==", false)
-          .get();
+        const { items: blogs } = await SupabaseCMSRepository.getInstance().listBlogs({ onlyActive: true, limit: 1000 });
 
-        blogSnap.forEach(doc => {
-          const b = doc.data();
+        blogs.forEach(b => {
           if (b.slug) {
             const modDate = b.updatedAt ? b.updatedAt.split("T")[0] : (b.publishedAt ? b.publishedAt.split("T")[0] : todayIso);
             urls.push({
@@ -440,14 +431,9 @@ class SEOService {
     // 4. Published landing pages
     if (settings.sitemapPolicy.includeLandings) {
       try {
-        const landingSnap = await adminDb.collection("landings")
-          .where("published", "==", true)
-          .where("enabled", "==", true)
-          .where("isArchived", "==", false)
-          .get();
+        const landings = await SupabaseCMSRepository.getInstance().listLandings(true);
 
-        landingSnap.forEach(doc => {
-          const l = doc.data();
+        landings.forEach(l => {
           if (l.slug) {
             const modDate = l.updatedAt ? l.updatedAt.split("T")[0] : todayIso;
             urls.push({

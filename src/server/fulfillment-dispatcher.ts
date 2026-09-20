@@ -1,8 +1,9 @@
-import { adminDb } from "./firebase-admin";
 import { transitionOrderState } from "./state-machine";
+import { OrderRepository } from "./supabase/order-repository";
 import { ProviderService } from "./provider-service";
 import { getProvider } from "./providers";
 import { logSystem } from "./system-log-service";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 export async function dispatchFulfillment(orderId: string): Promise<void> {
   console.log(`[Fulfillment Dispatcher] Initiating fulfillment process for order: ${orderId}`);
@@ -11,10 +12,10 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
     outcome: "PENDING"
   });
 
-  // 1. Read order from Firestore
-  const orderRef = adminDb.collection("orders").doc(orderId);
-  const orderSnap = await orderRef.get();
-  if (!orderSnap.exists) {
+  // 1. Read order from Supabase
+  const orderRepo = OrderRepository.getInstance();
+  const orderData = await orderRepo.getOrderById(orderId);
+  if (!orderData) {
     console.error(`[Fulfillment Dispatcher] Order not found in database: ${orderId}`);
     logSystem("ERROR", "FULFILLMENT", "ORDER_NOT_FOUND", `Order tidak ditemukan saat dispatch: ${orderId}`, "fulfillment-dispatcher", {
       orderId,
@@ -22,7 +23,6 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
     });
     return;
   }
-  const orderData = orderSnap.data()!;
 
   // 2. Validate if eligible for fulfillment claim
   // Only orders in 'paid' status and not yet processed (transactionStatus 'pending') are eligible
@@ -58,7 +58,7 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       // Try to use the dynamic routing ProviderService
       const providerService = ProviderService.getInstance();
       const variantId = orderData.variantId || "";
-      const providerSku = orderData.providerSku || orderData.providerProductId || "";
+      const providerSku = orderData.providerSku || (orderData as any).providerProductId || "";
       
       const mappedCustomerData = {
         destination: orderData.customerData?.userId || orderData.customerData?.destination || "",
@@ -83,13 +83,13 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       });
       
       // Legacy Fallback
-      const legacyProviderName = orderData.provider || orderData.providerId || "apigames";
+      const legacyProviderName = (orderData as any).provider || orderData.providerId || "apigames";
       const legacyProvider = getProvider(legacyProviderName);
       
       // Format legacy order data structure to match expected
       const legacyOrderData = {
         id: orderId,
-        providerProductId: orderData.providerProductId || orderData.providerSku || "",
+        providerProductId: (orderData as any).providerProductId || orderData.providerSku || "",
         customerData: {
           userId: orderData.customerData?.userId || orderData.customerData?.destination || "",
           zoneId: orderData.customerData?.zoneId || orderData.customerData?.serverId || ""
@@ -119,17 +119,17 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       });
 
       // Write audit log
-      const auditLogRef = adminDb.collection("auditLogs").doc();
-      await auditLogRef.set({
-        id: auditLogRef.id,
+      await AuditLogRepository.getInstance().createLog({
+        actor: { uid: "system", email: "system@dispatcher" },
+        role: "system",
         action: "FULFILLMENT_SUCCESS",
-        resource: "orders",
-        resourceId: orderId,
-        payload: {
+        target: `orders/${orderId}`,
+        after: {
           providerReference: refId,
           message: "Dispatcher successfully completed fulfillment"
         },
-        createdAt: new Date().toISOString()
+        reason: "Fulfillment success",
+        timestamp: new Date().toISOString()
       });
     } else {
       // If response indicates timeout or pending, KEEP status as PROCESSING (unknown outcome)
@@ -142,8 +142,8 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
           outcome: "PENDING",
           metadata: { message: result.message }
         });
-        await orderRef.update({
-          providerStatus: result.message || "Pending provider verification",
+        await orderRepo.updateOrder(orderId, {
+          fulfillmentResponse: { message: result.message || "Pending provider verification" },
           updatedAt: new Date().toISOString()
         });
       } else {
@@ -163,20 +163,20 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
                 metadata: { message: result.message }
             });
             // Audit log
-            const auditLogRef = adminDb.collection("auditLogs").doc();
-            await auditLogRef.set({
-                id: auditLogRef.id,
+            await AuditLogRepository.getInstance().createLog({
+                actor: { uid: "system", email: "system@dispatcher" },
+                role: "system",
                 action: "FULFILLMENT_FAILED",
-                resource: "orders",
-                resourceId: orderId,
-                payload: { message: result.message || "Provider returned failure response" },
-                createdAt: new Date().toISOString()
+                target: `orders/${orderId}`,
+                after: { message: result.message || "Provider returned failure response" },
+                reason: result.message || "Fulfillment failed permanent",
+                timestamp: new Date().toISOString()
             });
         } else {
             // Otherwise, keep as PROCESSING for reconciliation
             console.warn(`[Fulfillment Dispatcher] Ambiguous/Transient error for ${orderId}: ${result.message}. Keeping status as PROCESSING.`);
-            await orderRef.update({
-                providerStatus: result.message || "Pending provider verification",
+            await orderRepo.updateOrder(orderId, {
+                fulfillmentResponse: { message: result.message || "Pending provider verification" },
                 updatedAt: new Date().toISOString()
             });
         }
@@ -190,8 +190,8 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       stackTrace: err.stack
     });
     // Keep order status as PROCESSING for safety on unexpected crashes
-    await orderRef.update({
-      providerStatus: `Error: ${err.message || "Unknown execution crash"}`,
+    await orderRepo.updateOrder(orderId, {
+      fulfillmentResponse: { message: `Error: ${err.message || "Unknown execution crash"}` },
       updatedAt: new Date().toISOString()
     });
   }

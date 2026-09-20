@@ -5,6 +5,7 @@ import {
   ShieldAlert,
   Package, 
   Gamepad2, 
+  Layers,
   ShoppingCart, 
   TicketPercent, 
   Zap, 
@@ -107,14 +108,34 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         status: "ACTIVE"
       },
       { 
-        title: "Game & Kategori", 
+        title: "Game", 
         href: "/admin/games", 
         icon: Gamepad2, 
         resource: "games", 
         action: "view",
         status: "ACTIVE",
-        description: "Manajemen katalog game, kategori, dan pemetaan region.",
+        description: "Manajemen katalog game dan pemetaan region.",
         dependencies: ["Catalog Engine"]
+      },
+      { 
+        title: "Kategori", 
+        href: "/admin/categories", 
+        icon: Layers, 
+        resource: "games", 
+        action: "view",
+        status: "ACTIVE",
+        description: "Manajemen kategori katalog produk.",
+        dependencies: ["Catalog Engine"]
+      },
+      { 
+        title: "Harga Jual", 
+        href: "/admin/pricing-rules", 
+        icon: Percent, 
+        resource: "pricing", 
+        action: "view",
+        status: "ACTIVE",
+        description: "Aturan penetapan harga jual dan margin.",
+        dependencies: ["Pricing Engine"]
       },
       { 
         title: "Pesanan", 
@@ -318,13 +339,13 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
     title: "OPERASIONAL",
     items: [
       { 
-        title: "Provider", 
+        title: "Tarik Produk", 
         href: "/admin/providers", 
         icon: Truck, 
         resource: "providers", 
         action: "view",
         status: "ACTIVE",
-        description: "Koneksi ke API supplier produk digital.",
+        description: "Koneksi ke API supplier dan tarik produk digital.",
         dependencies: ["Provider Engine", "API Gateway"]
       },
       { 

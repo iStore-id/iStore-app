@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { querySystemLogs, getSystemLogMetrics, sanitizeSystemLogMetadata, logSystem } from "./system-log-service";
 import { logCoreAudit } from "./core-service";
-import { adminDb } from "./firebase-admin";
+import { SystemLogRepository } from "./supabase/system-log-repository";
 
 export async function getSystemLogsApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -76,32 +76,10 @@ export async function getSystemLogDetailApi(req: AuthenticatedRequest, res: Resp
       return res.status(400).json({ success: false, message: "ID log diperlukan" });
     }
 
-    const docSnap = await adminDb.collection("systemLogs").doc(id).get();
-    if (!docSnap.exists) {
+    const log = await SystemLogRepository.getInstance().getLogById(id);
+    if (!log) {
       return res.status(404).json({ success: false, message: "Catatan system log tidak ditemukan" });
     }
-
-    const d = docSnap.data()!;
-    const log = {
-      id: docSnap.id,
-      timestamp: d.timestamp || new Date().toISOString(),
-      level: d.level || "INFO",
-      category: d.category || "APPLICATION",
-      event: d.event || "UNKNOWN",
-      message: d.message || "",
-      service: d.service || "unknown",
-      requestId: d.requestId,
-      correlationId: d.correlationId,
-      orderId: d.orderId,
-      jobId: d.jobId,
-      provider: d.provider,
-      httpStatus: d.httpStatus,
-      durationMs: d.durationMs,
-      retryCount: d.retryCount,
-      outcome: d.outcome,
-      stackTrace: d.stackTrace,
-      metadata: sanitizeSystemLogMetadata(d.metadata)
-    };
 
     return res.status(200).json({
       success: true,

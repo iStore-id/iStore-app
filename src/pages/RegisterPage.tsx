@@ -1,42 +1,30 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db, isFirebaseConfigured } from "../lib/firebase";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
-import { UserPlus, AlertCircle } from "lucide-react";
+import { AlertCircle, UserPlus } from "lucide-react";
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
+  const { setUser } = useAuthStore();
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuthStore();
-  const navigate = useNavigate();
+  const [error, setError] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password) {
-      setError("Semua field wajib diisi.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password minimal harus 6 karakter.");
-      return;
-    }
-
-    if (!isFirebaseConfigured || !auth) {
-      setError("Konfigurasi Firebase belum lengkap.");
+    if (!isSupabaseConfigured || !supabase) {
+      setError("Konfigurasi Supabase belum lengkap.");
       return;
     }
 
     setError("");
     setLoading(true);
 
-    // 1. Validasi Password Policy ke Backend (Strict Fail-Closed)
+    // 1. Password Policy Validation via Backend API
     let validationPassed = false;
     try {
       const valRes = await fetch("/api/auth/validate-password", {
@@ -44,118 +32,74 @@ export default function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password })
       });
-
-      let valData: any = null;
+      
+      let valData;
       try {
         valData = await valRes.json();
       } catch {
-        // CONDITION 3: Malformed or non-JSON response -> fail-closed
-        setError("Validasi keamanan tidak dapat dilakukan. Silakan coba lagi.");
-        setLoading(false);
-        return;
-      }
-
-      // Check structure: must be an object with boolean 'valid'
-      if (!valData || typeof valData !== "object" || typeof valData.valid !== "boolean") {
-        // CONDITION 3: Unexpected response structure -> fail-closed
         setError("Validasi keamanan tidak dapat dilakukan. Silakan coba lagi.");
         setLoading(false);
         return;
       }
 
       if (!valRes.ok) {
-        if (valRes.status >= 400 && valRes.status < 500 && valData.valid === false) {
-          // CONDITION 2 — POLICY REJECTED (HTTP 4xx)
-          const errorMsg = Array.isArray(valData.errors) && valData.errors.length > 0
-            ? valData.errors.join(". ")
-            : (valData.message || "Password tidak memenuhi kebijakan keamanan platform.");
-          setError(errorMsg);
-        } else {
-          // CONDITION 3 — VALIDATION SERVICE ERROR (HTTP 500, gateway error, etc.)
-          setError("Validasi keamanan tidak dapat dilakukan. Silakan coba lagi.");
-        }
-        setLoading(false);
-        return;
-      }
-
-      if (valData.valid === true) {
-        // CONDITION 1 — VALID
-        validationPassed = true;
-      } else {
-        // CONDITION 2 — POLICY REJECTED (HTTP 200 with valid: false)
-        const errorMsg = Array.isArray(valData.errors) && valData.errors.length > 0
-          ? valData.errors.join(". ")
-          : (valData.message || "Password tidak memenuhi kebijakan keamanan platform.");
+        const errorMsg = valData?.errors?.join(". ") || valData?.message || "Password tidak memenuhi kebijakan keamanan.";
         setError(errorMsg);
         setLoading(false);
         return;
       }
+      validationPassed = valData.valid === true;
     } catch {
-      // CONDITION 3 — NETWORK FAILURE / TIMEOUT / SERVER UNREACHABLE
       setError("Validasi keamanan tidak dapat dilakukan. Silakan coba lagi.");
       setLoading(false);
       return;
     }
 
     if (!validationPassed) {
-      setError("Validasi keamanan tidak dapat dilakukan. Silakan coba lagi.");
+      setError("Validasi keamanan tidak dapat dilakukan.");
       setLoading(false);
       return;
     }
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const firebaseUser = userCredential.user;
-
-      // Update Firebase Auth profile displayName
-      try {
-        await updateProfile(firebaseUser, { displayName: name.trim() });
-      } catch (profileErr) {
-        console.warn("Could not set displayName:", profileErr);
-      }
-
-      // Check if owner email
-      const isOwner = email.trim().toLowerCase() === "chokerbayu@gmail.com";
-      const role = isOwner ? "pemilik" : "customer";
-
-      // Save user to Firestore
-      if (db) {
-        try {
-          const userDocRef = doc(db, "users", firebaseUser.uid);
-          await setDoc(userDocRef, {
-            uid: firebaseUser.uid,
-            name: name.trim(),
-            email: email.trim(),
-            phone: phone.trim(),
-            role,
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (dbErr) {
-          console.warn("Firestore user creation notice:", dbErr);
+      // 2. Supabase Sign Up
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: name.trim(),
+            phone: phone.trim()
+          }
         }
-      }
+      });
 
-      // Also notify backend sync API
+      if (signUpError) throw signUpError;
+      if (!authData.user) throw new Error("Gagal mendaftarkan akun.");
+
+      const sbUser = authData.user;
+      
+      // 3. Sync User to Backend (which handles customers table and role assignment)
+      const role = email.trim().toLowerCase() === "chokerbayu@gmail.com" ? "pemilik" : "customer";
+      
       try {
-        const idToken = await firebaseUser.getIdToken();
         await fetch("/api/auth/sync-user", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`
+            "Authorization": `Bearer ${sbUser.id}`
           },
-          body: JSON.stringify({ name: name.trim() })
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim() })
         });
       } catch (apiErr) {
         console.warn("Backend sync notice error:", apiErr);
       }
 
       const userData = {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email || email.trim(),
+        uid: sbUser.id,
+        email: sbUser.email || email.trim(),
         displayName: name.trim()
       };
-
       setUser(userData, role);
 
       if (role === "pemilik") {
@@ -165,17 +109,7 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       console.error("Registration error:", err);
-      let errorMsg = "Gagal mendaftarkan akun. Silakan coba lagi.";
-      if (err.code === 'auth/email-already-in-use') {
-        errorMsg = "Email ini sudah terdaftar. Silakan gunakan menu Login.";
-      } else if (err.code === 'auth/invalid-email') {
-        errorMsg = "Format email tidak valid.";
-      } else if (err.code === 'auth/weak-password') {
-        errorMsg = "Password terlalu lemah. Gunakan minimal 6 karakter.";
-      } else if (err.message) {
-        errorMsg = err.message;
-      }
-      setError(errorMsg);
+      setError(err.message || "Gagal mendaftarkan akun. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -185,11 +119,11 @@ export default function RegisterPage() {
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50">
       <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-md shadow-blue-600/20">
+          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-md shadow-brand-600/20">
             i
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Buat Akun</h1>
-          <p className="text-slate-500 mt-2 text-sm">Daftar untuk mulai bertransaksi di iStore.id</p>
+          <p className="text-slate-500 mt-2 text-sm">Daftar untuk mulai bertransaksi di Toko Kami</p>
         </div>
 
         {error && (
@@ -207,7 +141,7 @@ export default function RegisterPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="John Doe"
             />
           </div>
@@ -217,7 +151,7 @@ export default function RegisterPage() {
               type="tel" 
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="081234567890"
             />
           </div>
@@ -228,7 +162,7 @@ export default function RegisterPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="nama@email.com"
             />
           </div>
@@ -239,14 +173,15 @@ export default function RegisterPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
               placeholder="Minimal 6 karakter"
             />
           </div>
+
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 mt-2"
+            className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg shadow-brand-600/20"
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -260,7 +195,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="text-center text-sm text-slate-600 mt-8">
-          Sudah punya akun? <Link to="/login" className="font-semibold text-blue-600 hover:text-blue-700">Masuk di sini</Link>
+          Sudah punya akun? <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Masuk di sini</Link>
         </p>
       </div>
     </div>

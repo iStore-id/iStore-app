@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import { 
   Activity, 
   RefreshCw, 
@@ -52,7 +53,8 @@ export default function AdminHealthPage() {
       if (isManual) setRefreshing(true);
       else setLoading(true);
 
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/admin/health${isManual ? '?refresh=true' : ''}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });

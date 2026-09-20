@@ -108,5 +108,41 @@ export const defaultProducts = [
       { id: "pubg_300", name: "300+25 Unknown Cash (UC)", sellingPrice: 75000, costPrice: 70000, providerCode: "PUBG325" },
       { id: "pubg_600", name: "600+60 Unknown Cash (UC)", sellingPrice: 150000, costPrice: 140000, providerCode: "PUBG660" }
     ]
+  },
+  {
+    id: "punishing-gray-raven",
+    slug: "punishing-gray-raven",
+    name: "Punishing Gray Raven",
+    brand: "Kuro Games",
+    category: "game",
+    image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&q=80",
+    status: "active",
+    isPopular: false,
+    inputSchema: {
+      fields: [
+        { name: "userId", label: "User ID", required: true, type: "text" },
+        { name: "zoneId", label: "Server / Region (AP / NA / EU)", required: true, type: "text" }
+      ]
+    },
+    instructions: "Masukkan User ID dan Server / Region Anda (AP, NA, atau EU).",
+    variants: []
+  },
+  {
+    id: "magic-chess-go-go",
+    slug: "magic-chess-go-go",
+    name: "Magic Chess: Go Go",
+    brand: "Moonton",
+    category: "game",
+    image: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=400&q=80",
+    status: "active",
+    isPopular: false,
+    inputSchema: {
+      fields: [
+        { name: "userId", label: "User ID", required: true, type: "text" },
+        { name: "zoneId", label: "Zone ID", required: true, type: "text" }
+      ]
+    },
+    instructions: "Masukkan User ID dan Zone ID Magic Chess: Go Go Anda.",
+    variants: []
   }
 ];

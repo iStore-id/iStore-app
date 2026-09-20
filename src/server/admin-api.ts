@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { adminDb } from "./firebase-admin";
 import { AuthenticatedRequest } from "./middleware";
 import { ProviderCatalogDiscoveryService } from "./discovery-service";
 import { ProviderMappingService } from "./provider-mapping-service";
@@ -7,6 +6,13 @@ import { TokoVoucherDiscoveryAdapter } from "./adapters/tokovoucher-discovery-ad
 import { ApiGamesDiscoveryAdapter } from "./adapters/apigames-discovery-adapter";
 import { CatalogService } from "./catalog-service";
 import { ProviderService } from "./provider-service";
+import { SupabaseProviderRepository } from "./supabase/provider-repository";
+import { SupabaseRefundRepository } from "./supabase/refund-repository";
+import { OrderRepository } from "./supabase/order-repository";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { supabaseAdmin } from "./supabase-admin";
+// Admin API Logic using Supabase and existing services
 import { DateTime } from "luxon";
 import { ProviderSku, ProviderMapping, Product, Game, ProductVariant } from "../types/core";
 
@@ -14,24 +20,149 @@ const discoveryService = new ProviderCatalogDiscoveryService();
 discoveryService.registerAdapter(new TokoVoucherDiscoveryAdapter());
 discoveryService.registerAdapter(new ApiGamesDiscoveryAdapter());
 
+
 // ... (existing exports)
 
 export async function getProviderCatalogDiscovery(req: AuthenticatedRequest, res: Response) {
   try {
-    const { provider, code } = req.query;
+    const { provider, code, limit } = req.query;
     if (!provider || typeof provider !== "string") {
       return res.status(400).json({ success: false, message: "Provider required" });
     }
-    const results = await discoveryService.discover(provider, code as string);
-    await logAudit(req, "PROVIDER_CATALOG_DISCOVERY", "providers", provider, { code, count: results.length });
-    return res.status(200).json({ success: true, data: results });
+
+    const discoveryMode = typeof limit === "string" ? limit : "brand";
+    const allowedModes = ["brand", "50", "100", "full"];
+    if (!allowedModes.includes(discoveryMode)) {
+      return res.status(400).json({ success: false, message: "Invalid discovery mode" });
+    }
+
+    if (discoveryMode === "brand" && (!code || typeof code !== "string" || code.trim() === "")) {
+      return res.status(400).json({ success: false, message: "Prefix produk diperlukan untuk mode Per Brand / Kategori." });
+    }
+
+    let results = await discoveryService.discover(provider, code as string);
+
+    // Apply slicing based on bounded mode
+    if (discoveryMode === "50") {
+      results = results.slice(0, 50);
+    } else if (discoveryMode === "100") {
+      results = results.slice(0, 100);
+    } else if (discoveryMode === "brand") {
+      // Bounded safety limit for brand mode just in case
+      results = results.slice(0, 150); 
+    }
+
+    let enhancedResults;
+
+    if (discoveryMode === "full") {
+      // Full Catalog: bypass existence lookup completely to save Firestore quota
+      enhancedResults = results.map(r => ({
+        ...r,
+        isExisting: null
+      }));
+    } else {
+      // Bounded lookup for existing SKUs
+      const targetSkusToLookup = results
+        .map(r => r.providerSku ? String(r.providerSku).trim() : "")
+        .filter(Boolean);
+        
+      // Deduplicate SKUs before lookup
+      const uniqueSkus = Array.from(new Set(targetSkusToLookup));
+        
+      const dbSkuMap = new Map();
+      
+      enhancedResults = results.map(r => {
+        const normSku = r.providerSku ? String(r.providerSku).trim().toLowerCase() : "";
+        return {
+          ...r,
+          isExisting: dbSkuMap.has(normSku)
+        };
+      });
+    }
+
+    await logAudit(req, "PROVIDER_CATALOG_DISCOVERY", "providers", provider, { code, mode: discoveryMode, count: results.length });
+    return res.status(200).json({ success: true, data: enhancedResults });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function importFromCatalogDiscovery(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { providerId, items, mode } = req.body;
+    
+    if (!providerId || !items || !Array.isArray(items)) {
+      return res.status(400).json({ success: false, message: "providerId and items array are required" });
+    }
+
+    const results = {
+      processed: items.length,
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [] as string[]
+    };
+
+    // Use Promise.all with a small concurrency limit or just loop for safety
+    // For simplicity and since it's typically < 100 items, we can loop
+    for (const item of items) {
+      try {
+        const skuData: Partial<ProviderSku> = {
+          providerId,
+          providerSku: item.providerSku,
+          name: item.name,
+          type: item.type || 'other',
+          status: 'active',
+          metadata: {
+            category: item.category,
+            brand: item.brand,
+            importedFrom: 'discovery',
+            importMode: mode,
+            originalData: item,
+            price: item.price
+          }
+        };
+
+        // Check if exists if mode is SKIP_DUPLICATES
+        if (mode === 'SKIP_DUPLICATES') {
+          const existing = await providerRepo.getProviderSku(providerId, item.providerSku);
+          if (existing) {
+            results.skipped++;
+            continue;
+          }
+        }
+
+        await providerService.createProviderSku(skuData);
+        results.success++;
+      } catch (err: any) {
+        results.failed++;
+        results.errors.push(`${item.providerSku}: ${err.message}`);
+      }
+    }
+
+    await logAudit(req, "IMPORT_FROM_DISCOVERY", "providers", providerId, { 
+      count: items.length, 
+      success: results.success,
+      mode 
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      data: {
+        processed: results.processed,
+        successCount: results.success,
+        failedCount: results.failed,
+        skippedCount: results.skipped,
+        errors: results.errors
+      } 
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 }
 import { PaymentGatewayService } from "./payment-gateway-service";
 import { refundMidtransTransaction } from "./midtrans";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { transitionOrderState } from "./state-machine";
 import { dispatchFulfillment } from "./fulfillment-dispatcher";
 import { safeRecordRefundExecuted, getOrderSettlementContext } from "./ledger-service";
@@ -43,6 +174,7 @@ import { NotificationService } from "./notification-service";
 
 const catalogService = CatalogService.getInstance();
 const providerService = ProviderService.getInstance();
+const providerRepo = SupabaseProviderRepository.getInstance();
 const paymentGatewayService = PaymentGatewayService.getInstance();
 const promoService = PromoService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
@@ -71,16 +203,14 @@ export async function updatePaymentGateway(req: AuthenticatedRequest, res: Respo
 
 
 async function logAudit(req: AuthenticatedRequest, action: string, resource: string, resourceId: string, payload: any) {
-  const auditRef = adminDb.collection("auditLogs").doc();
-  await auditRef.set({
-    id: auditRef.id,
-    adminUid: req.user.uid,
+  await AuditLogRepository.getInstance().createLog({
+    actor: { uid: req.user?.uid || "admin", email: req.user?.email || "admin@istore.co.id" },
+    role: req.user?.role || "admin",
     action,
-    resource,
-    resourceId,
-    payload,
-    ip: req.ip || "",
-    createdAt: new Date().toISOString()
+    target: `${resource}/${resourceId}`,
+    after: payload,
+    reason: payload?.reason || "Admin operation",
+    timestamp: new Date().toISOString()
   });
 }
 
@@ -202,11 +332,39 @@ export async function updateProduct(req: AuthenticatedRequest, res: Response) {
 export async function deactivateProduct(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const ref = adminDb.collection("products").doc(id);
-    await ref.update({ status: "inactive", updatedAt: new Date().toISOString() });
+    await catalogService.updateProduct(id, { status: "inactive" }, req.user.uid);
     
     await logAudit(req, "DEACTIVATE_PRODUCT", "products", id, { status: "inactive" });
     return res.status(200).json({ success: true, message: "Product deactivated" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getProductResetPreview(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const preview = await catalogService.getProductResetPreview(id);
+    return res.status(200).json({ success: true, data: preview });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function resetProductAndMapping(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const result = await catalogService.resetProductAndMapping(id, req.user.uid);
+    await logAudit(req, "RESET_PRODUCT_AND_MAPPING", "products", id, {
+      product_id: id,
+      product_name: result.productName,
+      game_id: result.gameId,
+      deleted_variant_count: result.deletedVariantCount,
+      deleted_mapping_count: result.deletedMappingCount,
+      actor: { uid: req.user.uid, email: req.user.email },
+      timestamp: new Date().toISOString()
+    });
+    return res.status(200).json({ success: true, message: "Product and its mappings reset successfully" });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -232,6 +390,29 @@ export async function updateProvider(req: AuthenticatedRequest, res: Response) {
     await providerService.updateProvider(id, req.body);
     await logAudit(req, "UPDATE_PROVIDER", "providers", id, req.body);
     return res.status(200).json({ success: true, message: "Provider updated" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getProviders(req: AuthenticatedRequest, res: Response) {
+  try {
+    const providers = await providerService.listProviders();
+    return res.status(200).json({ success: true, data: providers });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function deleteProvider(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    // Note: ProviderService doesn't have deleteProvider yet, calling repo directly or adding it
+    // For now I'll use repo indirectly if I add it to service
+    const repo = (providerService as any).providerRepo || SupabaseProviderRepository.getInstance();
+    await repo.deleteProvider(id);
+    await logAudit(req, "DELETE_PROVIDER", "providers", id, {});
+    return res.status(200).json({ success: true, message: "Provider deleted" });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -279,6 +460,17 @@ export async function updateProviderMapping(req: AuthenticatedRequest, res: Resp
   }
 }
 
+export async function deleteProviderMapping(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    await providerService.deleteMapping(id, req.user.uid);
+    await logAudit(req, "DELETE_PROVIDER_MAPPING", "providerMappings", id, {});
+    return res.status(200).json({ success: true, message: "Provider mapping deleted" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 // ===================
 // USER MANAGEMENT
 // ===================
@@ -292,8 +484,7 @@ export async function updateUserRole(req: AuthenticatedRequest, res: Response) {
        return res.status(400).json({ success: false, message: "Invalid role" });
     }
 
-    const ref = adminDb.collection("users").doc(id);
-    await ref.update({ role, updatedAt: new Date().toISOString() });
+    await supabaseAdmin!.from("customers").update({ role, updated_at: new Date().toISOString() }).eq("id", id);
     
     await logAudit(req, "UPDATE_USER_ROLE", "users", id, { role });
     return res.status(200).json({ success: true, message: "User role updated" });
@@ -362,11 +553,35 @@ export async function updateOrderState(req: AuthenticatedRequest, res: Response)
 export async function getAdminRefunds(req: AuthenticatedRequest, res: Response) {
   try {
     const { limit = "100" } = req.query;
-    const refundsSnap = await adminDb.collection("refunds")
-      .orderBy("createdAt", "desc")
-      .limit(parseInt(limit as string) || 100)
-      .get();
-    const refunds = refundsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: "Supabase client not initialized" });
+    }
+    const { data, error } = await supabaseAdmin
+      .from("refunds")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(parseInt(limit as string) || 100);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const refunds = (data || []).map((item: any) => ({
+      id: item.id,
+      orderId: item.order_id,
+      refundKey: item.refund_key,
+      amount: Number(item.amount),
+      currency: item.currency || "IDR",
+      reason: item.reason || undefined,
+      status: item.status,
+      provider: item.provider || undefined,
+      providerRefundId: item.provider_refund_id || undefined,
+      requestedBy: item.requested_by || undefined,
+      processedAt: item.processed_at || undefined,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at
+    }));
+
     return res.status(200).json({ success: true, data: refunds });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -409,12 +624,7 @@ export async function updateApiGamesCredentials(req: AuthenticatedRequest, res: 
     };
     const role = req.user.role || "pemilik";
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "apigames_integration").limit(1).get();
-    let existingData: any = {};
-    let docRef = snap.empty ? adminDb.collection("systemConfigs").doc() : snap.docs[0].ref;
-    if (!snap.empty) {
-      existingData = snap.docs[0].data();
-    }
+    const existingData = await SystemConfigRepository.getInstance().getConfig("apigames_integration") || {};
 
     const encryptedMerchantId = encryptSecret(String(merchantId).trim());
     const encryptedSecretKey = encryptSecret(String(secretKey).trim());
@@ -429,7 +639,7 @@ export async function updateApiGamesCredentials(req: AuthenticatedRequest, res: 
       createdAt: existingData.createdAt || now
     };
 
-    await docRef.set(newData, { merge: true });
+    await SystemConfigRepository.getInstance().upsertConfig("apigames_integration", newData);
 
     // Sync process.env
     process.env.APIGAMES_MERCHANT_ID = String(merchantId).trim();
@@ -467,59 +677,50 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
 
     let transactionResult;
     try {
-      transactionResult = await adminDb.runTransaction(async (transaction) => {
-        const refundRef = adminDb.collection("refunds").doc(refundKey);
-        const refundSnap = await transaction.get(refundRef);
+      // 1. Check existing refund in Supabase
+      const existingRefund = await SupabaseRefundRepository.getInstance().getRefundById(refundKey);
 
-        if (refundSnap.exists) {
-          const existingData = refundSnap.data();
-          if (existingData?.status === "SUCCEEDED") {
-            return {
-              isIdempotentSuccess: true,
-              data: existingData
-            };
-          } else if (existingData?.status === "PROCESSING" || existingData?.status === "PENDING") {
-            throw new Error("REFUND_ALREADY_PROCESSING");
-          } else {
-            throw new Error("REFUND_ALREADY_EXISTS_WITH_FAILED_STATUS");
-          }
+      if (existingRefund) {
+        if (existingRefund.status === "SUCCEEDED") {
+          transactionResult = { isIdempotentSuccess: true, data: existingRefund };
+        } else if (existingRefund.status === "PROCESSING" || existingRefund.status === "PENDING") {
+          throw new Error("REFUND_ALREADY_PROCESSING");
+        } else {
+          throw new Error("REFUND_ALREADY_EXISTS_WITH_FAILED_STATUS");
         }
+      } else {
+        // 2. Fetch order from Supabase OrderRepository
+        const orderData = await OrderRepository.getInstance().getOrderById(orderId);
 
-        const orderRef = adminDb.collection("orders").doc(orderId);
-        const orderSnap = await transaction.get(orderRef);
-
-        if (!orderSnap.exists) {
+        if (!orderData) {
           throw new Error("ORDER_NOT_FOUND");
         }
 
-        const orderData = orderSnap.data();
-        const paymentStatus = orderData?.paymentStatus?.toLowerCase();
-        
+        const paymentStatus = orderData.paymentStatus?.toLowerCase();
         if (paymentStatus !== "paid" && paymentStatus !== "success") {
           throw new Error("ORDER_NOT_PAID");
         }
 
-        const totalAmount = orderData?.totalAmount || 0;
+        const totalAmount = orderData.totalAmount || 0;
 
-        const refundsQuery = adminDb.collection("refunds").where("orderId", "==", orderId);
-        const refundsSnap = await transaction.get(refundsQuery);
+        // 3. Get existing refunds for order from Supabase
+        const existingRefunds = await SupabaseRefundRepository.getInstance().getRefundsByOrderId(orderId);
 
         let totalRefunded = 0;
-        refundsSnap.forEach((doc) => {
-          const rData = doc.data();
-          if (rData.status !== "FAILED") {
-            totalRefunded += rData.amount || 0;
+        for (const r of existingRefunds) {
+          if (r.status !== "FAILED") {
+            totalRefunded += r.amount || 0;
           }
-        });
+        }
 
         const remainingRefundable = totalAmount - totalRefunded;
         if (amount > remainingRefundable) {
           throw new Error("REFUND_AMOUNT_EXCEEDS_REMAINING_BALANCE");
         }
 
-        const refundDoc = {
+        const now = new Date().toISOString();
+        const refundRecord = {
           id: refundKey,
-          refundId: refundKey,
           orderId,
           refundKey,
           amount,
@@ -528,20 +729,22 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
           status: "PROCESSING",
           provider: "midtrans",
           requestedBy: req.user.uid,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          createdAt: now,
+          updatedAt: now
         };
 
-        transaction.set(refundRef, refundDoc);
-        return {
+        // Create in Supabase
+        await SupabaseRefundRepository.getInstance().createRefund(refundRecord);
+
+        transactionResult = {
           isIdempotentSuccess: false,
-          data: refundDoc,
+          data: refundRecord,
           orderInfo: {
             userId: orderData.userId,
             invoice: orderData.invoice
           }
         };
-      });
+      }
     } catch (txError: any) {
       if (txError.message === "REFUND_ALREADY_PROCESSING") {
         return res.status(409).json({ success: false, message: "Transaksi refund ini sedang dalam antrean proses." });
@@ -589,11 +792,11 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
 
       const providerRefundId = midtransRes.refund_id || midtransRes.id || null;
 
-      await adminDb.collection("refunds").doc(refundKey).update({
+      const now = new Date().toISOString();
+      await SupabaseRefundRepository.getInstance().updateRefund(refundKey, {
         status: "SUCCEEDED",
         providerRefundId,
-        processedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        processedAt: now
       });
 
       await logAudit(req, "REFUND_SUCCEEDED", "refunds", refundKey, {
@@ -659,11 +862,10 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
         const failureMessage = midtransError.message || "Midtrans API rejected the refund request";
         const failureCode = midtransError.statusCode?.toString() || "MIDTRANS_REJECTED";
 
-        await adminDb.collection("refunds").doc(refundKey).update({
+        const now = new Date().toISOString();
+        await SupabaseRefundRepository.getInstance().updateRefund(refundKey, {
           status: "FAILED",
-          failureCode,
-          failureMessage,
-          updatedAt: new Date().toISOString()
+          reason: `${failureCode}: ${failureMessage}`
         });
 
         await logAudit(req, "REFUND_FAILED", "refunds", refundKey, {
@@ -756,20 +958,14 @@ export async function getMidtransIntegration(req: AuthenticatedRequest, res: Res
 
 export async function updateMidtransIntegration(req: AuthenticatedRequest, res: Response) {
   try {
-    const { merchantId, serverKey, clientKey, isProduction } = req.body;
+    const { merchantId, serverKey, clientKey, isProduction, isActive } = req.body;
     const actor = {
       uid: req.user.uid,
       email: req.user.email || req.user.uid
     };
     const role = req.user.role || "pemilik";
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "midtrans_integration").limit(1).get();
-    
-    let existingData: any = {};
-    let docRef = snap.empty ? adminDb.collection("systemConfigs").doc() : snap.docs[0].ref;
-    if (!snap.empty) {
-      existingData = snap.docs[0].data();
-    }
+    const existingData = await SystemConfigRepository.getInstance().getConfig("midtrans_integration") || {};
 
     let encryptedServerKey = existingData.encryptedServerKey || "";
     if (serverKey && typeof serverKey === "string" && serverKey.trim() && !serverKey.includes("****")) {
@@ -783,6 +979,7 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
       clientKey: clientKey !== undefined ? String(clientKey).trim() : (existingData.clientKey || ""),
       encryptedServerKey,
       isProduction: isProduction !== undefined ? !!isProduction : (existingData.isProduction || false),
+      isActive: isActive !== undefined ? !!isActive : (existingData.isActive !== false), // default true
       lastTestedAt: existingData.lastTestedAt || null,
       lastTestResult: existingData.lastTestResult || null,
       updatedBy: actor.uid,
@@ -790,20 +987,23 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
       createdAt: existingData.createdAt || now
     };
 
-    await docRef.set(newData, { merge: true });
+    await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", newData);
 
     if (serverKey && !serverKey.includes("****")) {
       process.env.MIDTRANS_SERVER_KEY = serverKey.trim();
     }
     process.env.MIDTRANS_MERCHANT_ID = newData.merchantId;
     process.env.MIDTRANS_IS_PRODUCTION = newData.isProduction ? "true" : "false";
+    process.env.MIDTRANS_IS_ACTIVE = newData.isActive ? "true" : "false";
 
     await logCoreAudit(actor, role, "UPDATE_MIDTRANS_INTEGRATION", "systemConfigs/midtrans_integration", {
       merchantId: existingData.merchantId ? "****" : null,
-      isProduction: existingData.isProduction
+      isProduction: existingData.isProduction,
+      isActive: existingData.isActive
     }, {
       merchantId: newData.merchantId ? "****" : null,
-      isProduction: newData.isProduction
+      isProduction: newData.isProduction,
+      isActive: newData.isActive
     }, "Updated Midtrans configuration");
 
     const serverKeyMasked = newData.encryptedServerKey ? "SB-Mid-****..." : "";
@@ -814,6 +1014,7 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
       data: {
         merchantId: newData.merchantId,
         isProduction: newData.isProduction,
+        isActive: newData.isActive,
         configured: !!newData.encryptedServerKey,
         serverKeyMasked
       }
@@ -839,14 +1040,13 @@ export async function testMidtransIntegration(req: AuthenticatedRequest, res: Re
     const testResult = await testMidtransConnection(config.serverKey, config.isProduction);
     const now = new Date().toISOString();
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "midtrans_integration").limit(1).get();
-    if (!snap.empty) {
-      await snap.docs[0].ref.update({
-        lastTestedAt: now,
-        lastTestResult: testResult.success ? "SUCCESS" : "FAILED",
-        lastTestMessage: testResult.message
-      });
-    }
+    const existingMidtrans = await SystemConfigRepository.getInstance().getConfig("midtrans_integration") || {};
+    await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", {
+      ...existingMidtrans,
+      lastTestedAt: now,
+      lastTestResult: testResult.success ? "SUCCESS" : "FAILED",
+      lastTestMessage: testResult.message
+    });
 
     await logCoreAudit(actor, role, "TEST_MIDTRANS_CONNECTION", "systemConfigs/midtrans_integration", null, {
       success: testResult.success,
@@ -875,10 +1075,7 @@ export async function removeMidtransIntegration(req: AuthenticatedRequest, res: 
     };
     const role = req.user.role || "pemilik";
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "midtrans_integration").limit(1).get();
-    if (!snap.empty) {
-      await snap.docs[0].ref.delete();
-    }
+    await SystemConfigRepository.getInstance().deleteConfig("midtrans_integration");
 
     delete process.env.MIDTRANS_SERVER_KEY;
     delete process.env.MIDTRANS_MERCHANT_ID;
@@ -901,11 +1098,7 @@ export async function removeMidtransIntegration(req: AuthenticatedRequest, res: 
 
 export async function getTokoVoucherIntegration(req: AuthenticatedRequest, res: Response) {
   try {
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "tokovoucher_integration").limit(1).get();
-    let data: any = {};
-    if (!snap.empty) {
-      data = snap.docs[0].data();
-    }
+    const data = await SystemConfigRepository.getInstance().getConfig("tokovoucher_integration") || {};
     const memberCode = data.memberCode || process.env.TOKOVOUCHER_MEMBER_CODE || "";
     const encryptedSecretKey = data.encryptedSecretKey || "";
     const configured = !!encryptedSecretKey || !!process.env.TOKOVOUCHER_SECRET;
@@ -940,12 +1133,7 @@ export async function updateTokoVoucherIntegration(req: AuthenticatedRequest, re
     };
     const role = req.user.role || "pemilik";
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "tokovoucher_integration").limit(1).get();
-    let existingData: any = {};
-    let docRef = snap.empty ? adminDb.collection("systemConfigs").doc() : snap.docs[0].ref;
-    if (!snap.empty) {
-      existingData = snap.docs[0].data();
-    }
+    const existingData = await SystemConfigRepository.getInstance().getConfig("tokovoucher_integration") || {};
 
     let encryptedSecretKey = existingData.encryptedSecretKey || "";
     if (secretKey && typeof secretKey === "string" && secretKey.trim() && !secretKey.includes("****")) {
@@ -965,7 +1153,7 @@ export async function updateTokoVoucherIntegration(req: AuthenticatedRequest, re
       createdAt: existingData.createdAt || now
     };
 
-    await docRef.set(newData, { merge: true });
+    await SystemConfigRepository.getInstance().upsertConfig("tokovoucher_integration", newData);
 
     if (secretKey && !secretKey.includes("****")) {
       process.env.TOKOVOUCHER_SECRET = secretKey.trim();
@@ -1010,17 +1198,16 @@ export async function testTokoVoucherIntegrationApi(req: AuthenticatedRequest, r
     const testResult = await testTokoVoucherConnection(config.memberCode, config.secret);
     const now = new Date().toISOString();
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "tokovoucher_integration").limit(1).get();
-    if (!snap.empty) {
-      await snap.docs[0].ref.update({
-        lastTestedAt: now,
-        lastTestResult: testResult.success ? "SUCCESS" : "FAILED",
-        lastTestMessage: testResult.message,
-        memberName: testResult.data?.memberName || null,
-        balance: testResult.data?.balance !== undefined ? testResult.data.balance : null,
-        lastChecked: now
-      });
-    }
+    const existingToko = await SystemConfigRepository.getInstance().getConfig("tokovoucher_integration") || {};
+    await SystemConfigRepository.getInstance().upsertConfig("tokovoucher_integration", {
+      ...existingToko,
+      lastTestedAt: now,
+      lastTestResult: testResult.success ? "SUCCESS" : "FAILED",
+      lastTestMessage: testResult.message,
+      memberName: testResult.data?.memberName || null,
+      balance: testResult.data?.balance !== undefined ? testResult.data.balance : null,
+      lastChecked: now
+    });
 
     await logCoreAudit(actor, role, "TEST_TOKOVOUCHER_CONNECTION", "systemConfigs/tokovoucher_integration", null, {
       success: testResult.success,
@@ -1045,10 +1232,7 @@ export async function removeTokoVoucherIntegration(req: AuthenticatedRequest, re
     };
     const role = req.user.role || "pemilik";
 
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "tokovoucher_integration").limit(1).get();
-    if (!snap.empty) {
-      await snap.docs[0].ref.delete();
-    }
+    await SystemConfigRepository.getInstance().deleteConfig("tokovoucher_integration");
 
     delete process.env.TOKOVOUCHER_SECRET;
     delete process.env.TOKOVOUCHER_MEMBER_CODE;
@@ -1101,62 +1285,44 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
       const startIso = start.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       const endIso = end.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       
+      const { DualLedgerRepository } = await import("./ledger-dual-repository");
+      const ledgerRepo = DualLedgerRepository.getInstance();
+
       // Order Stats
-      const ordersCountSnap = await adminDb.collection("orders")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .count()
-        .get();
-      const totalOrders = ordersCountSnap.data().count;
-      
-      // Financial Metrics (Authoritative from Ledger)
-      const grossSnap = await adminDb.collection("ledgerJournalEntries")
-        .where("eventType", "==", "PAYMENT_RECEIVED")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .get();
-      let grossRevenue = 0;
-      grossSnap.docs.forEach(doc => grossRevenue += (doc.data().totalAmount || 0));
-
-      const realizedSnap = await adminDb.collection("ledgerJournalEntries")
-        .where("eventType", "==", "FULFILLMENT_SUCCESS")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .get();
-      let realizedRevenue = 0;
-      realizedSnap.docs.forEach(doc => realizedRevenue += (doc.data().totalAmount || 0));
-
-      const refundSnap = await adminDb.collection("ledgerJournalEntries")
-        .where("eventType", "==", "REFUND_EXECUTED")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .get();
-      let refundTotal = 0;
-      refundSnap.docs.forEach(doc => refundTotal += (doc.data().totalAmount || 0));
-
-      const settlementSnap = await adminDb.collection("ledgerJournalEntries")
-        .where("eventType", "==", "SETTLEMENT_CLOSED")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .get();
-      let totalSettled = 0;
-      let totalMdr = 0;
-      settlementSnap.docs.forEach(doc => {
-        const data = doc.data();
-        const netItem = data.lineItems.find((l: any) => l.accountId === "1100");
-        const mdrItem = data.lineItems.find((l: any) => l.accountId === "5000");
-        if (netItem) totalSettled += netItem.debit;
-        if (mdrItem) totalMdr += mdrItem.debit;
+      const allOrders = await OrderRepository.getInstance().getAllOrders();
+      const ordersInPeriod = allOrders.filter(o => {
+        const createdAt = o.createdAt;
+        return createdAt && createdAt >= startIso && createdAt < endIso;
       });
+      const totalOrders = ordersInPeriod.length;
+      const successOrders = ordersInPeriod.filter(o => o.transactionStatus === "success").length;
+      
+      // Financial Metrics (Authoritative from Ledger Repository)
+      const metrics = await ledgerRepo.getFinancialMetrics(startIso, endIso);
 
       // Operational Latency (Jobs) - Successful fulfillment only
-      const jobsSnap = await adminDb.collection("jobs")
-        .where("type", "==", "FULFILLMENT")
-        .where("status", "==", "SUCCEEDED")
-        .where("createdAt", ">=", startIso)
-        .where("createdAt", "<", endIso)
-        .get();
-      const successfulJobs = jobsSnap.docs.map(doc => doc.data());
+      const { data: successfulJobsData } = await supabaseAdmin!.from("jobs")
+        .select("*")
+        .eq("type", "FULFILLMENT")
+        .eq("status", "SUCCEEDED")
+        .gte("created_at", startIso)
+        .lt("created_at", endIso);
+        
+      const successfulJobs = (successfulJobsData || []).map(j => ({
+        id: j.id,
+        type: j.type,
+        referenceId: j.reference_id,
+        payload: j.payload,
+        status: j.status,
+        attempts: j.attempts,
+        maxAttempts: j.max_attempts,
+        lastError: j.last_error,
+        nextRunAt: j.next_run_at,
+        startedAt: j.started_at,
+        completedAt: j.completed_at,
+        createdAt: j.created_at,
+        updatedAt: j.updated_at
+      }));
       
       const avgFulfillmentTime = successfulJobs.length > 0
         ? successfulJobs.reduce((acc, j) => {
@@ -1171,11 +1337,12 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
 
       return {
         totalOrders,
-        grossRevenue,
-        realizedRevenue,
-        refundTotal,
-        totalSettled,
-        totalMdr,
+        successOrders,
+        grossRevenue: metrics.grossRevenue,
+        realizedRevenue: metrics.realizedRevenue,
+        refundTotal: metrics.refundTotal,
+        totalSettled: metrics.totalSettled,
+        totalMdr: metrics.totalMdr,
         avgFulfillmentTime
       };
     };
@@ -1197,28 +1364,23 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
 
     const storeStatus = calendarService.isOpen();
 
-    const queueDepth = await adminDb.collection("jobs")
-      .where("status", "in", ["QUEUED", "RETRYING"])
-      .count().get().then(s => s.data().count);
+    const { count: queueDepth } = await supabaseAdmin!.from("jobs")
+      .select("*", { count: 'exact', head: true })
+      .in("status", ["QUEUED", "RETRYING"]);
 
-    const activeWorkers = await adminDb.collection("jobs")
-      .where("status", "==", "PROCESSING")
-      .count().get().then(s => s.data().count);
+    const { count: activeWorkers } = await supabaseAdmin!.from("jobs")
+      .select("*", { count: 'exact', head: true })
+      .eq("status", "PROCESSING");
 
-    const totalCustomers = await adminDb.collection("users").count().get().then(s => s.data().count);
+    const { count: totalCustomers } = await supabaseAdmin!.from("customers").select("*", { count: 'exact', head: true });
 
-    const recentOrdersSnap = await adminDb.collection("orders")
-      .orderBy("createdAt", "desc")
-      .limit(10)
-      .get();
-    
-    const recentOrders = recentOrdersSnap.docs.map(doc => {
-      const data = { id: doc.id, ...doc.data() as any };
+    const recentOrdersList = await OrderRepository.getInstance().getRecentOrders(10);
+    const recentOrders = recentOrdersList.map(data => {
       return {
         id: data.id,
         invoice: data.invoice,
         productName: data.productName,
-        gameName: data.gameName,
+        gameName: (data as any).gameName,
         totalAmount: data.totalAmount,
         paymentStatus: data.paymentStatus,
         transactionStatus: data.transactionStatus,
@@ -1235,6 +1397,7 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
         metrics: {
           orders: {
             total: currentMetrics.totalOrders,
+            success: currentMetrics.successOrders,
             trend: trends.orders
           },
           financial: {
@@ -1271,17 +1434,14 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
 export async function getAdminOrders(req: AuthenticatedRequest, res: Response) {
   try {
     const { search, paymentStatus, transactionStatus, limit = "50" } = req.query;
-    let queryRef: FirebaseFirestore.Query = adminDb.collection("orders").orderBy("createdAt", "desc");
+    let orders = await OrderRepository.getInstance().getAllOrders();
 
     if (paymentStatus && paymentStatus !== "all") {
-      queryRef = queryRef.where("paymentStatus", "==", paymentStatus);
+      orders = orders.filter(o => o.paymentStatus === paymentStatus);
     }
     if (transactionStatus && transactionStatus !== "all") {
-      queryRef = queryRef.where("transactionStatus", "==", transactionStatus);
+      orders = orders.filter(o => o.transactionStatus === transactionStatus);
     }
-
-    const snap = await queryRef.limit(parseInt(limit as string) || 50).get();
-    let orders = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     if (search && typeof search === "string" && search.trim()) {
       const q = search.toLowerCase();
@@ -1294,7 +1454,48 @@ export async function getAdminOrders(req: AuthenticatedRequest, res: Response) {
       );
     }
 
-    return res.status(200).json({ success: true, data: orders });
+    const limitNum = parseInt(limit as string) || 50;
+    const finalOrders = orders.slice(0, limitNum);
+
+    return res.status(200).json({ success: true, data: finalOrders });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getAdminGames(req: AuthenticatedRequest, res: Response) {
+  try {
+    const games = await catalogService.listGames();
+    return res.status(200).json({ success: true, data: games });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getAdminCategories(req: AuthenticatedRequest, res: Response) {
+  try {
+    const categories = await catalogService.listCategories();
+    return res.status(200).json({ success: true, data: categories });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getAdminProducts(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { gameId } = req.query;
+    const products = await catalogService.listProducts(gameId as string);
+    return res.status(200).json({ success: true, data: products });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function getAdminVariants(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { productId } = req.query;
+    const variants = await catalogService.listVariants(productId as string);
+    return res.status(200).json({ success: true, data: variants });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -1303,19 +1504,30 @@ export async function getAdminOrders(req: AuthenticatedRequest, res: Response) {
 export async function getAdminOrderDetail(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const orderRef = adminDb.collection("orders").doc(id);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) {
+    const orderData = await OrderRepository.getInstance().getOrderById(id);
+    if (!orderData) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const orderData = { id: orderSnap.id, ...orderSnap.data() };
+    const allAuditLogs = await AuditLogRepository.getInstance().queryLogs(500);
+    const auditLogs = allAuditLogs.filter(l => l.target?.includes(id));
 
-    const auditSnap = await adminDb.collection("auditLogs").where("resourceId", "==", id).get();
-    const auditLogs = auditSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-    const refundSnap = await adminDb.collection("refunds").where("orderId", "==", id).get();
-    const refunds = refundSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const refundRecords = await SupabaseRefundRepository.getInstance().getRefundsByOrderId(id);
+    const refunds = refundRecords.map(item => ({
+      id: item.id,
+      orderId: item.orderId,
+      refundKey: item.refundKey,
+      amount: item.amount,
+      currency: item.currency,
+      reason: item.reason,
+      status: item.status,
+      provider: item.provider,
+      providerRefundId: item.providerRefundId,
+      requestedBy: item.requestedBy,
+      processedAt: item.processedAt,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt
+    }));
 
     return res.status(200).json({
       success: true,
@@ -1333,12 +1545,10 @@ export async function getAdminOrderDetail(req: AuthenticatedRequest, res: Respon
 export async function retryOrderFulfillment(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const orderRef = adminDb.collection("orders").doc(id);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) {
+    const orderData = await OrderRepository.getInstance().getOrderById(id);
+    if (!orderData) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    const orderData = orderSnap.data()!;
     if (orderData.paymentStatus !== "paid") {
       return res.status(400).json({ success: false, message: "Order is not paid" });
     }
@@ -1449,10 +1659,19 @@ export async function getProviderMappingSuggestions(req: AuthenticatedRequest, r
       return res.status(400).json({ success: false, message: "providerId wajib ditentukan." });
     }
 
+    const { supabaseAdmin } = await import("./supabase-admin");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: "Supabase Admin not configured" });
+    }
+
     // 1. Fetch providerSkus
-    let skusQuery: any = adminDb.collection("providerSkus").where("providerId", "==", providerId);
-    let skusSnap = await skusQuery.get();
-    let skus = skusSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as ProviderSku));
+    const skusRes = await supabaseAdmin.from("provider_skus").select("*").eq("provider_id", providerId);
+    if (skusRes.error) throw skusRes.error;
+    
+    let skus = skusRes.data.map(d => ({
+      id: d.id, providerId: d.provider_id, name: d.name, code: d.code, description: d.description,
+      price: d.price, originalPrice: d.original_price, status: d.status
+    } as unknown as ProviderSku));
 
     if (providerSkuIds && Array.isArray(providerSkuIds) && providerSkuIds.length > 0) {
       const idSet = new Set(providerSkuIds);
@@ -1464,15 +1683,28 @@ export async function getProviderMappingSuggestions(req: AuthenticatedRequest, r
     }
 
     // 2. Fetch all variants, products, games for reference
-    const [variantsSnap, productsSnap, gamesSnap] = await Promise.all([
-      adminDb.collection("productVariants").get(),
-      adminDb.collection("products").get(),
-      adminDb.collection("games").get()
+    const [variantsRes, productsRes, gamesRes] = await Promise.all([
+      supabaseAdmin.from("product_variants").select("*"),
+      supabaseAdmin.from("products").select("*"),
+      supabaseAdmin.from("games").select("*")
     ]);
 
-    const variants = variantsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as ProductVariant));
-    const products = productsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Product));
-    const games = gamesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Game));
+    if (variantsRes.error) throw variantsRes.error;
+    if (productsRes.error) throw productsRes.error;
+    if (gamesRes.error) throw gamesRes.error;
+
+    const variants = (variantsRes.data || []).map(d => ({
+      id: d.id, productId: d.product_id, name: d.name, displayName: d.display_name,
+      nominalValue: d.nominal_value, unit: d.unit, sku: d.sku
+    } as unknown as ProductVariant));
+
+    const products = (productsRes.data || []).map(d => ({
+      id: d.id, gameId: d.game_id, name: d.name, slug: d.slug, type: d.type
+    } as unknown as Product));
+
+    const games = (gamesRes.data || []).map(d => ({
+      id: d.id, name: d.name, slug: d.slug
+    } as unknown as Game));
 
     const gamesMap = new Map<string, Game>();
     games.forEach(g => { if (g.id) gamesMap.set(g.id, g); });
@@ -1524,9 +1756,19 @@ export async function getProviderMappingSuggestions(req: AuthenticatedRequest, r
         let reasons: string[] = [];
 
         // 1. Game/Product match check
+        const gameWords = gameNameNorm.split(" ").filter(w => w.length > 0);
+        const gameInitials = gameWords.map(w => w[0]).join(""); // e.g., "ff" for free fire, "ml" for mobile legends
+        const isInitialsMatch = gameInitials.length >= 2 && (
+          skuNameNorm.split(" ").includes(gameInitials) ||
+          skuCodeNorm.split(" ").includes(gameInitials) ||
+          skuCodeNorm.startsWith(gameInitials) ||
+          variantSkuNorm.startsWith(gameInitials)
+        );
+
         const hasGameMatch = skuNameNorm.includes(gameNameNorm) || 
                              gameNameNorm.includes(skuNameNorm) ||
-                             (game.searchKeywords && game.searchKeywords.some(kw => skuNameNorm.includes(normalizeString(kw))));
+                             isInitialsMatch ||
+                             (game.searchKeywords && game.searchKeywords.some(kw => kw && skuNameNorm.includes(normalizeString(kw))));
 
         const hasProductMatch = skuNameNorm.includes(prodNameNorm) || prodNameNorm.includes(skuNameNorm);
 
@@ -1627,8 +1869,13 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
       return res.status(400).json({ success: false, message: "mappings array wajib diisi." });
     }
 
-    const providerSnap = await adminDb.collection("providers").doc(providerId).get();
-    if (!providerSnap.exists) {
+    const { supabaseAdmin } = await import("./supabase-admin");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ success: false, message: "Supabase Admin not configured" });
+    }
+
+    const providerRes = await supabaseAdmin.from("providers").select("*").eq("id", providerId).maybeSingle();
+    if (!providerRes.data) {
       return res.status(404).json({ success: false, message: "Provider tidak ditemukan." });
     }
 
@@ -1638,15 +1885,26 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
       mode
     });
 
-    const existingMappingsSnap = await adminDb.collection("providerMappings")
-      .where("providerId", "==", providerId)
-      .get();
+    const existingMappingsRes = await supabaseAdmin.from("provider_mappings")
+      .select("*")
+      .eq("provider_id", providerId);
 
     const existingMap = new Map<string, { id: string, data: any }>();
-    existingMappingsSnap.forEach(doc => {
-      const data = doc.data();
+    (existingMappingsRes.data || []).forEach(row => {
+      // mapping row to camelCase for the write logic
+      const data = {
+        id: row.id,
+        variantId: row.variant_id,
+        providerId: row.provider_id,
+        providerSkuId: row.provider_sku_id,
+        status: row.status,
+        priority: row.priority,
+        routingEligibility: row.routing_eligibility,
+        notes: row.notes,
+        metadata: row.metadata
+      };
       if (data.variantId && data.providerSkuId) {
-        existingMap.set(`${data.variantId}_${data.providerSkuId}`, { id: doc.id, data });
+        existingMap.set(`${data.variantId}_${data.providerSkuId}`, { id: row.id, data });
       }
     });
 
@@ -1657,19 +1915,29 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
       return res.status(400).json({ success: false, message: "variantId dan providerSkuId wajib disertakan pada semua entitas." });
     }
 
-    const [variantsSnap, skusSnap] = await Promise.all([
-      adminDb.collection("productVariants").get(),
-      adminDb.collection("providerSkus").where("providerId", "==", providerId).get()
+    const [variantsRes, skusRes] = await Promise.all([
+      supabaseAdmin.from("product_variants").select("*").in("id", variantIds),
+      supabaseAdmin.from("provider_skus").select("*").eq("provider_id", providerId).in("id", skuIds)
     ]);
 
     const variantsMap = new Map<string, any>();
-    variantsSnap.forEach(doc => {
-      variantsMap.set(doc.id, doc.data());
+    (variantsRes.data || []).forEach(row => {
+      variantsMap.set(row.id, {
+        id: row.id,
+        productId: row.product_id,
+        name: row.name,
+        sku: row.sku
+      });
     });
 
     const skusMap = new Map<string, any>();
-    skusSnap.forEach(doc => {
-      skusMap.set(doc.id, doc.data());
+    (skusRes.data || []).forEach(row => {
+      skusMap.set(row.id, {
+        id: row.id,
+        providerId: row.provider_id,
+        providerSku: row.provider_sku,
+        name: row.name
+      });
     });
 
     let successCount = 0;
@@ -1677,9 +1945,6 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
     let failedCount = 0;
 
     const timestamp = new Date().toISOString();
-    const batchSize = 100;
-    let currentBatch = adminDb.batch();
-    let opCounter = 0;
 
     for (const mappingReq of mappings) {
       const { variantId, providerSkuId, priority, status, routingEligibility, notes, metadata } = mappingReq;
@@ -1706,53 +1971,36 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
           continue;
         } else if (mode === "UPDATE") {
           const existingInfo = existingMap.get(key)!;
-          const updateRef = adminDb.collection("providerMappings").doc(existingInfo.id);
-          currentBatch.update(updateRef, {
-            priority: typeof priority === "number" ? priority : existingInfo.data.priority,
-            status: status || existingInfo.data.status,
+          await providerRepo.upsertMapping({
+            id: existingInfo.id,
+            variantId: variantId,
+            providerId: providerId,
+            providerSku: skuData.providerSku || "", // Should be provider_sku from db
+            providerSkuId: providerSkuId,
+            priority: (typeof priority === "number" && priority >= 1) ? priority : Math.max(1, existingInfo.data.priority || 1),
+            status: (status || existingInfo.data.status) as any,
             routingEligibility: typeof routingEligibility === "boolean" ? routingEligibility : existingInfo.data.routingEligibility,
             notes: notes !== undefined ? notes : (existingInfo.data.notes || ""),
-            metadata: metadata !== undefined ? metadata : (existingInfo.data.metadata || {}),
-            updatedAt: timestamp,
-            updatedBy: req.user.uid
+            metadata: metadata !== undefined ? metadata : (existingInfo.data.metadata || {})
           });
           successCount++;
-          opCounter++;
         }
       } else {
-        const createRef = adminDb.collection("providerMappings").doc();
-        const newMapping: ProviderMapping = {
-          id: createRef.id,
-          productId: variantData.productId || "",
+        await providerRepo.upsertMapping({
           variantId,
-          sku: variantData.sku || "",
           providerId,
+          providerSku: skuData.providerSku || "",
           providerSkuId,
-          providerSku: skuData.providerSku,
-          status: status || "active",
-          priority: typeof priority === "number" ? priority : 0,
+          status: (status || "NEEDS_REVIEW") as any,
+          priority: (typeof priority === "number" && priority >= 1) ? priority : 1,
           routingEligibility: typeof routingEligibility === "boolean" ? routingEligibility : true,
           notes: notes || "",
-          metadata: metadata || {},
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          updatedBy: req.user.uid
-        };
-        currentBatch.set(createRef, newMapping);
+          metadata: metadata || {}
+        });
         successCount++;
-        opCounter++;
-        existingMap.set(key, { id: createRef.id, data: newMapping });
+        // Update existingMap to avoid duplicates in the same batch if necessary
+        existingMap.set(key, { id: "new", data: {} }); 
       }
-
-      if (opCounter >= batchSize) {
-        await currentBatch.commit();
-        currentBatch = adminDb.batch();
-        opCounter = 0;
-      }
-    }
-
-    if (opCounter > 0) {
-      await currentBatch.commit();
     }
 
     await logAudit(req, "PROVIDER_BULK_MAPPING_COMPLETED", "providerMappings", providerId, {
@@ -1790,7 +2038,7 @@ export async function listMappingsApi(req: AuthenticatedRequest, res: Response) 
       parseInt(pageSize as string) || 20, 
       lastDoc ? JSON.parse(lastDoc as string) : undefined
     );
-    return res.status(200).json({ success: true, data: result });
+    return res.status(200).json({ success: true, data: result.data, lastDoc: result.lastDoc });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -1807,5 +2055,107 @@ export async function mapSkuApi(req: AuthenticatedRequest, res: Response) {
     }
 }
 
+export async function getProviderSkusApi(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { providerId, search, limit } = req.query;
+    
+    // We'll use the service which uses the repository
+    const skus = await providerService.listProviderSkus(providerId as string);
+    
+    // Apply search filter if present (simple client-side for now or service could handle it)
+    let filteredSkus = skus;
+    if (search && typeof search === "string") {
+      const term = search.toLowerCase();
+      filteredSkus = skus.filter(s => 
+        s.providerSku.toLowerCase().includes(term) || 
+        s.name.toLowerCase().includes(term)
+      );
+    }
+
+    if (limit) {
+      const l = parseInt(limit as string, 10);
+      if (!isNaN(l)) {
+        filteredSkus = filteredSkus.slice(0, l);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: filteredSkus,
+      count: filteredSkus.length
+    });
+  } catch (error: any) {
+    console.error("getProviderSkusApi error:", error);
+    return res.status(500).json({ success: false, message: error.message || "Failed to fetch provider SKUs" });
+  }
+}
+
+export async function deleteProviderSku(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    await providerService.deleteProviderSku(id);
+    await logAudit(req, "DELETE_PROVIDER_SKU", "providerSkus", id, {});
+    return res.status(200).json({ success: true, message: "Provider SKU deleted" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
 
 
+
+
+export async function getAdminGateways(req: AuthenticatedRequest, res: Response) {
+  try {
+    const data = await PaymentGatewayService.getInstance().getGateways();
+    return res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function updateAdminGateway(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    await PaymentGatewayService.getInstance().updateGateway(id, updates);
+    return res.status(200).json({ success: true, data: { id, ...updates } });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function bulkImportProviderSkus(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { gameId, providerSkuIds } = req.body;
+
+    if (!gameId) {
+      return res.status(400).json({ success: false, message: "gameId wajib ditentukan." });
+    }
+    if (!providerSkuIds || !Array.isArray(providerSkuIds) || providerSkuIds.length === 0) {
+      return res.status(400).json({ success: false, message: "providerSkuIds array wajib diisi." });
+    }
+
+    const actor = { uid: req.user.uid, email: req.user.email || 'admin@system' };
+    const catalogService = CatalogService.getInstance();
+
+    await logAudit(req, "BULK_IMPORT_SKUS_STARTED", "catalog", gameId, {
+      gameId,
+      skuCount: providerSkuIds.length
+    });
+
+    const results = await catalogService.bulkImportSkus(gameId, providerSkuIds, actor);
+
+    await logAudit(req, "BULK_IMPORT_SKUS_COMPLETED", "catalog", gameId, {
+      gameId,
+      total: results.length,
+      successCount: results.filter(r => r.success).length
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: results
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}

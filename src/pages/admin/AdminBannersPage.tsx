@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/auth-store";
+import { supabaseGetAccessToken } from "../../lib/supabase-auth";
 import { ImageIcon, Plus, Trash2, Edit2, CheckCircle2, AlertCircle, Eye, Calendar, ArrowUpDown, Globe } from "lucide-react";
 
 interface Banner {
@@ -53,14 +54,22 @@ export default function AdminBannersPage() {
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
 
+  const [bannerToDelete, setBannerToDelete] = useState<Banner | null>(null);
+
   useEffect(() => {
     fetchBanners();
   }, []);
 
+  const getAuthToken = async () => {
+    const supabaseToken = await supabaseGetAccessToken();
+    if (supabaseToken) return supabaseToken;
+    return await (user as any)?.getIdToken?.();
+  };
+
   const fetchBanners = async () => {
     try {
       setLoading(true);
-      const token = await (user as any)?.getIdToken?.();
+      const token = await getAuthToken();
       const res = await fetch("/api/admin/banners", {
         headers: { Authorization: token ? `Bearer ${token}` : "" }
       });
@@ -79,7 +88,7 @@ export default function AdminBannersPage() {
 
   const fetchMediaLibrary = async () => {
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await getAuthToken();
       const res = await fetch("/api/admin/media?limit=50", {
         headers: { Authorization: token ? `Bearer ${token}` : "" }
       });
@@ -132,7 +141,7 @@ export default function AdminBannersPage() {
     setSuccessMsg(null);
 
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await getAuthToken();
       const payload = {
         name,
         placement,
@@ -144,8 +153,8 @@ export default function AdminBannersPage() {
         sortOrder: Number(sortOrder),
         enabled,
         published,
-        startAt,
-        endAt
+        startAt: startAt?.trim() ? startAt : null,
+        endAt: endAt?.trim() ? endAt : null
       };
 
       const url = editingBanner ? `/api/admin/banners/${editingBanner.id}` : "/api/admin/banners";
@@ -160,7 +169,14 @@ export default function AdminBannersPage() {
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text || "Terjadi kesalahan pada server");
+      }
+
       if (data.success) {
         setSuccessMsg(editingBanner ? "Banner berhasil diperbarui." : "Banner berhasil dibuat.");
         setIsModalOpen(false);
@@ -174,15 +190,32 @@ export default function AdminBannersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus banner ini?")) return;
+  const confirmDelete = (b: Banner) => {
+    setBannerToDelete(b);
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!bannerToDelete) return;
+    const id = bannerToDelete.id;
+    setBannerToDelete(null);
+    setError(null);
+    setSuccessMsg(null);
+
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await getAuthToken();
       const res = await fetch(`/api/admin/banners/${id}`, {
         method: "DELETE",
         headers: { Authorization: token ? `Bearer ${token}` : "" }
       });
-      const data = await res.json();
+
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text || "Terjadi kesalahan pada server");
+      }
+
       if (data.success) {
         setSuccessMsg("Banner berhasil dihapus.");
         fetchBanners();
@@ -283,7 +316,7 @@ export default function AdminBannersPage() {
                       <button onClick={() => openEditModal(b)} className="text-gray-600 hover:text-indigo-600 p-1" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(b.id)} className="text-gray-400 hover:text-red-600 p-1" title="Hapus">
+                      <button onClick={() => confirmDelete(b)} className="text-gray-400 hover:text-red-600 p-1" title="Hapus">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -480,6 +513,45 @@ export default function AdminBannersPage() {
                   <p className="p-2 text-xs truncate text-gray-700 font-medium">{m.originalName}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {bannerToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-600 font-bold shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Konfirmasi Hapus Banner
+                </h3>
+                <p className="text-sm text-gray-500">Tindakan ini tidak dapat dibatalkan</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus banner <strong>{bannerToDelete.name}</strong> ({bannerToDelete.placement})?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setBannerToDelete(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirmed}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Hapus
+              </button>
             </div>
           </div>
         </div>

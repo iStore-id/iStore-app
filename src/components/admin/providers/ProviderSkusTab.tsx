@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { ProviderSku, Provider } from '../../../types/core';
 import { useAuthStore } from '../../../store/auth-store';
 import { Package, Search, Edit2, X, AlertCircle, Plus, Upload, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Link } from 'lucide-react';
@@ -70,14 +68,27 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [skusSnap, provSnap] = await Promise.all([
-        getDocs(query(collection(db, 'providerSkus'), orderBy('createdAt', 'desc'))),
-        getDocs(collection(db, 'providers'))
+      const token = await user?.getIdToken();
+      if (!token) return;
+
+      const [skusRes, provRes] = await Promise.all([
+        fetch('/api/admin/providers/skus', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('/api/admin/providers', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
       ]);
-      setSkus(skusSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProviderSku)));
-      setProviders(provSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider)));
+
+      const [skusData, provData] = await Promise.all([
+        skusRes.json(),
+        provRes.json()
+      ]);
+
+      if (skusData.success) setSkus(skusData.data);
+      if (provData.success) setProviders(provData.data);
     } catch (err: any) {
-      console.error(err);
+      console.error('Error fetching provider data:', err);
     } finally {
       setLoading(false);
     }
@@ -156,7 +167,14 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
         body: JSON.stringify(payload)
       });
 
-      const data = await response.json();
+      let data: any = {};
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        // Silently handle non-json
+      }
+      
       if (!response.ok) {
         throw new Error(data.message || 'Gagal menyimpan Provider SKU.');
       }
@@ -208,7 +226,14 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
             })
           });
           
-          const resData = await response.json();
+          let resData: any = {};
+          try {
+            const text = await response.text();
+            resData = text ? JSON.parse(text) : {};
+          } catch (e) {
+            // Silently handle non-json
+          }
+
           if (!response.ok) {
             throw new Error(resData.message || 'Gagal melakukan validasi file.');
           }
@@ -251,12 +276,19 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
         })
       });
       
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal melakukan proses impor.');
+      let resData: any = {};
+      try {
+        const text = await response.text();
+        resData = text ? JSON.parse(text) : {};
+      } catch (e) {
+        console.warn("Non-JSON response received", e);
       }
       
-      setImportSuccessResult(resData.data);
+      if (!response.ok) {
+        throw new Error(resData.message || `Gagal melakukan proses impor (Status: ${response.status}).`);
+      }
+      
+      setImportSuccessResult(resData.data || { processed: importSession?.validCount || 0, success: importSession?.validCount || 0, failed: 0 });
       fetchData();
     } catch (err: any) {
       setImportError(err.message || 'Terjadi kesalahan saat melakukan impor.');
@@ -303,15 +335,21 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
       }));
       setSuggestions(mappedSuggestions);
       
-      const [gamesSnap, productsSnap, variantsSnap] = await Promise.all([
-        getDocs(collection(db, 'games')),
-        getDocs(collection(db, 'products')),
-        getDocs(collection(db, 'productVariants'))
+      const [gamesRes, prodsRes, variantsRes] = await Promise.all([
+        fetch('/api/admin/catalog/games', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/admin/catalog/products', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/admin/catalog/variants', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
       
-      setGamesList(gamesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setProductsList(productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setVariantsList(variantsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const [gamesData, prodsData, variantsData] = await Promise.all([
+        gamesRes.json(),
+        prodsRes.json(),
+        variantsRes.json()
+      ]);
+      
+      if (gamesData.success) setGamesList(gamesData.data);
+      if (prodsData.success) setProductsList(prodsData.data);
+      if (variantsData.success) setVariantsList(variantsData.data);
       
     } catch (err: any) {
       setBulkMapError(err.message || 'Gagal menyiapkan data pemetaan.');
@@ -341,8 +379,9 @@ export default function ProviderSkusTab({ addTrigger }: ProviderSkusTabProps) {
         mappings: readyItems.map(item => ({
           providerSkuId: item.providerSkuId,
           variantId: item.selectedVariantId,
-          priority: 0,
-          status: 'active',
+          priority: 1,
+          status: item.confidenceScore === 'HIGH' ? 'MAPPED' : 
+                  item.confidenceScore === 'MEDIUM' ? 'CANDIDATE' : 'NEEDS_REVIEW',
           routingEligibility: true,
           notes: `Dipetakan secara massal via Smart Match (${item.confidenceScore})`
         }))

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { auth } from "../../lib/firebase";
+import { supabase } from "../../lib/supabase";
 import { 
   ArrowLeft, 
   Eye, 
@@ -29,7 +29,8 @@ export default function AdminLandingPreviewPage() {
       try {
         setLoading(true);
         setError(null);
-        const token = await auth.currentUser?.getIdToken();
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token || "";
         const res = await fetch(`/api/admin/landings/${id}/preview`, {
           headers: {
             Authorization: `Bearer ${token || ""}`

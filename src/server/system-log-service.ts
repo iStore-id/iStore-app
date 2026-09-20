@@ -1,6 +1,6 @@
-import { adminDb } from "./firebase-admin";
 import { SystemLog, SystemLogLevel, SystemLogCategory } from "../types/core";
 import { logCoreAudit } from "./core-service";
+import { SystemLogRepository } from "./supabase/system-log-repository";
 
 export interface SystemLogQueryFilters {
   page?: number;
@@ -152,17 +152,11 @@ export async function logSystem(
     memoryLogBuffer.pop();
   }
 
-  // Non-blocking write to Firestore
   try {
-    const docRef = adminDb.collection("systemLogs").doc();
-    logEntry.id = docRef.id;
-    // We execute async without awaiting to guarantee no performance penalty on core requests
-    docRef.set(logEntry).catch((err) => {
-      console.error("[SystemLog Engine] Failed to write log to Firestore:", err);
-    });
-    return docRef.id;
+    const id = await SystemLogRepository.getInstance().createLog(logEntry);
+    logEntry.id = id;
+    return id;
   } catch (err) {
-    console.error("[SystemLog Engine] Error creating doc reference:", err);
     return "mem_" + Date.now();
   }
 }
@@ -172,40 +166,9 @@ export async function querySystemLogs(filters: SystemLogQueryFilters): Promise<S
   const limit = Math.min(100, Math.max(5, filters.limit || 25));
 
   try {
-    // Retrieve bounded recent logs from Firestore
-    const snapshot = await adminDb.collection("systemLogs")
-      .orderBy("timestamp", "desc")
-      .limit(1000)
-      .get();
+    let logs: SystemLog[] = await SystemLogRepository.getInstance().queryLogs(1000);
 
-    let logs: SystemLog[] = [];
-
-    if (!snapshot.empty) {
-      logs = snapshot.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          timestamp: d.timestamp || new Date().toISOString(),
-          level: d.level || "INFO",
-          category: d.category || "APPLICATION",
-          event: d.event || "UNKNOWN_EVENT",
-          message: d.message || "",
-          service: d.service || "unknown",
-          requestId: d.requestId,
-          correlationId: d.correlationId,
-          orderId: d.orderId,
-          jobId: d.jobId,
-          provider: d.provider,
-          httpStatus: d.httpStatus,
-          durationMs: d.durationMs,
-          retryCount: d.retryCount,
-          outcome: d.outcome,
-          stackTrace: d.stackTrace,
-          metadata: sanitizeSystemLogMetadata(d.metadata)
-        };
-      });
-    } else {
-      // Fallback to memory buffer if collection is just starting
+    if (!logs || logs.length === 0) {
       logs = [...memoryLogBuffer];
     }
 
@@ -305,25 +268,7 @@ export async function querySystemLogs(filters: SystemLogQueryFilters): Promise<S
 
 export async function getSystemLogMetrics(): Promise<SystemLogMetrics> {
   try {
-    const snapshot = await adminDb.collection("systemLogs")
-      .orderBy("timestamp", "desc")
-      .limit(1000)
-      .get();
-
-    const logs: SystemLog[] = snapshot.docs.map(doc => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        timestamp: d.timestamp || new Date().toISOString(),
-        level: d.level || "INFO",
-        category: d.category || "APPLICATION",
-        event: d.event || "UNKNOWN",
-        message: d.message || "",
-        service: d.service || "system",
-        provider: d.provider,
-        outcome: d.outcome
-      };
-    });
+    const logs = await SystemLogRepository.getInstance().queryLogs(1000);
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();

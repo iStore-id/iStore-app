@@ -1,6 +1,6 @@
 import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/discovery";
 import { getApiGamesServerConfig } from "../providers";
-import crypto from "crypto";
+import * as crypto from "crypto";
 
 export class ApiGamesDiscoveryAdapter implements ProviderCatalogDiscoveryAdapter {
   code = "apigames";

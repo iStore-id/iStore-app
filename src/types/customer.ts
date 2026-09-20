@@ -112,3 +112,78 @@ export interface CustomerDirectoryResponse {
   };
   nextCursor?: string;
 }
+
+export interface PointTransaction {
+  id: string;
+  user_id: string;
+  type: 'EARN' | 'REDEEM' | 'REFUND_REVERSAL' | 'ADMIN_ADJUSTMENT';
+  points: number;
+  reference: string;
+  created_at: string;
+  reason?: string;
+}
+
+export type SegmentOperator = 'EQUALS' | 'NOT_EQUALS' | 'GREATER_THAN' | 'LESS_THAN' | 'CONTAINS';
+
+export interface SegmentRule {
+  field: string;
+  operator: SegmentOperator;
+  value: any;
+}
+
+export interface SegmentRuleGroup {
+  conjunction: 'AND' | 'OR';
+  rules: SegmentRule[];
+}
+
+export interface CustomerSegment {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'STATIC' | 'DYNAMIC';
+  ruleGroup?: SegmentRuleGroup;
+  memberCount: number;
+  evaluationStatus: 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  evaluationError?: string | null;
+  lastEvaluatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface CustomerSegmentMembership {
+  id: string;
+  segmentId: string;
+  customerUid: string;
+  source: 'STATIC' | 'DYNAMIC';
+  status: 'ACTIVE' | 'INACTIVE';
+  evaluatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerSegmentView {
+  membership: CustomerSegmentMembership;
+  customer: {
+    uid: string;
+    name?: string;
+    email: string;
+    phone?: string;
+    status: string;
+    role: string;
+    tags: string[];
+    totalSpentIdr: number;
+    orderCount: number;
+  };
+}
+
+export interface CustomerEvaluationContext {
+  uid: string;
+  email: string;
+  name?: string;
+  totalSpentIdr: number;
+  orderCount: number;
+  tags: string[];
+  registrationDate?: string;
+  lastLoginAt?: string;
+}

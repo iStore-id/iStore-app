@@ -1,4 +1,5 @@
-import { adminDb } from "./firebase-admin";
+import { SupabaseProviderRepository } from "./supabase/provider-repository";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
 import { 
   Provider, 
   ProviderSku, 
@@ -9,10 +10,18 @@ import {
 } from "../types/core";
 import { ProviderAdapterRegistry, ProviderFulfillmentRequest } from "./provider-adapters";
 import { ApiGamesAdapter } from "./adapters/apigames-adapter";
+import { TokoVoucherAdapter } from "./adapters/tokovoucher-adapter";
+import { v4 as uuidv4 } from "uuid";
+import { generateDeterministicProviderSkuUuid } from "./supabase/provider-sku-identity";
+export { generateDeterministicProviderSkuUuid as generateDeterministicProviderSkuId };
+
+const providerRepo = SupabaseProviderRepository.getInstance();
+const catalogRepo = SupabaseCatalogRepository.getInstance();
 
 // Register adapters
 const registry = ProviderAdapterRegistry.getInstance();
 registry.registerAdapter(new ApiGamesAdapter());
+registry.registerAdapter(new TokoVoucherAdapter());
 
 export class ProviderService {
   private static instance: ProviderService;
@@ -31,15 +40,15 @@ export class ProviderService {
   // ===================
 
   async createProvider(data: Partial<Provider>): Promise<Provider> {
-    const providersRef = adminDb.collection("providers");
-    
     if (data.code) {
-      const existing = await providersRef.where("code", "==", data.code).limit(1).get();
-      if (!existing.empty) throw new Error(`Provider with code '${data.code}' already exists`);
+      const providers = await providerRepo.listProviders();
+      const existing = providers.find(p => p.code === data.code);
+      if (existing) throw new Error(`Provider with code '${data.code}' already exists`);
     }
 
-    const docRef = providersRef.doc();
+    const providerId = data.id || uuidv4();
     const provider: Provider = {
+      id: providerId,
       name: data.name || "",
       code: data.code || "",
       description: data.description || "",
@@ -54,22 +63,26 @@ export class ProviderService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...data,
-      id: docRef.id
     };
 
-    await docRef.set(provider);
+    await providerRepo.upsertProvider(provider as any);
     return provider;
   }
 
   async updateProvider(id: string, data: Partial<Provider>): Promise<void> {
-    const docRef = adminDb.collection("providers").doc(id);
-    const snap = await docRef.get();
-    if (!snap.exists) throw new Error("Provider not found");
+    const provider = await providerRepo.getProvider(id);
+    if (!provider) throw new Error("Provider not found");
 
-    await docRef.update({
+    await providerRepo.upsertProvider({
+      ...provider,
       ...data,
+      id,
       updatedAt: new Date().toISOString()
-    });
+    } as any);
+  }
+
+  async listProviders(): Promise<Provider[]> {
+    return providerRepo.listProviders();
   }
 
   // ===================
@@ -77,25 +90,27 @@ export class ProviderService {
   // ===================
 
   async createProviderSku(data: Partial<ProviderSku>): Promise<ProviderSku> {
-    const skusRef = adminDb.collection("providerSkus");
-    
     // Validate provider existence
     if (!data.providerId) throw new Error("providerId is required");
-    const providerSnap = await adminDb.collection("providers").doc(data.providerId).get();
-    if (!providerSnap.exists) throw new Error("Provider not found");
+    const provider = await providerRepo.getProvider(data.providerId);
+    if (!provider) throw new Error("Provider not found");
 
     // SKU uniqueness within provider
     if (data.providerSku) {
-      const existing = await skusRef
-        .where("providerId", "==", data.providerId)
-        .where("providerSku", "==", data.providerSku)
-        .limit(1)
-        .get();
-      if (!existing.empty) throw new Error(`SKU '${data.providerSku}' already exists for this provider`);
+      const existing = await providerRepo.getProviderSku(data.providerId, data.providerSku);
+      if (existing) throw new Error(`SKU '${data.providerSku}' already exists for this provider`);
     }
 
-    const docRef = skusRef.doc();
+    const docId = data.providerSku ? generateDeterministicProviderSkuUuid(data.providerId, data.providerSku) : (data.id || uuidv4());
+    
+    // Check if deterministic ID already exists
+    if (data.providerSku) {
+      const idCheck = await providerRepo.getProviderSkuById(docId);
+      if (idCheck) throw new Error(`SKU ID collision or already exists: ${docId}`);
+    }
+
     const sku: ProviderSku = {
+      id: docId,
       providerId: data.providerId,
       providerSku: data.providerSku || "",
       name: data.name || "",
@@ -105,32 +120,35 @@ export class ProviderService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       ...data,
-      id: docRef.id
     };
 
-    await docRef.set(sku);
+    await providerRepo.upsertProviderSku(sku as any);
     return sku;
   }
 
   async updateProviderSku(id: string, data: Partial<ProviderSku>): Promise<void> {
-    const docRef = adminDb.collection("providerSkus").doc(id);
-    const snap = await docRef.get();
-    if (!snap.exists) throw new Error("Provider SKU not found");
+    const sku = await providerRepo.getProviderSkuById(id);
+    if (!sku) throw new Error("Provider SKU not found");
 
-    if (data.providerSku && data.providerSku !== snap.data()?.providerSku) {
-      const skusRef = adminDb.collection("providerSkus");
-      const existing = await skusRef
-        .where("providerId", "==", snap.data()?.providerId)
-        .where("providerSku", "==", data.providerSku)
-        .limit(1)
-        .get();
-      if (!existing.empty) throw new Error(`SKU '${data.providerSku}' already exists for this provider`);
+    if (data.providerSku && data.providerSku !== sku.providerSku) {
+      const existing = await providerRepo.getProviderSku(sku.providerId, data.providerSku);
+      if (existing) throw new Error(`SKU '${data.providerSku}' already exists for this provider`);
     }
 
-    await docRef.update({
+    await providerRepo.upsertProviderSku({
+      ...sku,
       ...data,
+      id,
       updatedAt: new Date().toISOString()
-    });
+    } as any);
+  }
+
+  async listProviderSkus(providerId?: string): Promise<ProviderSku[]> {
+    return providerRepo.listProviderSkus(providerId);
+  }
+
+  async deleteProviderSku(id: string): Promise<void> {
+    await providerRepo.deleteProviderSku(id);
   }
 
   // ===================
@@ -138,36 +156,34 @@ export class ProviderService {
   // ===================
 
   async createMapping(data: Partial<ProviderMapping>, userId: string): Promise<ProviderMapping> {
-    const mappingsRef = adminDb.collection("providerMappings");
-    
     // Validations
     if (!data.variantId) throw new Error("variantId is required");
     if (!data.providerId) throw new Error("providerId is required");
     if (!data.providerSkuId) throw new Error("providerSkuId is required");
 
-    const [variantSnap, providerSnap, skuSnap] = await Promise.all([
-      adminDb.collection("productVariants").doc(data.variantId).get(),
-      adminDb.collection("providers").doc(data.providerId).get(),
-      adminDb.collection("providerSkus").doc(data.providerSkuId).get()
+    const [variant, provider, sku] = await Promise.all([
+      catalogRepo.getVariant(data.variantId),
+      providerRepo.getProvider(data.providerId),
+      providerRepo.getProviderSkuById(data.providerSkuId)
     ]);
 
-    if (!variantSnap.exists) throw new Error("Variant not found");
-    if (!providerSnap.exists) throw new Error("Provider not found");
-    if (!skuSnap.exists) throw new Error("Provider SKU not found");
+    if (!variant) throw new Error("Variant not found");
+    if (!provider) throw new Error("Provider not found");
+    if (!sku) throw new Error("Provider SKU not found");
 
-    const skuData = skuSnap.data() as ProviderSku;
-    if (skuData.providerId !== data.providerId) {
+    if (sku.providerId !== data.providerId) {
       throw new Error("Provider SKU does not belong to the specified Provider");
     }
 
-    const docRef = mappingsRef.doc();
+    const mappingId = data.id || uuidv4();
     const mapping: ProviderMapping = {
-      productId: variantSnap.data()?.productId || "",
+      id: mappingId,
+      productId: variant.productId || "",
       variantId: data.variantId,
-      sku: variantSnap.data()?.sku || "",
+      sku: variant.sku || "",
       providerId: data.providerId,
       providerSkuId: data.providerSkuId,
-      providerSku: skuData.providerSku,
+      providerSku: sku.providerSku,
       status: data.status || "UNMAPPED",
       priority: data.priority ?? 0,
       routingEligibility: data.routingEligibility ?? true,
@@ -176,23 +192,43 @@ export class ProviderService {
       updatedAt: new Date().toISOString(),
       updatedBy: userId,
       ...data,
-      id: docRef.id
     };
 
-    await docRef.set(mapping);
+    await providerRepo.upsertMapping(mapping as any);
     return mapping;
   }
 
   async updateMapping(id: string, data: Partial<ProviderMapping>, userId: string): Promise<void> {
-    const docRef = adminDb.collection("providerMappings").doc(id);
-    const snap = await docRef.get();
-    if (!snap.exists) throw new Error("Mapping not found");
+    const mapping = await providerRepo.getMapping(id);
+    if (!mapping) throw new Error("Mapping not found");
 
-    await docRef.update({
+    let providerSku = data.providerSku || mapping.providerSku;
+    if (data.providerSkuId && data.providerSkuId !== mapping.providerSkuId) {
+      const sku = await providerRepo.getProviderSkuById(data.providerSkuId);
+      if (sku) {
+        providerSku = sku.providerSku;
+      }
+    } else if (!providerSku && (data.providerSkuId || mapping.providerSkuId)) {
+      const sku = await providerRepo.getProviderSkuById(data.providerSkuId || mapping.providerSkuId);
+      if (sku) {
+        providerSku = sku.providerSku;
+      }
+    }
+
+    await providerRepo.upsertMapping({
+      ...mapping,
       ...data,
+      providerSku,
+      id,
       updatedAt: new Date().toISOString(),
       updatedBy: userId
-    });
+    } as any);
+  }
+
+  async deleteMapping(id: string, userId: string): Promise<void> {
+    const mapping = await providerRepo.getMapping(id);
+    if (!mapping) throw new Error("Mapping not found");
+    await providerRepo.deleteMapping(id);
   }
 
   // ===================
@@ -208,16 +244,27 @@ export class ProviderService {
       throw new Error(`Cannot fulfill: ${routing.reason}`);
     }
 
-    // 2. Resolve adapter
-    const adapter = registry.getAdapter(routing.selectedProviderId);
+    // 2. Resolve adapter by provider ID or provider code
+    let adapter = registry.getAdapter(routing.selectedProviderId);
+    if (!adapter) {
+      const provider = await providerRepo.getProvider(routing.selectedProviderId);
+      if (provider?.code) {
+        adapter = registry.getAdapter(provider.code);
+      }
+    }
     if (!adapter) {
       throw new Error(`No adapter found for provider: ${routing.selectedProviderId}`);
     }
 
-    // 3. Prepare request with idempotency key
+    // 3. Authoritative SKU validation from routing decision
+    if (!routing.selectedProviderSku) {
+      throw new Error(`Routing decision SUCCESS but missing selectedProviderSku for variant ${variantId}`);
+    }
+    const executionSku = routing.selectedProviderSku;
+
     const request: ProviderFulfillmentRequest = {
       orderId,
-      providerSku,
+      providerSku: executionSku,
       customerData,
       idempotencyKey: `${orderId}-REQ`
     };
@@ -238,103 +285,37 @@ export class ProviderService {
   // ===================
 
   async getRoutingDecision(variantId: string, context: any = {}): Promise<RoutingDecision> {
-    const timestamp = new Date().toISOString();
-    
-    // 1. Fetch eligible mappings (active & eligible)
-    const mappingsSnap = await adminDb.collection("providerMappings")
-      .where("variantId", "==", variantId)
-      .where("status", "==", "APPROVED")
-      .where("routingEligibility", "==", true)
-      .get();
-
-    if (mappingsSnap.empty) {
-      return {
-        productVariantId: variantId,
-        selectedMappingId: "",
-        selectedProviderId: "",
-        selectedProviderSkuId: "",
-        selectedProviderSku: "",
-        reason: "No active mappings found for this variant",
-        code: "NO_MAPPING",
-        isFallback: false,
-        attempt: 1,
-        timestamp
-      };
-    }
-
-    const allMappings = mappingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProviderMapping));
-
-    // 2. Fetch providers to check status and health
-    const providerIds = [...new Set(allMappings.map(m => m.providerId))];
-    const providersSnap = await Promise.all(
-      providerIds.map(id => adminDb.collection("providers").doc(id).get())
-    );
-
-    const providerMap = new Map<string, Provider>();
-    providersSnap.forEach(snap => {
-      if (snap.exists) {
-        providerMap.set(snap.id, { id: snap.id, ...snap.data() } as Provider);
+    if (variantId.startsWith("virtual-variant-")) {
+      const skuId = variantId.replace("virtual-variant-", "");
+      const sku = await providerRepo.getProviderSkuById(skuId);
+      if (!sku) {
+        return {
+          productVariantId: variantId,
+          selectedMappingId: "virtual",
+          selectedProviderId: "",
+          selectedProviderSkuId: skuId,
+          selectedProviderSku: "",
+          reason: "Virtual SKU not found",
+          code: "FAILED",
+          isFallback: false,
+          attempt: 1,
+          timestamp: new Date().toISOString()
+        };
       }
-    });
 
-    // 3. Filter mappings by provider status
-    const eligibleMappings = allMappings.filter(m => {
-      const provider = providerMap.get(m.providerId);
-      if (!provider) return false;
-      
-      // Provider must be active
-      if (provider.status !== "active") return false;
-      
-      // If maintenance exclusion is on, check health
-      if (provider.health.state === "maintenance") return false;
-
-      return true;
-    });
-
-    if (eligibleMappings.length === 0) {
       return {
         productVariantId: variantId,
-        selectedMappingId: "",
-        selectedProviderId: "",
-        selectedProviderSkuId: "",
-        selectedProviderSku: "",
-        reason: "All eligible providers are inactive or in maintenance",
-        code: "PROVIDER_INACTIVE",
+        selectedMappingId: "virtual",
+        selectedProviderId: sku.providerId,
+        selectedProviderSkuId: sku.id!,
+        selectedProviderSku: sku.providerSku,
+        reason: "Virtual routing directly to provider SKU",
+        code: "SUCCESS",
         isFallback: false,
         attempt: 1,
-        timestamp
+        timestamp: new Date().toISOString()
       };
     }
-
-    // 4. Sort by priority (Mapping Priority > Provider Priority)
-    // Deterministic Sort
-    const sortedMappings = eligibleMappings.sort((a, b) => {
-      // 1. Higher mapping priority first
-      if (b.priority !== a.priority) return b.priority - a.priority;
-      
-      // 2. Higher provider priority first
-      const provA = providerMap.get(a.providerId)!;
-      const provB = providerMap.get(b.providerId)!;
-      if (provB.priority !== provA.priority) return provB.priority - provA.priority;
-      
-      // 3. Tie-breaker: creation date (older first) or ID
-      return a.createdAt.localeCompare(b.createdAt) || (a.id || "").localeCompare(b.id || "");
-    });
-
-    const selectedMapping = sortedMappings[0];
-    const selectedProvider = providerMap.get(selectedMapping.providerId)!;
-
-    return {
-      productVariantId: variantId,
-      selectedMappingId: selectedMapping.id!,
-      selectedProviderId: selectedMapping.providerId,
-      selectedProviderSkuId: selectedMapping.providerSkuId,
-      selectedProviderSku: selectedMapping.providerSku,
-      reason: `Routing success via mapping ${selectedMapping.id} (Provider: ${selectedProvider.code})`,
-      code: "SUCCESS",
-      isFallback: false,
-      attempt: 1,
-      timestamp
-    };
+    return providerRepo.resolveRoutingDecision(variantId);
   }
 }

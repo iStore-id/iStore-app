@@ -1,7 +1,14 @@
-import { adminDb } from "./firebase-admin";
-import { ProviderMapping } from "../types/core";
+import { ProviderMapping, ProviderSku } from "../types/core";
+import { SupabaseProviderRepository } from "./supabase/provider-repository";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { PricingService } from "./pricing-service";
+import { v4 as uuidv4 } from "uuid";
 
 export type MappingStatus = 'UNMAPPED' | 'CANDIDATE' | 'NEEDS_REVIEW' | 'MAPPED' | 'APPROVED' | 'REJECTED';
+
+const providerRepo = SupabaseProviderRepository.getInstance();
+const catalogRepo = SupabaseCatalogRepository.getInstance();
 
 export class ProviderMappingService {
   private static instance: ProviderMappingService;
@@ -9,11 +16,11 @@ export class ProviderMappingService {
   private constructor() {}
 
   private async logAudit(uid: string, email: string, action: string, resourceId: string, before: any, after: any, reason: string) {
-    await adminDb.collection("auditLogs").add({
+    await AuditLogRepository.getInstance().createLog({
       actor: { uid, email },
+      role: "admin",
       action,
-      resource: "providerMappings",
-      resourceId,
+      target: `providerMappings/${resourceId}`,
       before,
       after,
       reason,
@@ -29,88 +36,166 @@ export class ProviderMappingService {
   }
 
   async getMapping(id: string): Promise<ProviderMapping | null> {
-    const doc = await adminDb.collection("providerMappings").doc(id).get();
-    return doc.exists ? ({ id: doc.id, ...doc.data() } as ProviderMapping) : null;
+    return providerRepo.getMapping(id);
   }
 
   async createMapping(data: Omit<ProviderMapping, 'id' | 'createdAt' | 'updatedAt'>, actor: { uid: string, email: string }): Promise<string> {
     // Uniqueness constraint: One APPROVED mapping per provider SKU
     if (data.status === 'APPROVED') {
-        const existing = await adminDb.collection("providerMappings")
-            .where("providerSkuId", "==", data.providerSkuId)
-            .where("status", "==", "APPROVED")
-            .get();
-        if (!existing.empty) throw new Error("An APPROVED mapping already exists for this provider SKU.");
+        const existing = await providerRepo.getMappingBySkuAndStatus(data.providerSkuId, 'APPROVED');
+        if (existing) throw new Error("An APPROVED mapping already exists for this provider SKU.");
     }
 
-    const ref = adminDb.collection("providerMappings").doc();
+    const mappingId = uuidv4();
     const now = new Date().toISOString();
-    const mapping = {
+    const mapping: ProviderMapping = {
       ...data,
+      id: mappingId,
       createdAt: now,
       updatedAt: now,
       updatedBy: actor.email
     };
 
-    await ref.set(mapping);
-    await this.logAudit(actor.uid, actor.email, "CREATE_MAPPING", ref.id, {}, mapping, "Provider mapping created");
+    await providerRepo.upsertMapping(mapping as any);
+    await this.logAudit(actor.uid, actor.email, "CREATE_MAPPING", mappingId, {}, mapping, "Provider mapping created");
     
-    return ref.id;
+    if (data.status === 'APPROVED') {
+      await this.syncVariantCost(data.variantId, actor);
+    }
+
+    return mappingId;
   }
 
   async approveMapping(id: string, actor: { uid: string, email: string }): Promise<void> {
-    const ref = adminDb.collection("providerMappings").doc(id);
-    const doc = await ref.get();
-    if (!doc.exists) throw new Error("Mapping not found");
-    
-    const data = doc.data() as ProviderMapping;
+    const mapping = await providerRepo.getMapping(id);
+    if (!mapping) throw new Error("Mapping not found");
     
     // Check uniqueness constraint before approval
-    const existingApproved = await adminDb.collection("providerMappings")
-        .where("providerSkuId", "==", data.providerSkuId)
-        .where("status", "==", "APPROVED")
-        .get();
-    if (!existingApproved.empty && existingApproved.docs[0].id !== id) {
+    const existingApproved = await providerRepo.getMappingBySkuAndStatus(mapping.providerSkuId, 'APPROVED');
+    if (existingApproved && existingApproved.id !== id) {
         throw new Error("An APPROVED mapping already exists for this provider SKU.");
     }
 
     const now = new Date().toISOString();
-    await ref.update({ status: 'APPROVED', updatedAt: now, updatedBy: actor.email });
-    await this.logAudit(actor.uid, actor.email, "APPROVE_MAPPING", id, data, { ...data, status: 'APPROVED' }, "Provider mapping approved");
+    const updatedMapping = { ...mapping, status: 'APPROVED' as const, routingEligibility: true, updatedAt: now, updatedBy: actor.email };
+    await providerRepo.upsertMapping(updatedMapping as any);
+    await this.logAudit(actor.uid, actor.email, "APPROVE_MAPPING", id, mapping, updatedMapping, "Provider mapping approved");
+
+    // Sync Cost to Variant
+    await this.syncVariantCost(mapping.variantId, actor);
+  }
+
+  /**
+   * Propagates baseCost from the best available provider SKU to the product variant.
+   */
+  async syncVariantCost(variantId: string, actor: { uid: string, email: string }): Promise<{ success: boolean, reason?: string, baseCost?: number }> {
+    try {
+      const decision = await providerRepo.resolveRoutingDecision(variantId);
+      if (decision.code !== 'SUCCESS' || !decision.selectedProviderSkuId) {
+        return { success: false, reason: decision.reason || "No routing decision" };
+      }
+
+      const sku = await providerRepo.getProviderSkuById(decision.selectedProviderSkuId);
+      if (!sku) return { success: false, reason: "Provider SKU not found" };
+
+      // Extract baseCost from metadata
+      let baseCost = 0;
+      if (sku.metadata?.baseCost !== undefined) {
+        baseCost = Number(sku.metadata.baseCost);
+      }
+      
+      if (baseCost === 0 && sku.metadata?.originalData?.baseCost !== undefined) {
+        baseCost = Number(sku.metadata.originalData.baseCost);
+      }
+
+      if (baseCost > 0) {
+        const variant = await catalogRepo.getVariant(variantId);
+        if (variant) {
+          // Update base_cost in the variant
+          const updatedPricing = {
+            ...(variant.pricing || {}),
+            baseCost: baseCost,
+            lastCostUpdate: new Date().toISOString()
+          };
+
+          await catalogRepo.upsertVariant({
+            ...variant,
+            pricing: updatedPricing as any,
+            updatedAt: new Date().toISOString(),
+            updatedBy: actor.email
+          } as any);
+
+          // Trigger Pricing Refresh (Calculate selling price based on rules)
+          await PricingService.getInstance().refreshVariantPrice(variantId, actor);
+          return { success: true, baseCost };
+        }
+        return { success: false, reason: "Variant not found" };
+      }
+      return { success: false, reason: "No valid baseCost in provider SKU metadata" };
+    } catch (error: any) {
+      console.error(`[syncVariantCost] Failed for variant ${variantId}:`, error);
+      return { success: false, reason: error.message };
+    }
+  }
+
+  /**
+   * Systematic backfill for all existing APPROVED mappings.
+   */
+  async backfillApprovedMappingsCost(actor: { uid: string, email: string }): Promise<any> {
+    const mappings = await providerRepo.listMappingsByProvider("ALL", "APPROVED");
+    const variantIds = Array.from(new Set(mappings.map(m => m.variantId)));
+    
+    const results = {
+      totalVariants: variantIds.length,
+      totalApprovedMappings: mappings.length,
+      processed: 0,
+      propagated: 0,
+      unresolved: 0,
+      errors: 0,
+      details: [] as any[]
+    };
+
+    for (const variantId of variantIds) {
+      results.processed++;
+      const res = await this.syncVariantCost(variantId, actor);
+      if (res.success) {
+        results.propagated++;
+      } else {
+        if (res.reason === "No valid baseCost in provider SKU metadata") {
+          results.unresolved++;
+        } else {
+          results.errors++;
+        }
+      }
+      results.details.push({ variantId, ...res });
+    }
+
+    return results;
   }
 
   async listMappings(providerId: string, status: MappingStatus | 'ALL', page: number = 1, pageSize: number = 20, lastDoc?: any): Promise<{ data: ProviderMapping[], lastDoc: any }> {
-    let query = adminDb.collection("providerMappings").where("providerId", "==", providerId);
-    if (status !== 'ALL') {
-        query = query.where("status", "==", status);
-    }
-    
-    query = query.orderBy("createdAt", "desc").limit(pageSize);
-    if (lastDoc) {
-        query = query.startAfter(lastDoc);
-    }
-
-    const snap = await query.get();
-    const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProviderMapping));
-    return { data, lastDoc: snap.docs[snap.docs.length - 1] };
+    const data = await providerRepo.listMappingsByProvider(providerId, status);
+    // Simple pagination for now (Supabase query doesn't use lastDoc)
+    return { data, lastDoc: null };
   }
 
   async mapSku(skuId: string, variantId: string, actor: { uid: string, email: string }): Promise<string> {
-    const skuDoc = await adminDb.collection("providerSkus").doc(skuId).get();
-    const skuData = skuDoc.data() as any; // ProviderSku
+    const sku = await providerRepo.getProviderSkuById(skuId);
+    if (!sku) throw new Error("Provider SKU not found");
     
-    const variantDoc = await adminDb.collection("productVariants").doc(variantId).get();
-    const variantData = variantDoc.data();
+    const variant = await catalogRepo.getVariant(variantId);
+    if (!variant) throw new Error("Variant not found");
     
-    const ref = adminDb.collection("providerMappings").doc();
+    const mappingId = uuidv4();
     const now = new Date().toISOString();
     const mapping: ProviderMapping = {
-      productId: variantData!.productId,
+      id: mappingId,
+      productId: variant.productId,
       variantId: variantId,
-      sku: variantData!.sku,
-      providerId: skuData.providerId,
+      sku: variant.sku,
+      providerId: sku.providerId,
       providerSkuId: skuId,
-      providerSku: skuData.providerSku,
+      providerSku: sku.providerSku,
       status: 'MAPPED',
       priority: 1,
       routingEligibility: false,
@@ -120,25 +205,27 @@ export class ProviderMappingService {
       updatedBy: actor.email
     };
     
-    await ref.set(mapping);
-    await this.logAudit(actor.uid, actor.email, "CREATE_MAPPING", ref.id, {}, mapping, "Provider mapping created");
-    return ref.id;
+    await providerRepo.upsertMapping(mapping as any);
+    await this.logAudit(actor.uid, actor.email, "CREATE_MAPPING", mappingId, {}, mapping, "Provider mapping created");
+    return mappingId;
   }
 
   async rejectMapping(id: string, actor: { uid: string, email: string }): Promise<void> {
-    const ref = adminDb.collection("providerMappings").doc(id);
-    const doc = await ref.get();
-    const data = doc.data() as ProviderMapping;
-    await ref.update({ status: 'REJECTED', updatedAt: new Date().toISOString(), updatedBy: actor.email });
-    await this.logAudit(actor.uid, actor.email, "REJECT_MAPPING", id, data, { ...data, status: 'REJECTED' }, "Provider mapping rejected");
+    const mapping = await providerRepo.getMapping(id);
+    if (!mapping) throw new Error("Mapping not found");
+    
+    const now = new Date().toISOString();
+    const updatedMapping = { ...mapping, status: 'REJECTED' as const, updatedAt: now, updatedBy: actor.email };
+    await providerRepo.upsertMapping(updatedMapping as any);
+    await this.logAudit(actor.uid, actor.email, "REJECT_MAPPING", id, mapping, updatedMapping, "Provider mapping rejected");
   }
 
   async unmap(id: string, actor: { uid: string, email: string }): Promise<void> {
-    const ref = adminDb.collection("providerMappings").doc(id);
-    const doc = await ref.get();
-    const data = doc.data() as ProviderMapping;
-    await ref.delete();
-    await this.logAudit(actor.uid, actor.email, "UNMAP_MAPPING", id, data, {}, "Provider mapping deleted");
+    const mapping = await providerRepo.getMapping(id);
+    if (!mapping) throw new Error("Mapping not found");
+    
+    await providerRepo.deleteMapping(id);
+    await this.logAudit(actor.uid, actor.email, "UNMAP_MAPPING", id, mapping, {}, "Provider mapping deleted");
   }
 }
 

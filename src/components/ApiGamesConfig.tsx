@@ -70,7 +70,7 @@ export const ApiGamesConfig = () => {
     }
   };
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-brand-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -88,7 +88,7 @@ export const ApiGamesConfig = () => {
           <label className="block text-sm font-medium text-slate-700">Secret Key</label>
           <input type="password" value={secretKey} onChange={(e) => setSecretKey(e.target.value)} className="w-full mt-1 p-2 border rounded-md" placeholder="Enter Secret Key" />
         </div>
-        <button type="submit" className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg" disabled={saving}>
+        <button type="submit" className="flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-lg" disabled={saving}>
           {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
           {configured ? 'Update Credentials' : 'Save Credentials'}
         </button>

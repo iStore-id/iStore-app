@@ -281,12 +281,12 @@ export default function AdminDomainPage() {
                 <div className="flex items-start gap-2">
                   <span className="h-4 w-4 bg-indigo-100 text-indigo-700 font-bold rounded-full flex items-center justify-center text-[10px] shrink-0 mt-0.5">2</span>
                   <p>
-                    **Penerbitan Sertifikat SSL/TLS**: Penerbitan sertifikat SSL (HTTPS) dan pemetaan domain kustom pada container dikelola sepenuhnya secara otomatis di level infrastruktur container Cloud Run Google Cloud Platform setelah DNS Anda mengarah ke server hosting dengan benar.
+                    **Penerbitan Sertifikat SSL/TLS**: Penerbitan sertifikat SSL/TLS (HTTPS) dan pemetaan domain kustom dikelola oleh provider hosting yang digunakan untuk deployment production setelah konfigurasi DNS domain diarahkan dengan benar.
                   </p>
                 </div>
               </div>
               <p className="text-amber-700 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100">
-                *Catatan: iStore Admin Panel tidak memiliki wewenang langsung untuk membuat rekaman DNS baru di registrar domain Anda atau mempublikasikan SSL eksternal secara mandiri.*
+                *Catatan: iStore Admin Panel tidak memiliki wewenang langsung untuk membuat rekaman DNS baru di registrar domain Anda atau menerbitkan sertifikat SSL eksternal secara mandiri.*
               </p>
             </div>
           </div>
@@ -301,7 +301,14 @@ export default function AdminDomainPage() {
             <div className="space-y-3">
               <div className="flex justify-between items-center text-xs border-b pb-2.5">
                 <span className="text-gray-500 font-medium">Hostname Aktif</span>
-                <span className="font-mono font-semibold text-gray-800 bg-slate-50 border px-2 py-1 rounded">{currentHost || "Mencari..."}</span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="font-mono font-semibold text-gray-800 bg-slate-50 border px-2 py-1 rounded">{currentHost || "Mencari..."}</span>
+                  {(currentHost.includes("run.app") || currentHost.includes("staging") || currentHost.includes("preview")) && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded">
+                      Hostname Preview/Staging Aktif (bukan production domain)
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-between items-center text-xs border-b pb-2.5">

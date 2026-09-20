@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { LandingService } from "./landing-service";
-import { adminDb } from "./firebase-admin";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 const landingService = LandingService.getInstance();
 
@@ -12,15 +12,13 @@ async function logAudit(
   payload: any
 ) {
   try {
-    const auditRef = adminDb.collection("auditLogs").doc();
-    await auditRef.set({
-      id: auditRef.id,
-      actorUid: req.user?.uid || "system",
-      actorEmail: req.user?.email || "system",
+    await AuditLogRepository.getInstance().createLog({
+      actor: { uid: req.user?.uid || "system", email: req.user?.email || "system" },
+      role: req.user?.role || "admin",
       action,
-      resource: "landing",
-      resourceId,
-      payload,
+      target: `landing/${resourceId}`,
+      after: payload,
+      reason: payload?.reason || "Landing operation",
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -53,6 +51,16 @@ export async function getPublicLandingPageApi(req: Request, res: Response) {
     });
   } catch (error: any) {
     console.error("[Public Landing API Error]:", error);
+    return res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
+  }
+}
+
+export async function getPublicLandingsApi(req: Request, res: Response) {
+  try {
+    const landings = await landingService.getPublicLandings();
+    return res.status(200).json({ success: true, data: landings });
+  } catch (error: any) {
+    console.error("[Public Landings API Error]:", error);
     return res.status(500).json({ success: false, message: "Terjadi kesalahan server." });
   }
 }

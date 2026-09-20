@@ -1,20 +1,18 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { RewardService } from "./reward-service";
-import { adminDb } from "./firebase-admin";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 const rewardService = RewardService.getInstance();
 
 async function logAudit(req: AuthenticatedRequest, action: string, resource: string, resourceId: string, payload: any) {
-  const auditRef = adminDb.collection("auditLogs").doc();
-  await auditRef.set({
-    id: auditRef.id,
-    actorUid: req.user?.uid || "system",
-    actorEmail: req.user?.email || "system",
+  await AuditLogRepository.getInstance().createLog({
+    actor: { uid: req.user?.uid || "system", email: req.user?.email || "system" },
+    role: req.user?.role || "admin",
     action,
-    resource,
-    resourceId,
-    payload,
+    target: `${resource}/${resourceId}`,
+    after: payload,
+    reason: payload?.reason || "Reward operation",
     timestamp: new Date().toISOString()
   });
 }

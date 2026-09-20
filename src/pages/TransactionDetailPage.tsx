@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db, isFirebaseConfigured } from "../lib/firebase";
-import { formatRupiah } from "../lib/utils";
-import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, Key, Truck } from "lucide-react";
+import { formatRupiah, loadMidtransSnap } from "../lib/utils";
+import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Truck } from "lucide-react";
 import { useAuthStore } from "../store/auth-store";
+
+function hexToRgba(hex: string, opacity: number) {
+  let c = (hex || "#ffffff").replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map(char => char + char).join('');
+  }
+  const num = parseInt(c, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
+}
 
 export default function TransactionDetailPage() {
   const { invoice } = useParams();
@@ -13,48 +23,81 @@ export default function TransactionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { user } = useAuthStore();
   const [revealCode, setRevealCode] = useState(false);
+  const [hasCustomBg, setHasCustomBg] = useState(false);
+  const [cardColor, setCardColor] = useState("#ffffff");
+  const [cardOpacity, setCardOpacity] = useState(85);
+  const [cardBlur, setCardBlur] = useState<"none" | "sm" | "md" | "lg">("md");
+
+  useEffect(() => {
+    fetch("/api/public/store-config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data) {
+          const isColor = data.data.homepageBackgroundMode === "color" && Boolean(data.data.homepageBackgroundColor);
+          const isImage = data.data.homepageBackgroundMode === "image" && Boolean(data.data.homepageBackgroundImage);
+          setHasCustomBg(isColor || isImage);
+          if (data.data.transactionCardColor) {
+            setCardColor(data.data.transactionCardColor);
+          }
+          if (typeof data.data.transactionCardOpacity === "number") {
+            setCardOpacity(Math.max(50, Math.min(100, data.data.transactionCardOpacity)));
+          }
+          if (data.data.transactionCardBlur) {
+            setCardBlur(data.data.transactionCardBlur);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadMidtransSnap();
+  }, []);
 
   useEffect(() => {
     const fetchOrder = async () => {
-      if (!isFirebaseConfigured || !db) {
-        setErrorState("configuration_error");
+      if (!invoice) {
+        setError("Transaksi tidak ditemukan.");
         setLoading(false);
         return;
       }
 
       try {
-        const q = query(collection(db, "orders"), where("invoice", "==", invoice));
-        const snapshot = await getDocs(q);
-        
-        // Fallback to searching by ID if invoice not found
-        let orderData = null;
-        if (snapshot.empty) {
-          const qById = query(collection(db, "orders"), where("id", "==", invoice));
-          const snapshotById = await getDocs(qById);
-          if (snapshotById.empty) {
+        const res = await fetch(`/api/orders/${encodeURIComponent(invoice)}`);
+        if (!res.ok) {
+          if (res.status === 404) {
             setError("Transaksi tidak ditemukan.");
-            setLoading(false);
-            return;
+          } else {
+            setErrorState("service_error");
           }
-          orderData = { id: snapshotById.docs[0].id, ...snapshotById.docs[0].data() };
-        } else {
-          orderData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+          setLoading(false);
+          return;
         }
+
+        const json = await res.json();
+        if (!json.success || !json.data) {
+          setError("Transaksi tidak ditemukan.");
+          setLoading(false);
+          return;
+        }
+
+        const orderData = json.data;
         setOrder(orderData);
 
         // Fetch Delivery Data if Authorized
         if (user && orderData.userId === user.uid) {
            try {
              const token = await user.getIdToken();
-             const res = await fetch(`/api/customer/orders/${orderData.id}/delivery`, {
+             const deliveryRes = await fetch(`/api/customer/orders/${orderData.id}/delivery`, {
                headers: { Authorization: `Bearer ${token}` }
              });
-             if (res.ok) {
-               const data = await res.json();
-               if (data.success && data.data) {
-                 setDelivery(data.data);
+             if (deliveryRes.ok) {
+               const deliveryJson = await deliveryRes.json();
+               if (deliveryJson.success && deliveryJson.data) {
+                 setDelivery(deliveryJson.data);
                }
              }
            } catch (e) {
@@ -63,7 +106,7 @@ export default function TransactionDetailPage() {
         }
 
       } catch (err) {
-        console.warn("Notice: Order fetch from Firestore:", err);
+        console.warn("Notice: Order fetch error:", err);
         setErrorState("service_error");
       } finally {
         setLoading(false);
@@ -114,11 +157,11 @@ export default function TransactionDetailPage() {
         <div className={`p-8 text-center border-b ${
           order.transactionStatus === 'success' ? 'bg-green-50 border-green-100' :
           order.transactionStatus === 'failed' ? 'bg-red-50 border-red-100' :
-          'bg-blue-50 border-blue-100'
+          'bg-brand-50 border-brand-100'
         }`}>
           {order.transactionStatus === 'success' ? <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" /> :
            order.transactionStatus === 'failed' ? <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" /> :
-           <Clock className="w-16 h-16 text-blue-500 mx-auto mb-4" />}
+           <Clock className="w-16 h-16 text-brand-500 mx-auto mb-4" />}
           
           <h1 className="text-2xl font-bold text-slate-900 mb-2">
             {order.transactionStatus === 'success' ? 'Transaksi Berhasil' :
@@ -129,18 +172,40 @@ export default function TransactionDetailPage() {
           <p className="text-slate-600 font-medium">{formatRupiah(order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
-            <button 
-              onClick={() => {
-                if (window.snap && order.snapToken) {
-                  window.snap.pay(order.snapToken);
-                } else {
-                  alert("Token pembayaran tidak ditemukan atau sudah kadaluarsa.");
-                }
-              }}
-              className="mt-6 bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Lanjutkan Pembayaran
-            </button>
+            <div className="mt-6 flex flex-col items-center">
+              <button 
+                onClick={async () => {
+                  setActionError(null);
+                  let snapReady = !!window.snap;
+                  if (!snapReady) {
+                    snapReady = await loadMidtransSnap();
+                  }
+
+                  if (snapReady && window.snap && order.snapToken) {
+                    window.snap.pay(order.snapToken, {
+                      onSuccess: () => window.location.reload(),
+                      onPending: () => window.location.reload(),
+                      onError: () => setActionError("Pembayaran gagal. Silakan coba lagi."),
+                      onClose: () => {}
+                    });
+                  } else if (order.paymentUrl) {
+                    window.location.href = order.paymentUrl;
+                  } else {
+                    setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
+                  }
+                }}
+                className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+              >
+                Lanjutkan Pembayaran
+              </button>
+
+              {actionError && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 max-w-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -173,7 +238,7 @@ export default function TransactionDetailPage() {
                 <span className="text-slate-500">No. Invoice</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-medium text-slate-900">{order.invoice || order.id}</span>
-                  <button onClick={() => copyToClipboard(order.invoice || order.id)} className="text-blue-600 hover:text-blue-700"><Copy className="w-4 h-4"/></button>
+                  <button onClick={() => copyToClipboard(order.invoice || order.id)} className="text-brand-600 hover:text-brand-700"><Copy className="w-4 h-4"/></button>
                 </div>
               </div>
               <div className="flex justify-between text-sm">
@@ -188,8 +253,8 @@ export default function TransactionDetailPage() {
                 <div className="flex justify-between items-center text-sm mt-4 p-4 bg-slate-50 rounded-xl">
                   <span className="font-semibold text-slate-900">Serial Number / Kode:</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-blue-600">{order.serialNumber}</span>
-                    <button onClick={() => copyToClipboard(order.serialNumber)} className="text-blue-600 hover:text-blue-700"><Copy className="w-4 h-4"/></button>
+                    <span className="font-mono font-bold text-brand-600">{order.serialNumber}</span>
+                    <button onClick={() => copyToClipboard(order.serialNumber)} className="text-brand-600 hover:text-brand-700"><Copy className="w-4 h-4"/></button>
                   </div>
                 </div>
               )}
@@ -202,30 +267,30 @@ export default function TransactionDetailPage() {
                 <Truck className="w-4 h-4 text-slate-500" />
                 Informasi Pengiriman (Delivery)
               </h3>
-              <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl space-y-4">
-                <div className="flex justify-between border-b border-blue-200/50 pb-3">
+              <div className="bg-brand-50 border border-brand-100 p-5 rounded-2xl space-y-4">
+                <div className="flex justify-between border-b border-brand-200/50 pb-3">
                   <span className="text-sm text-slate-600">Status Delivery</span>
                   <span className={`font-semibold text-sm ${
                     delivery.status === 'DELIVERED' ? 'text-green-600' :
-                    delivery.status === 'FAILED' ? 'text-red-600' : 'text-blue-600'
+                    delivery.status === 'FAILED' ? 'text-red-600' : 'text-brand-600'
                   }`}>
                     {delivery.status}
                   </span>
                 </div>
                 
                 {delivery.deliveredAt && (
-                  <div className="flex justify-between border-b border-blue-200/50 pb-3">
+                  <div className="flex justify-between border-b border-brand-200/50 pb-3">
                     <span className="text-sm text-slate-600">Waktu Selesai</span>
                     <span className="text-sm font-medium text-slate-900">{new Date(delivery.deliveredAt).toLocaleString('id-ID')}</span>
                   </div>
                 )}
 
                 {delivery.providerTransactionId && (
-                  <div className="flex justify-between border-b border-blue-200/50 pb-3">
+                  <div className="flex justify-between border-b border-brand-200/50 pb-3">
                     <span className="text-sm text-slate-600">No. Referensi / SN</span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-mono font-medium text-slate-900">{delivery.providerTransactionId}</span>
-                      <button onClick={() => copyToClipboard(delivery.providerTransactionId)} className="text-blue-600 hover:text-blue-700">
+                      <button onClick={() => copyToClipboard(delivery.providerTransactionId)} className="text-brand-600 hover:text-brand-700">
                         <Copy className="w-4 h-4" />
                       </button>
                     </div>
@@ -236,10 +301,10 @@ export default function TransactionDetailPage() {
                   <div className="pt-2">
                     <span className="text-sm font-medium text-slate-900 block mb-2">Kode Voucher / Akses Digital</span>
                     {revealCode ? (
-                      <div className="bg-white border border-blue-200 p-4 rounded-xl font-mono text-sm text-slate-900 flex justify-between items-center break-all shadow-sm">
+                      <div className="bg-white border border-brand-200 p-4 rounded-xl font-mono text-sm text-slate-900 flex justify-between items-center break-all shadow-sm">
                         <span>{delivery.digitalCode || <span className="text-slate-400 italic font-sans">Kode tidak tersedia</span>}</span>
                         {delivery.digitalCode && (
-                          <button onClick={() => copyToClipboard(delivery.digitalCode)} className="text-blue-600 hover:text-blue-700 ml-2 shrink-0 bg-blue-50 p-2 rounded-lg">
+                          <button onClick={() => copyToClipboard(delivery.digitalCode)} className="text-brand-600 hover:text-brand-700 ml-2 shrink-0 bg-brand-50 p-2 rounded-lg">
                             <Copy className="w-4 h-4" />
                           </button>
                         )}
@@ -247,7 +312,7 @@ export default function TransactionDetailPage() {
                     ) : (
                       <button 
                         onClick={() => setRevealCode(true)}
-                        className="w-full flex items-center justify-center gap-2 bg-white border border-blue-200 p-4 rounded-xl text-sm text-blue-600 font-semibold hover:bg-blue-50 shadow-sm transition-colors"
+                        className="w-full flex items-center justify-center gap-2 bg-white border border-brand-200 p-4 rounded-xl text-sm text-brand-600 font-semibold hover:bg-brand-50 shadow-sm transition-colors"
                       >
                         <Key className="w-4 h-4" />
                         Tampilkan Kode Rahasia

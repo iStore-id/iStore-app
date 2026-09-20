@@ -87,7 +87,7 @@ export default function BlogContentRenderer({ content, className = "" }: BlogCon
               ? "bg-amber-50/80 border-amber-200 text-amber-900"
               : type === "tip"
               ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
-              : "bg-blue-50/80 border-blue-200 text-brand"
+              : "bg-brand-50/80 border-brand-200 text-brand"
           }`}
         >
           {type === "warning" ? (
@@ -95,7 +95,7 @@ export default function BlogContentRenderer({ content, className = "" }: BlogCon
           ) : type === "tip" ? (
             <Lightbulb className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
           ) : (
-            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
           )}
           <div className="text-sm sm:text-base leading-relaxed">
             {renderInline(calloutText)}
@@ -176,7 +176,7 @@ export default function BlogContentRenderer({ content, className = "" }: BlogCon
     if (trimmed.startsWith("> ")) {
       flushList(i);
       blocks.push(
-        <blockquote key={`quote-${i}`} className="border-l-4 border-blue-600 pl-4 py-1.5 my-6 text-slate-700 italic bg-slate-50/50 rounded-r-xl">
+        <blockquote key={`quote-${i}`} className="border-l-4 border-brand-600 pl-4 py-1.5 my-6 text-slate-700 italic bg-slate-50/50 rounded-r-xl">
           {renderInline(trimmed.replace(/^>\s+/, ""))}
         </blockquote>
       );
@@ -250,7 +250,7 @@ function renderInline(text: string): React.ReactNode[] {
           href={url}
           target={isExternal ? "_blank" : undefined}
           rel={isExternal ? "noopener noreferrer" : undefined}
-          className="text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2 inline-flex items-center gap-0.5 transition-colors"
+          className="text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2 inline-flex items-center gap-0.5 transition-colors"
         >
           {label}
           {isExternal && <ExternalLink className="w-3 h-3 ml-0.5 inline-block opacity-70" />}
@@ -279,7 +279,7 @@ function renderInline(text: string): React.ReactNode[] {
     // Code `code`
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2) {
       return (
-        <code key={index} className="bg-slate-100 text-blue-600 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200">
+        <code key={index} className="bg-slate-100 text-brand-600 px-1.5 py-0.5 rounded text-sm font-mono border border-slate-200">
           {part.slice(1, -1)}
         </code>
       );

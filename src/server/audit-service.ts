@@ -1,6 +1,6 @@
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
 import { AuditLog } from "../types/core";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 export interface AuditQueryFilters {
   page?: number;
@@ -74,27 +74,7 @@ export async function queryAuditLogs(filters: AuditQueryFilters): Promise<AuditQ
   const limit = Math.min(100, Math.max(5, filters.limit || 25));
 
   try {
-    // We retrieve auditLogs ordered by timestamp descending
-    // Apply bounded memory filtering for high flexibility with multi-field search and string matches
-    const snapshot = await adminDb.collection("auditLogs")
-      .orderBy("timestamp", "desc")
-      .limit(1000) // bounded limit for safety
-      .get();
-
-    let allLogs: AuditLog[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        actor: data.actor || { uid: "unknown", email: "system" },
-        role: data.role || "system",
-        action: data.action || "UNKNOWN_ACTION",
-        target: data.target || "-",
-        before: sanitizeAuditData(data.before),
-        after: sanitizeAuditData(data.after),
-        reason: data.reason || "-",
-        timestamp: data.timestamp || new Date().toISOString()
-      };
-    });
+    let allLogs: AuditLog[] = await AuditLogRepository.getInstance().queryLogs(1000);
 
     // 1. Filter by startDate
     if (filters.startDate) {
@@ -172,10 +152,7 @@ export async function queryAuditLogs(filters: AuditQueryFilters): Promise<AuditQ
 
 export async function getAuditMetrics(): Promise<AuditMetrics> {
   try {
-    const snapshot = await adminDb.collection("auditLogs")
-      .orderBy("timestamp", "desc")
-      .limit(500)
-      .get();
+    const logs: AuditLog[] = await AuditLogRepository.getInstance().queryLogs(500);
 
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -184,22 +161,13 @@ export async function getAuditMetrics(): Promise<AuditMetrics> {
     const actorCountMap = new Map<string, { email: string; count: number; role: string }>();
     const categoryCountMap = new Map<string, number>();
 
-    const logs: AuditLog[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        actor: data.actor || { uid: "unknown", email: "system" },
-        role: data.role || "system",
-        action: data.action || "UNKNOWN",
-        target: data.target || "-",
-        before: sanitizeAuditData(data.before),
-        after: sanitizeAuditData(data.after),
-        reason: data.reason || "-",
-        timestamp: data.timestamp || new Date().toISOString()
-      };
-    });
+    const sanitizedLogs = logs.map(l => ({
+      ...l,
+      before: sanitizeAuditData(l.before),
+      after: sanitizeAuditData(l.after)
+    }));
 
-    logs.forEach(l => {
+    sanitizedLogs.forEach(l => {
       const logTime = new Date(l.timestamp).getTime();
       if (logTime >= startOfToday) {
         todayCount++;
@@ -231,7 +199,7 @@ export async function getAuditMetrics(): Promise<AuditMetrics> {
       .map(([category, count]) => ({ category, count }))
       .sort((a, b) => b.count - a.count);
 
-    const recentCriticalEvents = logs
+    const recentCriticalEvents = sanitizedLogs
       .filter(l => 
         l.action.includes("ROLE") || 
         l.action.includes("SECURITY") || 

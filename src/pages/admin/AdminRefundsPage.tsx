@@ -1,15 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { 
-  collection, 
-  query, 
-  getDocs, 
-  orderBy, 
-  limit, 
-  doc, 
-  getDoc,
-  where
-} from "firebase/firestore";
-import { db, isFirebaseConfigured } from "../../lib/firebase";
 import { useAuthStore } from "../../store/auth-store";
 import { formatRupiah } from "../../lib/utils";
 import { 
@@ -113,24 +102,21 @@ export default function AdminRefundsPage() {
     setOrderDetail(null);
     setOrderRefunds([]);
     try {
-      // Fetch Order Document
-      const orderRef = doc(db, "orders", refund.orderId);
-      const orderSnap = await getDoc(orderRef);
-      if (orderSnap.exists()) {
-        setOrderDetail({
-          id: orderSnap.id,
-          ...orderSnap.data()
-        });
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch(`/api/admin/orders/${refund.orderId}`, {
+        headers: {
+          "Authorization": token ? `Bearer ${token}` : ""
+        }
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.order) {
+          setOrderDetail(result.order);
+        }
+        if (Array.isArray(result.refunds)) {
+          setOrderRefunds(result.refunds);
+        }
       }
-
-      // Fetch all refunds associated with this order to calculate financial breakdown
-      const q = query(collection(db, "refunds"), where("orderId", "==", refund.orderId));
-      const qSnap = await getDocs(q);
-      const sibRefunds = qSnap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-      setOrderRefunds(sibRefunds);
     } catch (err) {
       console.error("Gagal memuat data order/detail pendukung:", err);
     } finally {

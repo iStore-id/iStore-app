@@ -1099,37 +1099,32 @@ export default function AdminCommissionPage() {
                           </div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <div className="font-semibold text-slate-900">{batch.recipientName}</div>
-                          <div className="text-xs font-mono text-slate-400">{batch.recipientCode}</div>
+                          <div className="font-semibold text-slate-900">{batch.recipientSnapshot?.name || "N/A"}</div>
+                          <div className="text-xs font-mono text-slate-400">{batch.recipientSnapshot?.recipientId || batch.recipientId || ""}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="text-xs font-medium text-slate-700">
-                            {batch.payoutAccountSnapshot.bankName} - {batch.payoutAccountSnapshot.accountNumberMasked}
+                            {batch.recipientSnapshot?.bankName || ""} - {batch.recipientSnapshot?.accountNumberMasked || ""}
                           </div>
                           <div className="text-[11px] text-slate-400">
-                            a.n. {batch.payoutAccountSnapshot.accountHolderName}
+                            a.n. {batch.recipientSnapshot?.accountHolderName || ""}
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold font-mono">
-                            {batch.itemCount}
+                            {batch.allocations?.length || 0}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="font-bold text-slate-900">
-                            Rp {batch.totalAmount.toLocaleString('id-ID')}
+                            Rp {(batch.totalCommissionAmount || 0).toLocaleString('id-ID')}
                           </div>
-                          {batch.allocatedAmount !== batch.totalAmount && (
-                            <div className="text-[10px] text-amber-600 font-medium">
-                              Alokasi: Rp {batch.allocatedAmount.toLocaleString('id-ID')}
-                            </div>
-                          )}
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                             batch.status === 'PAID'
                               ? 'bg-emerald-100 text-emerald-800'
-                              : batch.status === 'APPROVED'
+                              : batch.status === 'PROCESSING'
                               ? 'bg-blue-100 text-blue-800'
                               : batch.status === 'PENDING_APPROVAL'
                               ? 'bg-amber-100 text-amber-800'
@@ -1178,7 +1173,7 @@ export default function AdminCommissionPage() {
                               </button>
                             )}
 
-                            {batch.status === 'APPROVED' && (
+                             {batch.status === 'PROCESSING' && (
                               <>
                                 <button
                                   type="button"
@@ -1201,7 +1196,7 @@ export default function AdminCommissionPage() {
                               </>
                             )}
 
-                            {(batch.status === 'DRAFT' || batch.status === 'PENDING_APPROVAL' || batch.status === 'APPROVED' || batch.status === 'NEEDS_REVIEW') && (
+                            {(batch.status === 'DRAFT' || batch.status === 'PENDING_APPROVAL' || batch.status === 'PROCESSING' || batch.status === 'NEEDS_REVIEW') && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenCancelModal(batch)}
@@ -2668,7 +2663,7 @@ export default function AdminCommissionPage() {
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     selectedBatch.status === 'PAID'
                       ? 'bg-emerald-100 text-emerald-800'
-                      : selectedBatch.status === 'APPROVED'
+                      : selectedBatch.status === 'PROCESSING'
                       ? 'bg-blue-100 text-blue-800'
                       : selectedBatch.status === 'PENDING_APPROVAL'
                       ? 'bg-amber-100 text-amber-800'
@@ -2693,16 +2688,16 @@ export default function AdminCommissionPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Mitra Afiliasi</span>
-                <div className="font-semibold text-slate-900">{selectedBatch.recipientName}</div>
-                <div className="font-mono text-slate-500">{selectedBatch.recipientCode}</div>
+                <div className="font-semibold text-slate-900">{selectedBatch.recipientSnapshot?.name || "N/A"}</div>
+                <div className="font-mono text-slate-500">{selectedBatch.recipientSnapshot?.recipientId || selectedBatch.recipientId || ""}</div>
               </div>
 
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Rekening Tujuan</span>
                 <div className="font-semibold text-slate-900">
-                  {selectedBatch.payoutAccountSnapshot.bankName} - {selectedBatch.payoutAccountSnapshot.accountNumberMasked}
+                  {selectedBatch.recipientSnapshot?.bankName || ""} - {selectedBatch.recipientSnapshot?.accountNumberMasked || ""}
                 </div>
-                <div className="text-slate-500">a.n. {selectedBatch.payoutAccountSnapshot.accountHolderName}</div>
+                <div className="text-slate-500">a.n. {selectedBatch.recipientSnapshot?.accountHolderName || ""}</div>
               </div>
             </div>
 
@@ -2711,12 +2706,12 @@ export default function AdminCommissionPage() {
               <div className="flex justify-between text-slate-300">
                 <span>Total Nominal Komisi:</span>
                 <span className="text-base font-bold text-emerald-400">
-                  Rp {selectedBatch.totalAmount.toLocaleString('id-ID')}
+                  Rp {(selectedBatch.totalCommissionAmount || 0).toLocaleString('id-ID')}
                 </span>
               </div>
               <div className="flex justify-between text-slate-400 border-t border-slate-800 pt-2">
                 <span>Jumlah Catatan Komisi (Items):</span>
-                <span>{selectedBatch.itemCount} records</span>
+                <span>{selectedBatch.allocations?.length || 0} records</span>
               </div>
               {selectedBatch.transferReference && (
                 <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-2">
@@ -2740,7 +2735,7 @@ export default function AdminCommissionPage() {
                   Perhatian: Batch Membutuhkan Peninjauan Ulang
                 </div>
                 <p className="text-slate-700">
-                  {selectedBatch.reviewNotes || 'Nominal komisi telah disesuaikan akibat refund/clawback. Batalkan batch ini untuk mengembalikan alokasi dan buat batch baru.'}
+                  {selectedBatch.reviewReason || 'Nominal komisi telah disesuaikan akibat refund/clawback. Batalkan batch ini untuk mengembalikan alokasi dan buat batch baru.'}
                 </p>
               </div>
             )}
@@ -2796,7 +2791,7 @@ export default function AdminCommissionPage() {
                   Konfirmasi Pelunasan Transfer
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Batch #{batchToConfirm.batchNumber} · Rp {batchToConfirm.totalAmount.toLocaleString('id-ID')}
+                  Batch #{batchToConfirm.batchNumber} · Rp {(batchToConfirm.totalCommissionAmount || 0).toLocaleString('id-ID')}
                 </p>
               </div>
               <button

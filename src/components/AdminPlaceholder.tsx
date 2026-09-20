@@ -27,9 +27,9 @@ export default function AdminPlaceholder({
     },
     IN_DEVELOPMENT: {
       label: "Dalam Pengembangan",
-      color: "bg-blue-500",
-      textColor: "text-blue-700",
-      bgColor: "bg-blue-50",
+      color: "bg-brand-500",
+      textColor: "text-brand-700",
+      bgColor: "bg-brand-50",
       icon: Construction,
     },
     MAINTENANCE: {
@@ -91,7 +91,7 @@ export default function AdminPlaceholder({
           
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <div className="w-2 h-2 rounded-full bg-brand-500"></div>
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">Position</p>
                 <p className="text-sm font-medium text-slate-700">{group || "General"} Module</p>
@@ -132,11 +132,11 @@ export default function AdminPlaceholder({
       </div>
 
       {/* Roadmap Warning */}
-      <div className="p-6 rounded-3xl bg-blue-50/50 border border-blue-100 border-dashed flex items-start gap-4">
-        <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-700 leading-relaxed">
+      <div className="p-6 rounded-3xl bg-brand-50/50 border border-brand-100 border-dashed flex items-start gap-4">
+        <AlertCircle className="w-5 h-5 text-brand-500 shrink-0 mt-0.5" />
+        <div className="text-sm text-brand-700 leading-relaxed">
           <p className="font-bold mb-1">Catatan Roadmap</p>
-          Halaman ini merupakan representasi transparan dari peta jalan pengembangan iStore. Belum ada data produksi yang diproses dalam modul ini sampai status berubah menjadi <span className="font-bold">Aktif</span>.
+          Halaman ini merupakan representasi transparan dari peta jalan pengembangan Toko. Belum ada data produksi yang diproses dalam modul ini sampai status berubah menjadi <span className="font-bold">Aktif</span>.
         </div>
       </div>
     </div>

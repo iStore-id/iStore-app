@@ -20,24 +20,13 @@ import {
   Shield
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  multiFactor, 
-  TotpMultiFactorGenerator, 
-  TotpSecret, 
-  EmailAuthProvider, 
-  reauthenticateWithCredential,
-  reauthenticateWithPopup,
-  GoogleAuthProvider,
-  sendEmailVerification,
-  MultiFactorInfo
-} from "firebase/auth";
 import QRCode from "qrcode";
-import { auth } from "../../lib/firebase";
+import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/auth-store";
 
 export default function MfaSection() {
   const { user } = useAuthStore();
-  const [enrolledFactors, setEnrolledFactors] = useState<MultiFactorInfo[]>([]);
+  const [enrolledFactors, setEnrolledFactors] = useState<any[]>([]);
   const [loadingFactors, setLoadingFactors] = useState(true);
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(true);
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -45,7 +34,8 @@ export default function MfaSection() {
   // Enrollment State (Kept in-memory only, strictly cleared on completion or cancellation)
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [enrollmentStep, setEnrollmentStep] = useState<"idle" | "reauth" | "scan" | "verifying">("idle");
-  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
+  const [enrollmentFactorId, setEnrollmentFactorId] = useState<string | null>(null);
+  const [rawSecretKey, setRawSecretKey] = useState<string>("");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [secretKeyDisplay, setSecretKeyDisplay] = useState<string>("");
   const [verificationCode, setVerificationCode] = useState<string>("");
@@ -66,46 +56,37 @@ export default function MfaSection() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Determine if user has email/password provider or Google provider
+  // Determine if user has email/password provider
   const isPasswordUser = useMemo(() => {
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser || !firebaseUser.providerData) return true;
-    return firebaseUser.providerData.some((p) => p.providerId === "password");
+    return user?.provider !== "google";
   }, [user]);
 
   // Clean in-memory secrets on unmount
   useEffect(() => {
     return () => {
-      setTotpSecret(null);
+      setEnrollmentFactorId(null);
+      setRawSecretKey("");
       setQrCodeDataUrl(null);
       setSecretKeyDisplay("");
       setVerificationCode("");
     };
   }, []);
 
-  // Fetch enrolled MFA factors directly from Firebase currentUser
+  // Fetch enrolled MFA factors directly from Supabase Auth
   const refreshMfaFactors = useCallback(async () => {
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) {
-      setEnrolledFactors([]);
-      setLoadingFactors(false);
-      setIsEmailVerified(false);
-      return;
-    }
-
+    setLoadingFactors(true);
     try {
-      await firebaseUser.reload();
-      setIsEmailVerified(!!firebaseUser.emailVerified);
-      const mfaUser = multiFactor(firebaseUser);
-      setEnrolledFactors(mfaUser.enrolledFactors || []);
-    } catch (err: any) {
-      console.warn("Could not reload Firebase user factors:", err);
-      // Fallback to cached enrolledFactors without reload if token was refreshed
-      if (firebaseUser) {
-        setIsEmailVerified(!!firebaseUser.emailVerified);
-        const mfaUser = multiFactor(firebaseUser);
-        setEnrolledFactors(mfaUser.enrolledFactors || []);
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        setIsEmailVerified(!!userData.user.email_confirmed_at);
       }
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+      const verifiedTotp = (data?.totp || []).filter((f: any) => f.status === "verified");
+      setEnrolledFactors(verifiedTotp);
+    } catch (err: any) {
+      console.warn("Could not list Supabase MFA factors:", err);
+      setEnrolledFactors([]);
     } finally {
       setLoadingFactors(false);
     }
@@ -117,60 +98,27 @@ export default function MfaSection() {
 
   // Handler to send email verification
   const handleSendVerificationEmail = async () => {
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) return;
+    if (!user?.email) return;
     setSendingVerification(true);
     setActionError(null);
     setActionSuccess(null);
     try {
-      await sendEmailVerification(firebaseUser);
-      setActionSuccess(`Email verifikasi telah dikirim ke ${firebaseUser.email}. Silakan periksa inbox/spam email Anda lalu muat ulang halaman.`);
+      const { error } = await supabase.auth.resend({ type: 'signup', email: user.email });
+      if (error) throw error;
+      setActionSuccess(`Email verifikasi telah dikirim ke ${user.email}. Silakan periksa inbox/spam email Anda lalu muat ulang halaman.`);
     } catch (err: any) {
-      setActionError(mapFirebaseError(err, "enroll"));
+      setActionError(err.message || "Gagal mengirim email verifikasi.");
     } finally {
       setSendingVerification(false);
     }
   };
 
-  // Map Firebase errors to user-friendly indonesian messages
-  const mapFirebaseError = (err: any, context: "enroll" | "verify" | "unenroll" | "reauth"): string => {
-    const code = err?.code || "";
-    if (code === "auth/requires-recent-login") {
-      return "Sesi Anda telah kedaluwarsa. Diperlukan autentikasi ulang untuk melanjutkan tindakan keamanan ini.";
-    }
-    if (code === "auth/invalid-verification-code") {
-      return "Kode verifikasi 6-digit salah atau telah kedaluwarsa. Pastikan jam pada perangkat Anda sinkron dan masukkan kode terbaru.";
-    }
-    if (code === "auth/operation-not-allowed" || code === "auth/configuration-not-found") {
-      return "Fitur Authenticator App (TOTP) belum diaktifkan pada konfigurasi proyek Firebase. Silakan hubungi administrator.";
-    }
-    if (code === "auth/unsupported-first-factor") {
-      return "Metode autentikasi yang Anda gunakan belum mendukung pendaftaran MFA.";
-    }
-    if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
-      return "Kata sandi yang Anda masukkan tidak sesuai.";
-    }
-    if (code === "auth/too-many-requests") {
-      return "Terlalu banyak percobaan gagal. Demi keamanan akun, silakan tunggu beberapa saat sebelum mencoba kembali.";
-    }
-    if (code === "auth/network-request-failed") {
-      return "Koneksi jaringan terputus. Pastikan perangkat Anda terhubung ke internet.";
-    }
-    if (code === "auth/popup-closed-by-user") {
-      return "Jendela autentikasi Google ditutup sebelum proses selesai.";
-    }
-    if (err?.message && typeof err.message === "string" && err.message.length < 120 && !err.message.includes("api/")) {
-      return err.message;
-    }
-    return "Terjadi kesalahan saat memproses keamanan akun. Silakan coba kembali.";
-  };
-
   // Safe Audit Logger (Zero Secret / Zero OTP Leakage)
   const logMfaAudit = async (action: "MFA_ENROLL" | "MFA_UNENROLL", result: "SUCCESS" | "FAILED", reason?: string) => {
     try {
-      const firebaseUser = auth?.currentUser;
-      if (!firebaseUser) return;
-      const token = await firebaseUser.getIdToken();
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) return;
       await fetch("/api/auth/audit-mfa-change", {
         method: "POST",
         headers: {
@@ -192,7 +140,8 @@ export default function MfaSection() {
   const handleCancelEnrollment = () => {
     setIsEnrolling(false);
     setEnrollmentStep("idle");
-    setTotpSecret(null);
+    setEnrollmentFactorId(null);
+    setRawSecretKey("");
     setQrCodeDataUrl(null);
     setSecretKeyDisplay("");
     setVerificationCode("");
@@ -201,26 +150,21 @@ export default function MfaSection() {
     setReauthPassword("");
   };
 
-  // Begin TOTP Enrollment
+  // Begin TOTP Enrollment via Supabase Auth MFA
   const handleStartEnrollment = async () => {
     setActionError(null);
     setActionSuccess(null);
 
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) {
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUser = userData?.user;
+
+    if (!currentUser) {
       setActionError("Sesi Anda tidak ditemukan. Silakan masuk kembali terlebih dahulu.");
       return;
     }
 
-    // Security Gate: Ensure email is verified before initiating MFA enrollment
-    try {
-      await firebaseUser.reload();
-      setIsEmailVerified(!!firebaseUser.emailVerified);
-    } catch {
-      // Non-blocking catch for user reload
-    }
-
-    if (!firebaseUser.emailVerified) {
+    if (!currentUser.email_confirmed_at) {
+      setIsEmailVerified(false);
       setActionError(
         "Email akun Anda belum diverifikasi. Demi standar keamanan, Autentikasi Dua Faktor (MFA) hanya dapat diaktifkan setelah alamat email Anda terverifikasi."
       );
@@ -231,56 +175,42 @@ export default function MfaSection() {
     setEnrollmentStep("idle");
 
     try {
-      // 1. Get MFA session from Firebase Auth
-      let session;
-      try {
-        session = await multiFactor(firebaseUser).getSession();
-      } catch (sessErr: any) {
-        if (sessErr.code === "auth/requires-recent-login") {
-          setPendingActionAfterReauth("enroll");
-          setEnrollmentStep("reauth");
-          return;
-        }
-        throw sessErr;
-      }
-
-      // 2. Generate TOTP secret through Firebase Identity Platform
-      const secret = await TotpMultiFactorGenerator.generateSecret(session);
-      
-      // 3. Generate QR code URL using standard otpauth URI
-      const appIssuer = "iStore.id";
-      const userAccount = firebaseUser.email || "User";
-      const otpauthUrl = secret.generateQrCodeUrl(userAccount, appIssuer);
-
-      // 4. Render QR code purely client-side into base64 data URL
-      const qrDataUrl = await QRCode.toDataURL(otpauthUrl, {
-        width: 220,
-        margin: 2,
-        color: {
-          dark: "#0f172a",
-          light: "#ffffff"
-        }
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        issuer: "Toko Kami"
       });
 
-      // 5. Format secret key with spaces for easy manual entry (e.g. ABCD EFGH 1234 5678)
-      const rawSecret = secret.secretKey || "";
-      const formatted = rawSecret.replace(/(.{4})/g, "$1 ").trim();
+      if (error) throw error;
 
-      // Set in memory ONLY
-      setTotpSecret(secret);
+      const factorId = data.id;
+      setEnrollmentFactorId(factorId);
+
+      const secret = data.totp.secret || "";
+      const uri = data.totp.uri || "";
+
+      setRawSecretKey(secret);
+
+      let qrDataUrl = "";
+      if (uri) {
+        qrDataUrl = await QRCode.toDataURL(uri, {
+          width: 220,
+          margin: 2,
+          color: { dark: "#0f172a", light: "#ffffff" }
+        });
+      } else if (data.totp.qr_code) {
+        qrDataUrl = data.totp.qr_code;
+      }
+
+      const formatted = secret.replace(/(.{4})/g, "$1 ").trim();
+
       setQrCodeDataUrl(qrDataUrl);
       setSecretKeyDisplay(formatted);
       setEnrollmentStep("scan");
     } catch (err: any) {
-      console.error("Error generating TOTP secret:", err);
-      if (err.code === "auth/requires-recent-login") {
-        setPendingActionAfterReauth("enroll");
-        setEnrollmentStep("reauth");
-      } else {
-        setActionError(mapFirebaseError(err, "enroll"));
-        setIsEnrolling(false);
-        setEnrollmentStep("idle");
-      }
+      console.error("Error generating Supabase TOTP secret:", err);
+      setActionError(err.message || "Gagal memulai pendaftaran TOTP.");
+      setIsEnrolling(false);
+      setEnrollmentStep("idle");
     }
   };
 
@@ -289,8 +219,7 @@ export default function MfaSection() {
     e.preventDefault();
     setReauthError(null);
 
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) {
+    if (!user?.email) {
       setReauthError("Sesi berakhir. Silakan masuk kembali.");
       return;
     }
@@ -303,22 +232,25 @@ export default function MfaSection() {
           setReauthLoading(false);
           return;
         }
-        const credential = EmailAuthProvider.credential(firebaseUser.email!, reauthPassword);
-        await reauthenticateWithCredential(firebaseUser, credential);
+        const { error } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: reauthPassword
+        });
+        if (error) throw error;
       } else {
-        const provider = new GoogleAuthProvider();
-        await reauthenticateWithPopup(firebaseUser, provider);
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: window.location.origin }
+        });
+        if (error) throw error;
       }
 
-      // Reauth success! Reset reauth password state
       setReauthPassword("");
       setReauthLoading(false);
 
       if (pendingActionAfterReauth === "enroll") {
-        // Continue to secret generation
         handleStartEnrollment();
       } else if (pendingActionAfterReauth === "unenroll") {
-        // Continue to unenrollment
         setShowUnenrollConfirm(false);
         setEnrollmentStep("idle");
         executeUnenroll();
@@ -328,11 +260,11 @@ export default function MfaSection() {
     } catch (err: any) {
       console.error("Reauthentication failure:", err);
       setReauthLoading(false);
-      setReauthError(mapFirebaseError(err, "reauth"));
+      setReauthError(err.message || "Kata sandi yang Anda masukkan tidak sesuai.");
     }
   };
 
-  // Verify 6-digit Code & Enroll into Firebase
+  // Verify 6-digit Code & Enroll into Supabase MFA
   const handleVerifyAndEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError(null);
@@ -343,73 +275,53 @@ export default function MfaSection() {
       return;
     }
 
-    if (!totpSecret) {
+    if (!enrollmentFactorId) {
       setActionError("Sesi pendaftaran tidak ditemukan. Silakan mulai ulang pendaftaran.");
-      return;
-    }
-
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) {
-      setActionError("Sesi akun tidak aktif.");
       return;
     }
 
     setEnrollmentStep("verifying");
 
     try {
-      // 1. Create assertion from secret and user-entered 6 digit OTP
-      const assertion = TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, cleanedCode);
+      const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: enrollmentFactorId,
+        code: cleanedCode
+      });
 
-      // 2. Enroll factor into Firebase MultiFactorUser
-      const displayName = "Authenticator App (TOTP)";
-      await multiFactor(firebaseUser).enroll(assertion, displayName);
+      if (error) throw error;
 
-      // 3. Reload Firebase User to refresh authentication tokens and factors
-      await firebaseUser.reload();
-
-      // 4. Record safe audit log (NO secret or OTP logged)
       await logMfaAudit("MFA_ENROLL", "SUCCESS", "User completed TOTP enrollment");
 
-      // 5. Clean in-memory secrets immediately
-      setTotpSecret(null);
+      setEnrollmentFactorId(null);
+      setRawSecretKey("");
       setQrCodeDataUrl(null);
       setSecretKeyDisplay("");
       setVerificationCode("");
       setIsEnrolling(false);
       setEnrollmentStep("idle");
 
-      // 6. Refresh factors list & show success notice
       await refreshMfaFactors();
       setActionSuccess("Autentikasi Dua Faktor (MFA) berhasil diaktifkan! Akun Anda kini terlindungi dengan verifikasi aplikasi authenticator.");
     } catch (err: any) {
-      console.error("Error finalizing TOTP enrollment:", err);
+      console.error("Error finalizing Supabase TOTP enrollment:", err);
       setEnrollmentStep("scan");
-      
-      if (err.code === "auth/requires-recent-login") {
-        setPendingActionAfterReauth("enroll");
-        setEnrollmentStep("reauth");
-        return;
-      }
-
-      await logMfaAudit("MFA_ENROLL", "FAILED", err.code || "UNKNOWN_ERROR");
-      setActionError(mapFirebaseError(err, "verify"));
+      await logMfaAudit("MFA_ENROLL", "FAILED", err.message || "UNKNOWN_ERROR");
+      setActionError(err.message || "Kode verifikasi 6-digit salah atau telah kedaluwarsa.");
     }
   };
 
   // Unenroll MFA Factor
   const executeUnenroll = async () => {
-    const firebaseUser = auth?.currentUser;
-    if (!firebaseUser) return;
-
     setUnenrollLoading(true);
     setActionError(null);
     setActionSuccess(null);
 
     try {
-      const mfaUser = multiFactor(firebaseUser);
-      const factorToUnenroll = mfaUser.enrolledFactors.find(
-        (f) => f.factorId === TotpMultiFactorGenerator.FACTOR_ID
-      ) || mfaUser.enrolledFactors[0];
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (error) throw error;
+
+      const verifiedFactors = (data?.totp || []).filter((f: any) => f.status === "verified");
+      const factorToUnenroll = verifiedFactors[0];
 
       if (!factorToUnenroll) {
         setShowUnenrollConfirm(false);
@@ -417,27 +329,20 @@ export default function MfaSection() {
         return;
       }
 
-      // Unenroll via Firebase Auth SDK
-      await mfaUser.unenroll(factorToUnenroll);
-      await firebaseUser.reload();
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({
+        factorId: factorToUnenroll.id
+      });
 
-      // Record safe audit log
+      if (unenrollError) throw unenrollError;
+
       await logMfaAudit("MFA_UNENROLL", "SUCCESS", "User unenrolled TOTP Authenticator");
-
       await refreshMfaFactors();
       setShowUnenrollConfirm(false);
       setActionSuccess("Autentikasi Dua Faktor telah dinonaktifkan dari akun Anda.");
     } catch (err: any) {
-      console.error("Error unenrolling MFA:", err);
-      if (err.code === "auth/requires-recent-login") {
-        setShowUnenrollConfirm(false);
-        setPendingActionAfterReauth("unenroll");
-        setIsEnrolling(true);
-        setEnrollmentStep("reauth");
-      } else {
-        await logMfaAudit("MFA_UNENROLL", "FAILED", err.code || "UNKNOWN_ERROR");
-        setActionError(mapFirebaseError(err, "unenroll"));
-      }
+      console.error("Error unenrolling Supabase MFA:", err);
+      await logMfaAudit("MFA_UNENROLL", "FAILED", err.message || "UNKNOWN_ERROR");
+      setActionError(err.message || "Gagal menonaktifkan MFA.");
     } finally {
       setUnenrollLoading(false);
     }
@@ -451,7 +356,7 @@ export default function MfaSection() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
         <div className="flex items-start gap-3.5">
           <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-            isMfaActive ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-blue-50 text-primary border border-blue-100"
+            isMfaActive ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-brand-50 text-primary border border-brand-100"
           }`}>
             <Smartphone className="w-5 h-5" />
           </div>
@@ -499,7 +404,7 @@ export default function MfaSection() {
                 id="start-mfa-enrollment-btn"
                 onClick={handleStartEnrollment}
                 disabled={loadingFactors}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-primary hover:bg-blue-700 rounded-xl transition shadow-xs"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-white bg-primary hover:bg-brand-700 rounded-xl transition shadow-xs"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Aktifkan MFA</span>
@@ -562,7 +467,7 @@ export default function MfaSection() {
                 <div className="text-xs">
                   <h3 className="font-semibold text-emerald-950 text-sm">Akun Anda Telah Terlindungi MFA</h3>
                   <p className="text-emerald-800/80 mt-1 leading-relaxed">
-                    Setiap kali Anda masuk ke iStore.id, Anda akan diminta memasukkan kode 6-digit yang dihasilkan dari aplikasi authenticator di ponsel Anda.
+                    Setiap kali Anda masuk ke Toko Kami, Anda akan diminta memasukkan kode 6-digit yang dihasilkan dari aplikasi authenticator di ponsel Anda.
                   </p>
                 </div>
               </div>
@@ -573,14 +478,14 @@ export default function MfaSection() {
                   Faktor Keamanan Terdaftar:
                 </div>
                 {enrolledFactors.map((factor, index) => (
-                  <div key={factor.uid || index} className="flex items-center justify-between py-1 text-xs">
+                  <div key={factor.id || index} className="flex items-center justify-between py-1 text-xs">
                     <div className="flex items-center gap-2 text-slate-700 font-medium">
                       <Smartphone className="w-4 h-4 text-primary" />
-                      <span>{factor.displayName || "Aplikasi Authenticator (TOTP)"}</span>
+                      <span>{factor.friendly_name || "Aplikasi Authenticator (TOTP)"}</span>
                     </div>
-                    {factor.enrollmentTime && (
+                    {factor.created_at && (
                       <span className="text-[11px] text-slate-400">
-                        Terdaftar: {new Date(factor.enrollmentTime).toLocaleDateString("id-ID")}
+                        Terdaftar: {new Date(factor.created_at).toLocaleDateString("id-ID")}
                       </span>
                     )}
                   </div>
@@ -680,7 +585,7 @@ export default function MfaSection() {
                       type="submit"
                       id="submit-reauth-btn"
                       disabled={reauthLoading}
-                      className="px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-blue-700 rounded-xl transition flex items-center gap-2 shadow-xs"
+                      className="px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-brand-700 rounded-xl transition flex items-center gap-2 shadow-xs"
                     >
                       {reauthLoading ? (
                         <>
@@ -712,7 +617,7 @@ export default function MfaSection() {
                       id="reauth-google-btn"
                       onClick={handleReauthSubmit}
                       disabled={reauthLoading}
-                      className="px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-blue-700 rounded-xl transition flex items-center gap-2 shadow-xs"
+                      className="px-5 py-2 text-xs font-semibold text-white bg-primary hover:bg-brand-700 rounded-xl transition flex items-center gap-2 shadow-xs"
                     >
                       {reauthLoading ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -731,7 +636,7 @@ export default function MfaSection() {
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-primary flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 rounded-lg bg-brand-100 text-primary flex items-center justify-center font-bold text-xs">
                     1
                   </div>
                   <h3 className="font-semibold text-slate-900 text-sm">
@@ -795,12 +700,12 @@ export default function MfaSection() {
                       >
                         {secretKeyDisplay || "Memuat..."}
                       </code>
-                      {totpSecret?.secretKey && (
+                      {rawSecretKey && (
                         <button
                           type="button"
                           id="copy-totp-secret-btn"
                           onClick={() => {
-                            navigator.clipboard.writeText(totpSecret.secretKey);
+                            navigator.clipboard.writeText(rawSecretKey);
                             setCopiedKey(true);
                             setTimeout(() => setCopiedKey(false), 2000);
                           }}
@@ -826,7 +731,7 @@ export default function MfaSection() {
                   {/* Step 2: Verification Input Form */}
                   <div className="pt-2 border-t border-slate-200 space-y-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 text-primary flex items-center justify-center font-bold text-xs">
+                      <div className="w-7 h-7 rounded-lg bg-brand-100 text-primary flex items-center justify-center font-bold text-xs">
                         2
                       </div>
                       <h3 className="font-semibold text-slate-900 text-sm">
@@ -875,7 +780,7 @@ export default function MfaSection() {
                           type="submit"
                           id="submit-mfa-verification-btn"
                           disabled={enrollmentStep === "verifying" || verificationCode.length !== 6}
-                          className="px-6 py-2.5 text-xs font-semibold text-white bg-primary hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition flex items-center gap-2 shadow-xs"
+                          className="px-6 py-2.5 text-xs font-semibold text-white bg-primary hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition flex items-center gap-2 shadow-xs"
                         >
                           {enrollmentStep === "verifying" ? (
                             <>

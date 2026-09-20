@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { Provider } from '../../../types/core';
 import { useAuthStore } from '../../../store/auth-store';
 import { Activity, CheckCircle2, XCircle, AlertCircle, RefreshCw, Power } from 'lucide-react';
@@ -19,8 +17,16 @@ export default function ProvidersTab() {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      const snap = await getDocs(collection(db, 'providers'));
-      setProviders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Provider)));
+      const token = await user?.getIdToken();
+      if (!token) return;
+
+      const res = await fetch('/api/admin/providers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to fetch providers');
+      
+      setProviders(data.data || []);
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import { 
   AlertTriangle, 
   Search, 
@@ -56,7 +57,8 @@ export default function AdminIncidentPage() {
   const fetchIncidents = async () => {
     try {
       setLoading(true);
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const params = new URLSearchParams(filter as any);
       const res = await fetch(`/api/admin/incidents?${params.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -80,7 +82,8 @@ export default function AdminIncidentPage() {
   const handleAction = async (action: 'acknowledge' | 'resolve' | 'close', id: string) => {
     try {
       setProcessing(true);
-      const token = await (window as any).firebaseAuth?.currentUser?.getIdToken();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await fetch(`/api/admin/incidents/${id}/${action}`, {
         method: 'POST',
         headers: { 

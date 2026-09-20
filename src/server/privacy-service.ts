@@ -1,4 +1,4 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 import { PrivacySettings, PublicPrivacySettings } from "../types/privacy";
 import { logCoreAudit } from "./core-service";
 
@@ -8,9 +8,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   id: "global",
   privacyPolicy: {
-    title: "Kebijakan Privasi iStore.id",
+    title: "Kebijakan Privasi Platform",
     content: `## 1. Pendahuluan
-Selamat datang di iStore.id. Kami menghargai dan berkomitmen untuk melindungi privasi serta keamanan data pribadi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi pribadi yang Anda berikan saat menggunakan layanan top-up game dan voucher digital kami.
+Selamat datang di Platform. Kami menghargai dan berkomitmen untuk melindungi privasi serta keamanan data pribadi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi pribadi yang Anda berikan saat menggunakan layanan top-up game dan voucher digital kami.
 
 ## 2. Informasi yang Kami Kumpulkan
 Kami hanya mengumpulkan informasi yang diperlukan untuk memproses transaksi Anda secara aman dan cepat:
@@ -42,12 +42,12 @@ Jika Anda memiliki pertanyaan mengenai kebijakan privasi atau perlakuan data And
     version: "1.0.0"
   },
   termsOfService: {
-    title: "Syarat & Ketentuan Layanan iStore.id",
+    title: "Syarat & Ketentuan Layanan Platform",
     content: `## 1. Ketentuan Umum
-Dengan mengakses atau menggunakan platform iStore.id, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh Syarat & Ketentuan yang berlaku. Jika Anda tidak menyetujui salah satu poin ketentuan, mohon untuk tidak melanjutkan penggunaan layanan ini.
+Dengan mengakses atau menggunakan platform Platform, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh Syarat & Ketentuan yang berlaku. Jika Anda tidak menyetujui salah satu poin ketentuan, mohon untuk tidak melanjutkan penggunaan layanan ini.
 
 ## 2. Layanan Top-Up & Pembelian Voucher
-- iStore.id bertindak sebagai penyedia platform perantara resmi untuk pembelian mata uang game dan voucher digital dari penyedia layanan terdaftar.
+- Platform bertindak sebagai penyedia platform perantara resmi untuk pembelian mata uang game dan voucher digital dari penyedia layanan terdaftar.
 - Pengguna bertanggung jawab penuh atas keakuratan User ID, Server ID, atau data akun game yang dimasukkan saat checkout. Kesalahan input data dari pihak pengguna tidak dapat dibatalkan atau direfund setelah voucher berhasil terkirim.
 
 ## 3. Pembayaran & Konfirmasi
@@ -56,10 +56,10 @@ Dengan mengakses atau menggunakan platform iStore.id, Anda menyatakan telah memb
 
 ## 4. Kebijakan Refund & Komplain
 - Refund hanya dapat diajukan jika terjadi kegagalan sistem pada provider yang mengakibatkan item tidak terkirim dalam batas SLA resmi dan pembayaran telah berhasil dipotong.
-- Komplain kendala transaksi wajib menyertakan nomor Invoice resmi iStore.id dan bukti pembayaran yang valid maksimal 1x24 jam sejak transaksi dilakukan.
+- Komplain kendala transaksi wajib menyertakan nomor Invoice resmi Platform dan bukti pembayaran yang valid maksimal 1x24 jam sejak transaksi dilakukan.
 
 ## 5. Perubahan Ketentuan
-iStore.id berhak sewaktu-waktu memperbarui Syarat & Ketentuan ini untuk menyesuaikan regulasi dan peningkatan keamanan operasional. Perubahan akan berlaku seketika sejak diumumkan pada halaman ini.`,
+Platform berhak sewaktu-waktu memperbarui Syarat & Ketentuan ini untuk menyesuaikan regulasi dan peningkatan keamanan operasional. Perubahan akan berlaku seketika sejak diumumkan pada halaman ini.`,
     lastUpdated: new Date().toISOString(),
     version: "1.0.0"
   },
@@ -97,18 +97,18 @@ export async function getPrivacySettings(): Promise<PrivacySettings> {
   }
 
   try {
-    const docRef = adminDb.doc(PRIVACY_DOC_PATH);
-    const snap = await docRef.get();
+    const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
+    const { data: snapData, error: snapError } = await docRef.maybeSingle();
 
-    if (!snap.exists) {
+    if (!snapData) {
       // Seed default
-      await docRef.set(DEFAULT_PRIVACY_SETTINGS);
+      await supabaseAdmin!.from('privacy').upsert({ ...DEFAULT_PRIVACY_SETTINGS, id: 'singleton' });
       cachedPrivacySettings = { ...DEFAULT_PRIVACY_SETTINGS };
       lastCacheTime = now;
       return cachedPrivacySettings;
     }
 
-    const data = snap.data() as Partial<PrivacySettings>;
+    const data = snapData as Partial<PrivacySettings>;
     const merged: PrivacySettings = {
       ...DEFAULT_PRIVACY_SETTINGS,
       ...data,
@@ -207,8 +207,8 @@ export async function updatePrivacySettings(
     merged.termsOfService.lastUpdated = new Date().toISOString();
   }
 
-  const docRef = adminDb.doc(PRIVACY_DOC_PATH);
-  await docRef.set(merged);
+  const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
+  await supabaseAdmin!.from('privacy').upsert({ ...merged, id: 'singleton' });
 
   // Update in-memory cache
   cachedPrivacySettings = merged;
@@ -239,8 +239,8 @@ export async function resetPrivacySettings(
     updatedBy: actor.email
   };
 
-  const docRef = adminDb.doc(PRIVACY_DOC_PATH);
-  await docRef.set(resetData);
+  const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
+  await supabaseAdmin!.from('privacy').upsert({ ...resetData, id: 'singleton' });
 
   cachedPrivacySettings = resetData;
   lastCacheTime = Date.now();

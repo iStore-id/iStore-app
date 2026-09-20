@@ -1,6 +1,6 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 import { logCoreAudit } from "./core-service";
-import { SystemConfiguration } from "../types/core";
 
 export interface FeatureFlag {
   key: string;
@@ -23,11 +23,12 @@ const CACHE_TTL_MS = 1000 * 60; // 1 minute cache
  */
 export async function getFeatureFlags(): Promise<FeatureFlag[]> {
   try {
-    const snapshot = await adminDb.collection("systemConfigs").where("key", "==", FEATURE_FLAGS_KEY).limit(1).get();
-    if (snapshot.empty) return [];
-    
-    const config = snapshot.docs[0].data() as SystemConfiguration;
-    return (config.value?.flags || []) as FeatureFlag[];
+    const raw = await SystemConfigRepository.getInstance().getConfig(FEATURE_FLAGS_KEY);
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw as FeatureFlag[];
+    if (Array.isArray(raw.flags)) return raw.flags as FeatureFlag[];
+    if (raw.value && Array.isArray(raw.value.flags)) return raw.value.flags as FeatureFlag[];
+    return [];
   } catch (error) {
     console.error("[FeatureFlagService] Error fetching feature flags:", error);
     return [];
@@ -62,7 +63,10 @@ export async function isFeatureEnabled(flagKey: string): Promise<boolean> {
  * Authoritative mutation for admin
  */
 export async function updateFeatureFlags(actor: {uid: string, email: string}, role: string, updatedFlags: FeatureFlag[]): Promise<FeatureFlag[]> {
-  const existingSnap = await adminDb.collection("systemConfigs").where("key", "==", FEATURE_FLAGS_KEY).limit(1).get();
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    throw new Error("Supabase Admin client is not configured.");
+  }
+
   const now = new Date().toISOString();
   
   // Format the flags before saving
@@ -72,36 +76,30 @@ export async function updateFeatureFlags(actor: {uid: string, email: string}, ro
     updatedBy: actor.uid
   }));
 
-  if (existingSnap.empty) {
-    const docRef = adminDb.collection("systemConfigs").doc();
-    const newConfig: SystemConfiguration = {
-      id: docRef.id,
-      key: FEATURE_FLAGS_KEY,
-      name: "Feature Flags",
-      description: "Global system feature flags",
-      value: { flags: flagsToSave },
-      valueType: "structured",
-      scope: "global",
-      status: "active",
-      version: 1,
-      updatedBy: actor.uid,
-      createdAt: now,
-      updatedAt: now
-    };
-    await docRef.set(newConfig);
-    await logCoreAudit(actor, role, "UPDATE_FEATURE_FLAGS", `systemConfigs/${docRef.id}`, null, newConfig, "Initial feature flags creation");
+  const existingVal = await SystemConfigRepository.getInstance().getConfig(FEATURE_FLAGS_KEY);
+
+  if (!existingVal) {
+    const valuePayload = { flags: flagsToSave, version: 1 };
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(FEATURE_FLAGS_KEY, valuePayload);
+    } catch (insertErr: any) {
+      throw new Error(`Failed to save feature flags: ${insertErr.message}`);
+    }
+
+    await logCoreAudit(actor, role, "UPDATE_FEATURE_FLAGS", `systemConfigs/feature_flags`, null, flagsToSave, "Initial feature flags creation");
   } else {
-    const docRef = existingSnap.docs[0].ref;
-    const existing = existingSnap.docs[0].data() as SystemConfiguration;
-    const newConfig: SystemConfiguration = {
-      ...existing,
-      value: { flags: flagsToSave },
-      version: (existing.version || 1) + 1,
-      updatedBy: actor.uid,
-      updatedAt: now
-    };
-    await docRef.set(newConfig);
-    await logCoreAudit(actor, role, "UPDATE_FEATURE_FLAGS", `systemConfigs/${docRef.id}`, existing.value?.flags, newConfig.value?.flags, "Update feature flags");
+    const existingFlags = Array.isArray(existingVal.flags) ? existingVal.flags : (Array.isArray(existingVal) ? existingVal : []);
+    const currentVersion = (existingVal && typeof existingVal.version === "number") ? existingVal.version : 1;
+    const nextVersion = currentVersion + 1;
+
+    const valuePayload = { flags: flagsToSave, version: nextVersion };
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig(FEATURE_FLAGS_KEY, valuePayload);
+    } catch (updateErr: any) {
+      throw new Error(`Failed to update feature flags: ${updateErr.message}`);
+    }
+
+    await logCoreAudit(actor, role, "UPDATE_FEATURE_FLAGS", `systemConfigs/feature_flags`, existingFlags, flagsToSave, "Update feature flags");
   }
 
   // Invalidate cache

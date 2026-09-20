@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@layer utilities {
+  .animate-marquee {
+    display: inline-block;
+    white-space: nowrap;
+    animation: marquee-right 20s linear infinite;
+  }
+}
+@keyframes marquee-right {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100vw); }
+}
+</style>
+</head>
+<body>
+<div style="width: 100%; overflow: hidden; position: relative; height: 40px; border: 1px solid black;">
+  <div style="display: inline-block; white-space: nowrap; animation: marquee-right 20s linear infinite;">
+    This is a marquee text moving to the right.
+  </div>
+</div>
+</body>
+</html>

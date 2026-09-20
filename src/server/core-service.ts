@@ -1,10 +1,10 @@
-import { adminDb } from "./firebase-admin";
 import { SystemConfiguration, StoreConfiguration, AuditLog } from "../types/core";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
+import * as crypto from "crypto";
 
 export async function logCoreAudit(actor: {uid: string; email: string}, role: string, action: string, target: string, before: any, after: any, reason?: string) {
-  const auditRef = adminDb.collection("auditLogs").doc();
   const log: AuditLog = {
-    id: auditRef.id,
     actor,
     role,
     action,
@@ -14,16 +14,15 @@ export async function logCoreAudit(actor: {uid: string; email: string}, role: st
     reason,
     timestamp: new Date().toISOString()
   };
-  await auditRef.set(log);
+  await AuditLogRepository.getInstance().createLog(log);
 }
 
 export async function initStoreConfiguration(ownerActor: {uid: string, email: string}) {
-  const storeRef = adminDb.collection("storeConfigs").doc("primary");
-  const docSnap = await storeRef.get();
-  if (!docSnap.exists) {
+  const existingConfig = await SystemConfigRepository.getInstance().getConfig("primary_store_config");
+  if (!existingConfig) {
     const config: StoreConfiguration = {
       id: "primary",
-      name: "iStore.id",
+      name: "",
       logo: "",
       favicon: "",
       description: "Platform Top Up Game Terpercaya",
@@ -53,71 +52,56 @@ export async function initStoreConfiguration(ownerActor: {uid: string, email: st
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await storeRef.set(config);
+    await SystemConfigRepository.getInstance().upsertConfig("primary_store_config", config);
     await logCoreAudit(ownerActor, "pemilik", "INIT_STORE_CONFIG", "storeConfigs/primary", null, config, "Initial setup");
     return config;
   }
-  return docSnap.data() as StoreConfiguration;
+  return existingConfig as StoreConfiguration;
 }
 
 export async function getStoreConfiguration() {
-  const storeRef = adminDb.collection("storeConfigs").doc("primary");
-  const docSnap = await storeRef.get();
-  return docSnap.data() as StoreConfiguration | undefined;
+  const config = await SystemConfigRepository.getInstance().getConfig("primary_store_config");
+  return config ? (config as StoreConfiguration) : undefined;
 }
 
 export async function updateStoreConfiguration(actor: {uid: string, email: string}, role: string, updates: Partial<StoreConfiguration>, reason?: string) {
-  const storeRef = adminDb.collection("storeConfigs").doc("primary");
-  const docSnap = await storeRef.get();
-  const before = docSnap.exists ? docSnap.data() : null;
+  const before = await SystemConfigRepository.getInstance().getConfig("primary_store_config");
   
   const finalUpdates = {
+    ...before,
     ...updates,
     updatedAt: new Date().toISOString()
   };
   
-  await storeRef.set(finalUpdates, { merge: true });
-  const afterSnap = await storeRef.get();
+  await SystemConfigRepository.getInstance().upsertConfig("primary_store_config", finalUpdates);
+  const after = await SystemConfigRepository.getInstance().getConfig("primary_store_config");
   
-  await logCoreAudit(actor, role, "UPDATE_STORE_CONFIG", "storeConfigs/primary", before, afterSnap.data(), reason);
-  return afterSnap.data() as StoreConfiguration;
+  await logCoreAudit(actor, role, "UPDATE_STORE_CONFIG", "storeConfigs/primary", before, after, reason);
+  return after as StoreConfiguration;
 }
 
-export async function getSystemConfiguration(key: string) {
-  const snapshot = await adminDb.collection("systemConfigs").where("key", "==", key).limit(1).get();
-  if (snapshot.empty) return null;
-  return snapshot.docs[0].data() as SystemConfiguration;
+export async function getSystemConfiguration(key: string): Promise<SystemConfiguration | null> {
+  const data = await SystemConfigRepository.getInstance().getConfig(key);
+  if (!data) return null;
+  return data as SystemConfiguration;
 }
 
 export async function setSystemConfiguration(actor: {uid: string, email: string}, role: string, configData: Omit<SystemConfiguration, "id" | "updatedBy" | "updatedAt" | "createdAt" | "version">) {
-  const existingSnap = await adminDb.collection("systemConfigs").where("key", "==", configData.key).limit(1).get();
+  const existing = await SystemConfigRepository.getInstance().getConfig(configData.key);
   const now = new Date().toISOString();
+  const currentVersion = existing && typeof existing.version === "number" ? existing.version : 0;
+  const configId = existing?.id || crypto.randomUUID();
   
-  if (existingSnap.empty) {
-    const docRef = adminDb.collection("systemConfigs").doc();
-    const newConfig: SystemConfiguration = {
-      ...configData,
-      id: docRef.id,
-      version: 1,
-      updatedBy: actor.uid,
-      createdAt: now,
-      updatedAt: now
-    };
-    await docRef.set(newConfig);
-    await logCoreAudit(actor, role, "CREATE_SYSTEM_CONFIG", `systemConfigs/${docRef.id}`, null, newConfig, "Initial creation");
-    return newConfig;
-  } else {
-    const docRef = existingSnap.docs[0].ref;
-    const existing = existingSnap.docs[0].data() as SystemConfiguration;
-    const newConfig: SystemConfiguration = {
-      ...existing,
-      ...configData,
-      version: existing.version + 1,
-      updatedBy: actor.uid,
-      updatedAt: now
-    };
-    await docRef.set(newConfig);
-    await logCoreAudit(actor, role, "UPDATE_SYSTEM_CONFIG", `systemConfigs/${docRef.id}`, existing, newConfig, "Update");
-    return newConfig;
-  }
+  const newConfig: SystemConfiguration = {
+    ...configData,
+    id: configId,
+    version: currentVersion + 1,
+    updatedBy: actor.uid,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  };
+
+  await SystemConfigRepository.getInstance().upsertConfig(configData.key, newConfig);
+  await logCoreAudit(actor, role, existing ? "UPDATE_SYSTEM_CONFIG" : "CREATE_SYSTEM_CONFIG", `systemConfigs/${configId}`, existing, newConfig, existing ? "Update" : "Initial creation");
+  return newConfig;
 }

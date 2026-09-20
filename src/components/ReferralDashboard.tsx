@@ -72,7 +72,7 @@ export default function ReferralDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
+        <RefreshCw className="w-6 h-6 animate-spin text-brand-600" />
       </div>
     );
   }
@@ -84,19 +84,19 @@ export default function ReferralDashboard() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-6 shadow-sm"
       >
-        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto">
-          <Gift className="w-8 h-8 text-blue-600" />
+        <div className="w-16 h-16 bg-brand-50 rounded-full flex items-center justify-center mx-auto">
+          <Gift className="w-8 h-8 text-brand-600" />
         </div>
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-gray-900">Dapatkan Poin Gratis!</h2>
           <p className="text-gray-500 max-w-sm mx-auto">
-            Ajak temanmu bergabung di iStore dan dapatkan hadiah poin loyalitas setiap kali mereka bertransaksi.
+            Ajak temanmu bergabung di Toko dan dapatkan hadiah poin loyalitas setiap kali mereka bertransaksi.
           </p>
         </div>
         <button
           onClick={joinProgram}
           disabled={joining}
-          className="px-8 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+          className="px-8 py-3 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
         >
           {joining ? <RefreshCw className="w-5 h-5 animate-spin" /> : "Mulai Ajak Teman"}
           {!joining && <ArrowRight className="w-5 h-5" />}
@@ -112,7 +112,7 @@ export default function ReferralDashboard() {
         <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 space-y-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-blue-600" />
+              <Share2 className="w-5 h-5 text-brand-600" />
               Bagikan Kode Referral
             </h3>
             <span className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-bold uppercase rounded-full">
@@ -129,28 +129,28 @@ export default function ReferralDashboard() {
             </div>
             <button 
               onClick={copyToClipboard}
-              className={`p-3 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-600' : 'bg-white text-gray-400 hover:text-blue-600 shadow-sm border border-gray-200'}`}
+              className={`p-3 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-600' : 'bg-white text-gray-400 hover:text-brand-600 shadow-sm border border-gray-200'}`}
             >
               {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-             <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm">
+             <div className="p-4 bg-brand-50 rounded-xl border border-brand-100 flex items-center gap-4">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-brand-600 shadow-sm">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-blue-600 font-medium uppercase">Total Teman</p>
+                  <p className="text-xs text-brand-600 font-medium uppercase">Total Teman</p>
                   <p className="text-xl font-bold text-gray-900">{data.stats.totalReferrals}</p>
                 </div>
              </div>
-             <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 flex items-center gap-4">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-purple-600 shadow-sm">
+             <div className="p-4 bg-brand-50 rounded-xl border border-brand-100 flex items-center gap-4">
+                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-brand-600 shadow-sm">
                   <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs text-purple-600 font-medium uppercase">Berhasil Konversi</p>
+                  <p className="text-xs text-brand-600 font-medium uppercase">Berhasil Konversi</p>
                   <p className="text-xl font-bold text-gray-900">{data.stats.convertedReferrals}</p>
                 </div>
              </div>
@@ -163,15 +163,15 @@ export default function ReferralDashboard() {
             <h4 className="font-bold text-lg">Cara Kerja</h4>
             <div className="space-y-4 text-sm text-gray-300">
               <div className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">1</div>
+                <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">1</div>
                 <p>Bagikan link atau kode referral unikmu ke teman-teman.</p>
               </div>
               <div className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">2</div>
+                <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">2</div>
                 <p>Pastikan mereka mendaftar dan melakukan transaksi pertama.</p>
               </div>
               <div className="flex gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">3</div>
+                <div className="w-6 h-6 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">3</div>
                 <p>Dapatkan reward poin otomatis setelah pesanan mereka selesai!</p>
               </div>
             </div>

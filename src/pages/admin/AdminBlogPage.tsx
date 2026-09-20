@@ -45,10 +45,12 @@ import BlogContentRenderer from "../../components/BlogContentRenderer";
 
 interface MediaItem {
   id: string;
-  name: string;
+  fileName?: string;
+  originalName?: string;
+  name?: string;
   url: string;
-  mimeType: string;
-  size: number;
+  mimeType?: string;
+  size?: number;
 }
 
 const PREDEFINED_CATEGORIES = [
@@ -210,7 +212,8 @@ export default function AdminBlogPage() {
       setCoverMediaUrl(item.url);
     } else {
       // Insert inline image markdown to content
-      const imageMarkdown = `\n![${item.name}](${item.url})\n`;
+      const itemName = item.originalName || item.fileName || item.name || "gambar";
+      const imageMarkdown = `\n![${itemName}](${item.url})\n`;
       setContent((prev) => prev + imageMarkdown);
     }
     setIsMediaPickerOpen(false);
@@ -296,8 +299,8 @@ export default function AdminBlogPage() {
 
     const finalCategory = category === "CUSTOM" ? customCategory.trim() : category;
 
-    if (!title.trim() || !slug.trim() || !excerpt.trim() || !content.trim()) {
-      setFormError("Judul, slug, ringkasan (excerpt), dan konten artikel wajib diisi.");
+    if (!title.trim() || !excerpt.trim() || !content.trim()) {
+      setFormError("Judul, ringkasan (excerpt), dan konten artikel wajib diisi.");
       return;
     }
 
@@ -313,22 +316,22 @@ export default function AdminBlogPage() {
 
     const payload: any = {
       title: title.trim(),
-      slug: slug.trim().toLowerCase(),
+      slug: slug.trim() ? slug.trim().toLowerCase() : "",
       excerpt: excerpt.trim(),
       content,
       category: finalCategory,
       tags,
       author: author.trim() || "Tim Editorial iStore",
-      coverMediaId: coverMediaId || "",
-      coverMediaUrl: coverMediaUrl || "",
+      coverMediaId: coverMediaId ? coverMediaId.trim() : null,
+      coverMediaUrl: coverMediaUrl ? coverMediaUrl.trim() : null,
       seoTitle: seoTitle.trim() || title.trim(),
       seoDescription: seoDescription.trim() || excerpt.trim(),
-      relatedGameId: relatedGameId || "",
-      relatedPromoId: relatedPromoId || "",
-      relatedCampaignId: relatedCampaignId || "",
-      relatedLandingId: relatedLandingId || "",
-      startAt: startAt ? new Date(startAt).toISOString() : "",
-      endAt: endAt ? new Date(endAt).toISOString() : "",
+      relatedGameId: relatedGameId ? relatedGameId.trim() : null,
+      relatedPromoId: relatedPromoId ? relatedPromoId.trim() : null,
+      relatedCampaignId: relatedCampaignId ? relatedCampaignId.trim() : null,
+      relatedLandingId: relatedLandingId ? relatedLandingId.trim() : null,
+      startAt: startAt ? new Date(startAt).toISOString() : null,
+      endAt: endAt ? new Date(endAt).toISOString() : null,
       enabled,
       published
     };
@@ -955,7 +958,7 @@ export default function AdminBlogPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      URL Slug <span className="text-red-500">*</span>
+                      URL Slug
                     </label>
                     <div className="flex items-center">
                       <span className="bg-slate-100 border border-r-0 border-slate-200 text-slate-500 px-3.5 py-2.5 rounded-l-xl text-xs font-mono">
@@ -963,7 +966,6 @@ export default function AdminBlogPage() {
                       </span>
                       <input
                         type="text"
-                        required
                         placeholder="tips-push-rank-mythic-mlbb-2026"
                         value={slug}
                         onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
@@ -971,7 +973,7 @@ export default function AdminBlogPage() {
                       />
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
-                      Hanya huruf kecil, angka, dan tanda hubung (-). Contoh: tips-topup-ff
+                      Opsional. Hanya huruf kecil, angka, dan tanda hubung (-). Jika dikosongkan, slug otomatis dibuat dari judul artikel.
                     </p>
                   </div>
 
@@ -1478,30 +1480,37 @@ export default function AdminBlogPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {mediaList
-                    .filter((m) => m.name.toLowerCase().includes(mediaSearch.toLowerCase()))
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => handleSelectMedia(item)}
-                        className="group border border-slate-200 rounded-xl overflow-hidden hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col bg-slate-50"
-                      >
-                        <div className="h-28 bg-slate-100 overflow-hidden">
-                          <img
-                            src={item.url}
-                            alt={item.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
-                        </div>
-                        <div className="p-2 bg-white flex-1">
-                          <div className="text-xs font-semibold text-slate-800 truncate" title={item.name}>
-                            {item.name}
+                    .filter((m) => {
+                      const searchTarget = (m.originalName || m.fileName || m.name || "").toLowerCase();
+                      const query = (mediaSearch || "").trim().toLowerCase();
+                      return searchTarget.includes(query);
+                    })
+                    .map((item) => {
+                      const displayName = item.originalName || item.fileName || item.name || "Gambar";
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectMedia(item)}
+                          className="group border border-slate-200 rounded-xl overflow-hidden hover:border-blue-500 hover:shadow-md cursor-pointer transition-all flex flex-col bg-slate-50"
+                        >
+                          <div className="h-28 bg-slate-100 overflow-hidden">
+                            <img
+                              src={item.url}
+                              alt={displayName}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            {(item.size / 1024).toFixed(0)} KB
+                          <div className="p-2 bg-white flex-1">
+                            <div className="text-xs font-semibold text-slate-800 truncate" title={displayName}>
+                              {displayName}
+                            </div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {item.size ? (item.size / 1024).toFixed(0) : "0"} KB
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
             </div>

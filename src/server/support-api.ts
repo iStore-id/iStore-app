@@ -2,7 +2,7 @@ import { Router } from "express";
 import { TicketService } from "./ticket-service";
 import { SupportService } from "./support-service";
 import { requireAuth, AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 
 const router = Router();
 const ticketService = TicketService.getInstance();
@@ -12,9 +12,9 @@ const supportService = SupportService.getInstance();
 router.post("/cases", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const actor = {
-      uid: req.user.uid,
-      email: req.user.email,
-      name: req.user.name || req.user.email.split('@')[0]
+      uid: req.user!.uid,
+      email: req.user!.email || "unknown@istore.id",
+      name: (req.user as any).displayName || req.user!.email?.split('@')[0] || "User"
     };
     const newCase = await ticketService.createCase(req.body, actor);
     res.status(201).json(newCase);
@@ -26,7 +26,7 @@ router.post("/cases", requireAuth, async (req: AuthenticatedRequest, res) => {
 // List My Cases
 router.get("/cases", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const cases = await supportService.getCustomerCases(req.user.uid);
+    const cases = await supportService.getCustomerCases(req.user!.uid);
     res.json(cases);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -36,26 +36,45 @@ router.get("/cases", requireAuth, async (req: AuthenticatedRequest, res) => {
 // Case Detail
 router.get("/cases/:id", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const caseRef = adminDb.collection("supportCases").doc(req.params.id);
-    const snap = await caseRef.get();
-    
-    if (!snap.exists) return res.status(404).json({ error: "Case not found" });
-    const data = snap.data();
-    
-    if (data?.customerUid !== req.user.uid) {
+    const { data: caseRow } = await supabaseAdmin!
+      .from("support_cases")
+      .select("*")
+      .eq("id", req.params.id)
+      .maybeSingle();
+      
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user!.uid) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    const messagesSnap = await caseRef.collection("messages")
-      .where("isInternal", "==", false)
-      .orderBy("createdAt", "asc")
-      .get();
-    
-    const messages = messagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { data: messagesData } = await supabaseAdmin!
+      .from("support_messages")
+      .select("*")
+      .eq("case_id", req.params.id)
+      .eq("is_internal", false)
+      .order("created_at", { ascending: true });
+
+    const messages = (messagesData || []).map(m => ({
+      id: m.id,
+      caseId: m.case_id,
+      authorUid: m.author_uid,
+      authorName: m.author_name,
+      authorType: m.author_type,
+      content: m.content,
+      isInternal: m.is_internal,
+      createdAt: m.created_at
+    }));
 
     res.json({
-      ...data,
-      id: snap.id,
+      id: caseRow.id,
+      customerUid: caseRow.customer_uid,
+      orderId: caseRow.order_id,
+      subject: caseRow.subject,
+      category: caseRow.category,
+      priority: caseRow.priority,
+      status: caseRow.status,
+      createdAt: caseRow.created_at,
+      updatedAt: caseRow.updated_at,
       messages
     });
   } catch (error: any) {
@@ -66,15 +85,19 @@ router.get("/cases/:id", requireAuth, async (req: AuthenticatedRequest, res) => 
 // Send Message
 router.post("/cases/:id/messages", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const caseRef = adminDb.collection("supportCases").doc(req.params.id);
-    const snap = await caseRef.get();
-    if (!snap.exists) return res.status(404).json({ error: "Case not found" });
-    if (snap.data()?.customerUid !== req.user.uid) return res.status(403).json({ error: "Forbidden" });
+    const { data: caseRow } = await supabaseAdmin!
+      .from("support_cases")
+      .select("customer_uid")
+      .eq("id", req.params.id)
+      .maybeSingle();
+
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user!.uid) return res.status(403).json({ error: "Forbidden" });
 
     const actor = {
-      uid: req.user.uid,
-      email: req.user.email,
-      name: req.user.name || req.user.email.split('@')[0],
+      uid: req.user!.uid,
+      email: req.user!.email || "unknown@istore.id",
+      name: (req.user as any).displayName || req.user!.email?.split('@')[0] || "User",
       type: 'USER' as const
     };
 
@@ -82,7 +105,6 @@ router.post("/cases/:id/messages", requireAuth, async (req: AuthenticatedRequest
       ...req.body,
       isInternal: false
     }, actor);
-
     res.status(201).json(message);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -92,16 +114,19 @@ router.post("/cases/:id/messages", requireAuth, async (req: AuthenticatedRequest
 // Close Case
 router.post("/cases/:id/close", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const caseRef = adminDb.collection("supportCases").doc(req.params.id);
-    const snap = await caseRef.get();
-    if (!snap.exists) return res.status(404).json({ error: "Case not found" });
-    if (snap.data()?.customerUid !== req.user.uid) return res.status(403).json({ error: "Forbidden" });
+    const { data: caseRow } = await supabaseAdmin!
+      .from("support_cases")
+      .select("customer_uid")
+      .eq("id", req.params.id)
+      .maybeSingle();
+
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user!.uid) return res.status(403).json({ error: "Forbidden" });
 
     await ticketService.updateStatus(req.params.id, 'CLOSED', {
-      uid: req.user.uid,
-      email: req.user.email
+      uid: req.user!.uid,
+      email: req.user!.email || "unknown@istore.id"
     });
-
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

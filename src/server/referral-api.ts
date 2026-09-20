@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { ReferralService } from "./referral-service";
 import { AuthenticatedRequest, requireAuth } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 
 const router = Router();
 const referralService = ReferralService.getInstance();
@@ -13,25 +13,47 @@ const referralService = ReferralService.getInstance();
 router.get("/me", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.uid;
-    const userDoc = await adminDb.collection("users").doc(userId).get();
-    const userData = userDoc.data();
 
-    const statsSnap = await adminDb.collection("referralRelationships")
-      .where("referrerUid", "==", userId)
-      .get();
-    
+    if (!supabaseAdmin) {
+      throw new Error("SUPABASE_ADMIN_NOT_CONFIGURED");
+    }
+
+    // Read from profiles
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("referral_code, referred_by")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    // Read relationships
+    const { data: statsData, error: statsError } = await supabaseAdmin
+      .from("referral_relationships")
+      .select("status")
+      .eq("referrer_uid", userId);
+
+    if (statsError) {
+      throw statsError;
+    }
+
     let convertedCount = 0;
-    statsSnap.forEach(doc => {
-      if (doc.data().status === 'CONVERTED') convertedCount++;
-    });
+    const totalReferrals = statsData ? statsData.length : 0;
+    if (statsData) {
+      statsData.forEach(row => {
+        if (row.status === 'CONVERTED') convertedCount++;
+      });
+    }
 
     res.json({
       success: true,
       data: {
-        referralCode: userData?.referralCode || null,
-        referredBy: userData?.referredBy || null,
+        referralCode: profileData?.referral_code || null,
+        referredBy: profileData?.referred_by || null,
         stats: {
-          totalReferrals: statsSnap.size,
+          totalReferrals,
           convertedReferrals: convertedCount
         }
       }

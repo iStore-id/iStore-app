@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.container {
+  width: 500px;
+  height: 40px;
+  border: 1px solid black;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: marquee-left 5s linear infinite;
+}
+@keyframes marquee-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="animate-marquee">
+    This is a marquee text moving to the left.
+  </div>
+</div>
+</body>
+</html>

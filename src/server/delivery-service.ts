@@ -1,4 +1,4 @@
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 
 export interface Delivery {
   id?: string;
@@ -9,7 +9,7 @@ export interface Delivery {
   status: 'PENDING' | 'READY' | 'DELIVERED' | 'FAILED';
   providerTransactionId?: string;
   destinationMasked?: string;
-  digitalCode?: string; // Encrypted or plaintext internally, but sanitized for API
+  digitalCode?: string;
   resultMessage?: string;
   deliveredAt?: string;
   createdAt: string;
@@ -18,7 +18,6 @@ export interface Delivery {
 
 export class DeliveryService {
   private static instance: DeliveryService;
-
   private constructor() {}
 
   static getInstance(): DeliveryService {
@@ -28,74 +27,114 @@ export class DeliveryService {
     return DeliveryService.instance;
   }
 
-  // Called when fulfillment succeeds or fails (hooked from State Machine)
+  private mapRowToDelivery(row: any): Delivery {
+    return {
+      id: row.id,
+      orderId: row.order_id,
+      customerId: row.customer_id,
+      variantId: row.variant_id,
+      type: row.type,
+      status: row.status,
+      providerTransactionId: row.provider_transaction_id,
+      destinationMasked: row.destination_masked,
+      digitalCode: row.digital_code,
+      resultMessage: row.result_message,
+      deliveredAt: row.delivered_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  private mapDeliveryToRow(d: Partial<Delivery>): any {
+    const row: any = {};
+    if (d.id !== undefined) row.id = d.id;
+    if (d.orderId !== undefined) row.order_id = d.orderId;
+    if (d.customerId !== undefined) row.customer_id = d.customerId;
+    if (d.variantId !== undefined) row.variant_id = d.variantId;
+    if (d.type !== undefined) row.type = d.type;
+    if (d.status !== undefined) row.status = d.status;
+    if (d.providerTransactionId !== undefined) row.provider_transaction_id = d.providerTransactionId;
+    if (d.destinationMasked !== undefined) row.destination_masked = d.destinationMasked;
+    if (d.digitalCode !== undefined) row.digital_code = d.digitalCode;
+    if (d.resultMessage !== undefined) row.result_message = d.resultMessage;
+    if (d.deliveredAt !== undefined) row.delivered_at = d.deliveredAt;
+    if (d.createdAt !== undefined) row.created_at = d.createdAt;
+    if (d.updatedAt !== undefined) row.updated_at = d.updatedAt;
+    return row;
+  }
+
   async handleFulfillmentResult(orderData: any, success: boolean, reason?: string): Promise<void> {
     const orderId = orderData.id;
     const deliveryId = `delivery_${orderId}`;
 
-    await adminDb.runTransaction(async (t) => {
-      const ref = adminDb.collection("deliveries").doc(deliveryId);
-      const snap = await t.get(ref);
+    const { data: existingSnap } = await supabaseAdmin!
+      .from("deliveries")
+      .select("*")
+      .eq("id", deliveryId)
+      .maybeSingle();
 
-      if (snap.exists) {
-        // Prevent duplicate updates if already handled
-        if (snap.data()?.status === 'DELIVERED' || snap.data()?.status === 'READY') {
-          return; 
-        }
+    if (existingSnap) {
+      if (existingSnap.status === 'DELIVERED' || existingSnap.status === 'READY') {
+        return;
       }
+    }
 
-      // Determine Type (in a real app, variant would define this. We assume TOP_UP if no digital code is found in stock)
-      let type: Delivery['type'] = 'TOP_UP';
-      let digitalCode: string | undefined = undefined;
+    let type: Delivery['type'] = 'TOP_UP';
+    let digitalCode: string | undefined = undefined;
 
-      if (success) {
-        // Check if there's a reservation consumed
-        const resSnap = await t.get(adminDb.collection("reservations").doc(orderId));
-        if (resSnap.exists && resSnap.data()?.status === 'CONSUMED') {
-          type = 'DIGITAL_CODE';
-          digitalCode = "DUMMY_CODE_TODO_REPLACE_WITH_REAL"; // We don't have digital codes in stock model yet
-        }
+    if (success) {
+      const { data: resSnap } = await supabaseAdmin!
+        .from("reservations")
+        .select("status")
+        .eq("id", orderId)
+        .maybeSingle();
+      
+      if (resSnap && resSnap.status === 'CONSUMED') {
+        type = 'DIGITAL_CODE';
+        digitalCode = "DUMMY_CODE_TODO_REPLACE_WITH_REAL";
       }
+    }
 
-      const destination = orderData.customerData?.destination || orderData.customerData?.userId || "";
-      const destinationMasked = destination ? `${destination.substring(0, 2)}***${destination.substring(destination.length - 2)}` : "";
+    const destination = orderData.customerData?.destination || orderData.customerData?.userId || "";
+    const destinationMasked = destination ? `${destination.substring(0, 2)}***${destination.substring(destination.length - 2)}` : "";
 
-      const delivery: Delivery = {
-        id: deliveryId,
-        orderId: orderData.id,
-        customerId: orderData.userId,
-        variantId: orderData.variantId,
-        type,
-        status: success ? 'READY' : 'FAILED',
-        providerTransactionId: orderData.providerReference,
-        resultMessage: reason,
-        destinationMasked,
-        digitalCode,
-        createdAt: snap.exists ? snap.data()!.createdAt : new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+    const now = new Date().toISOString();
+    const delivery: Partial<Delivery> = {
+      id: deliveryId,
+      orderId: orderData.id,
+      customerId: orderData.userId,
+      variantId: orderData.variantId,
+      type,
+      status: success ? 'DELIVERED' : 'FAILED',
+      providerTransactionId: orderData.providerReference,
+      resultMessage: reason,
+      destinationMasked,
+      digitalCode,
+      createdAt: existingSnap ? existingSnap.created_at : now,
+      updatedAt: now
+    };
 
-      if (success) {
-        delivery.deliveredAt = new Date().toISOString();
-        delivery.status = 'DELIVERED';
-      }
+    if (success) {
+      delivery.deliveredAt = now;
+    }
 
-      t.set(ref, delivery, { merge: true });
-    });
+    await supabaseAdmin!.from("deliveries").upsert(this.mapDeliveryToRow(delivery));
   }
 
   async getCustomerDelivery(orderId: string, customerId: string): Promise<Partial<Delivery> | null> {
     const deliveryId = `delivery_${orderId}`;
-    const snap = await adminDb.collection("deliveries").doc(deliveryId).get();
-    
-    if (!snap.exists) return null;
-    
-    const data = snap.data() as Delivery;
-    if (data.customerId !== customerId) {
+    const { data: row } = await supabaseAdmin!
+      .from("deliveries")
+      .select("*")
+      .eq("id", deliveryId)
+      .maybeSingle();
+
+    if (!row) return null;
+    if (row.customer_id !== customerId) {
       throw new Error("Unauthorized delivery access");
     }
 
-    // Sanitize response
+    const data = this.mapRowToDelivery(row);
     return {
       id: data.id,
       orderId: data.orderId,
@@ -112,20 +151,28 @@ export class DeliveryService {
   }
 
   async getAdminDeliveries(limit: number = 100): Promise<Delivery[]> {
-    const snap = await adminDb.collection("deliveries").orderBy("createdAt", "desc").limit(limit).get();
-    return snap.docs.map(doc => {
-      const data = doc.data() as Delivery;
-      // Mask digital code for admin list view
+    const { data } = await supabaseAdmin!
+      .from("deliveries")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    
+    return (data || []).map(row => {
+      const d = this.mapRowToDelivery(row);
       return {
-        ...data,
-        digitalCode: data.digitalCode ? "********" : undefined
+        ...d,
+        digitalCode: d.digitalCode ? "********" : undefined
       };
     });
   }
 
   async getAdminDeliveryDetail(deliveryId: string): Promise<Delivery | null> {
-    const snap = await adminDb.collection("deliveries").doc(deliveryId).get();
-    if (!snap.exists) return null;
-    return snap.data() as Delivery; // Plaintext for detail view, assuming permission check passed
+    const { data } = await supabaseAdmin!
+      .from("deliveries")
+      .select("*")
+      .eq("id", deliveryId)
+      .maybeSingle();
+    
+    return data ? this.mapRowToDelivery(data) : null;
   }
 }

@@ -12,9 +12,17 @@ interface PopupItem {
   target?: string;
 }
 
-export default function CustomerPopupModal({ placement = 'homepage' }: { placement?: string }) {
+export default function CustomerPopupModal({ 
+  placement = 'homepage',
+  allowedIds 
+}: { 
+  placement?: string;
+  allowedIds?: string[];
+}) {
   const [activePopup, setActivePopup] = useState<PopupItem | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  const allowedIdsStr = allowedIds ? allowedIds.join(",") : "";
 
   useEffect(() => {
     async function fetchPopups() {
@@ -22,34 +30,46 @@ export default function CustomerPopupModal({ placement = 'homepage' }: { placeme
         const res = await fetch(`/api/public/popups?placement=${placement}`);
         const data = await res.json();
         if (data.success && data.data && data.data.length > 0) {
-          // Check session storage to see if this popup was already dismissed this session
-          const dismissedId = sessionStorage.getItem(`istore_popup_dismissed_${data.data[0].id}`);
-          if (!dismissedId) {
-            const popup = data.data[0];
-            setActivePopup(popup);
-
-            // Handle trigger
-            if (popup.trigger === 'delay_3s') {
-              setTimeout(() => setIsOpen(true), 3000);
-            } else if (popup.trigger === 'immediate') {
-              setIsOpen(true);
-            } else if (popup.trigger === 'exit_intent') {
-              const handleMouseLeave = (e: MouseEvent) => {
-                if (e.clientY <= 0) {
-                  setIsOpen(true);
-                  document.removeEventListener('mouseleave', handleMouseLeave);
-                }
-              };
-              document.addEventListener('mouseleave', handleMouseLeave);
-            }
+          let popups = data.data || [];
+          if (allowedIds) {
+            popups = popups.filter((p: PopupItem) => allowedIds.includes(p.id));
           }
+          if (popups.length > 0) {
+            const popup = popups[0];
+            // Check session storage to see if this popup was already dismissed this session
+            const dismissedId = sessionStorage.getItem(`istore_popup_dismissed_${popup.id}`);
+            if (!dismissedId) {
+              setActivePopup(popup);
+
+              // Handle trigger
+              if (popup.trigger === 'delay_3s') {
+                setTimeout(() => setIsOpen(true), 3000);
+              } else if (popup.trigger === 'immediate') {
+                setIsOpen(true);
+              } else if (popup.trigger === 'exit_intent') {
+                const handleMouseLeave = (e: MouseEvent) => {
+                  if (e.clientY <= 0) {
+                    setIsOpen(true);
+                    document.removeEventListener('mouseleave', handleMouseLeave);
+                  }
+                };
+                document.addEventListener('mouseleave', handleMouseLeave);
+              }
+            }
+          } else {
+            setActivePopup(null);
+            setIsOpen(false);
+          }
+        } else {
+          setActivePopup(null);
+          setIsOpen(false);
         }
       } catch (e) {
         console.error("Error fetching popups:", e);
       }
     }
     fetchPopups();
-  }, [placement]);
+  }, [placement, allowedIdsStr]);
 
   const handleClose = () => {
     if (activePopup) {
@@ -85,7 +105,7 @@ export default function CustomerPopupModal({ placement = 'homepage' }: { placeme
               <a
                 href={activePopup.target}
                 onClick={handleClose}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-blue-700 text-white font-semibold rounded-xl transition shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-brand-700 text-white font-semibold rounded-xl transition shadow-sm"
               >
                 Lihat Selengkapnya <ExternalLink className="w-4 h-4" />
               </a>

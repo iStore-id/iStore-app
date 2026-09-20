@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
 import { getSecuritySettings, updateSecuritySettings, DEFAULT_SECURITY_SETTINGS, validatePasswordPolicy } from "./security-service";
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
+import { AuditLogRepository } from "./supabase/audit-log-repository";
 
 export async function getSecuritySettingsApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -120,21 +120,15 @@ export async function getSecurityOverviewApi(req: AuthenticatedRequest, res: Res
     // Fetch recent security audits
     let recentAudits: any[] = [];
     try {
-      const auditsSnap = await adminDb.collection("auditLogs")
-        .orderBy("timestamp", "desc")
-        .limit(10)
-        .get();
-      recentAudits = auditsSnap.docs.map(d => {
-        const item = d.data();
-        return {
-          id: d.id,
-          action: item.action,
-          target: item.target,
-          actorEmail: item.actor?.email || "system",
-          timestamp: item.timestamp,
-          reason: item.reason || "-"
-        };
-      });
+      const logs = await AuditLogRepository.getInstance().queryLogs(10);
+      recentAudits = logs.map(item => ({
+        id: item.id,
+        action: item.action,
+        target: item.target,
+        actorEmail: item.actor?.email || "system",
+        timestamp: item.timestamp,
+        reason: item.reason || "-"
+      }));
     } catch (e) {
       console.warn("Audits fetch notice:", e);
     }

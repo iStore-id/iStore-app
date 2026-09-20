@@ -1,17 +1,23 @@
-import { adminDb } from "./firebase-admin";
-import crypto from "crypto";
+import { SupabasePaymentRepository } from "./supabase/payment-repository";
+import * as crypto from "crypto";
 
-const ENCRYPTION_KEY = crypto.scryptSync(
-  process.env.SESSION_SECRET || "istore-secure-midtrans-secret-key-2026",
-  "salt",
-  32
-);
+let ENCRYPTION_KEY: Buffer | null = null;
+
+function getEncryptionKey(): Buffer {
+  if (ENCRYPTION_KEY) return ENCRYPTION_KEY;
+
+  const secret = process.env.SESSION_SECRET || "istore-secure-midtrans-secret-key-2026";
+
+  ENCRYPTION_KEY = crypto.scryptSync(secret, "salt", 32);
+  return ENCRYPTION_KEY;
+}
+
 const IV_LENGTH = 16;
 
 export function encryptSecret(text: string): string {
   if (!text) return "";
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  const cipher = crypto.createCipheriv("aes-256-cbc", getEncryptionKey(), iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   return iv.toString("hex") + ":" + encrypted;
@@ -24,7 +30,7 @@ export function decryptSecret(text: string): string {
     if (parts.length !== 2) return text;
     const iv = Buffer.from(parts[0], "hex");
     const encryptedText = parts[1];
-    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+    const decipher = crypto.createDecipheriv("aes-256-cbc", getEncryptionKey(), iv);
     let decrypted = decipher.update(encryptedText, "hex", "utf8");
     decrypted += decipher.final("utf8");
     return decrypted;
@@ -34,43 +40,18 @@ export function decryptSecret(text: string): string {
 }
 
 export async function getMidtransServerConfig() {
-  try {
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "midtrans_integration").limit(1).get();
-    if (!snap.empty) {
-      const data = snap.docs[0].data();
-      const merchantId = data.merchantId || process.env.MIDTRANS_MERCHANT_ID || "";
-      const encryptedKey = data.encryptedServerKey || "";
-      const serverKey = encryptedKey ? decryptSecret(encryptedKey) : (process.env.MIDTRANS_SERVER_KEY || "");
-      const clientKey = data.clientKey || process.env.VITE_MIDTRANS_CLIENT_KEY || "";
-      const isProduction = data.isProduction !== undefined ? data.isProduction : (process.env.MIDTRANS_IS_PRODUCTION === "true");
-      
-      // Sync process.env for synchronous consumers
-      if (serverKey) process.env.MIDTRANS_SERVER_KEY = serverKey;
-      if (merchantId) process.env.MIDTRANS_MERCHANT_ID = merchantId;
-      process.env.MIDTRANS_IS_PRODUCTION = isProduction ? "true" : "false";
+  const repo = SupabasePaymentRepository.getInstance();
+  const config = await repo.getMidtransConfig();
 
-      return { 
-        merchantId, 
-        serverKey, 
-        clientKey,
-        isProduction, 
-        configured: !!serverKey, 
-        lastTestedAt: data.lastTestedAt, 
-        lastTestResult: data.lastTestResult 
-      };
-    }
-  } catch (err) {
-    console.warn("Failed to load Midtrans config from DB:", err);
+  if (!config.isActive) {
+    throw new Error("Midtrans Payment Gateway saat ini dinonaktifkan.");
   }
-  return {
-    merchantId: process.env.MIDTRANS_MERCHANT_ID || "",
-    serverKey: process.env.MIDTRANS_SERVER_KEY || "",
-    clientKey: process.env.VITE_MIDTRANS_CLIENT_KEY || "",
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-    configured: !!process.env.MIDTRANS_SERVER_KEY,
-    lastTestedAt: null,
-    lastTestResult: null
-  };
+  
+  if (config.serverKey) process.env.MIDTRANS_SERVER_KEY = config.serverKey;
+  if (config.merchantId) process.env.MIDTRANS_MERCHANT_ID = config.merchantId;
+  process.env.MIDTRANS_IS_PRODUCTION = config.isProduction ? "true" : "false";
+
+  return config;
 }
 
 export async function testMidtransConnection(serverKey: string, isProduction: boolean) {
@@ -121,15 +102,51 @@ export async function createMidtransTransaction({
   orderId,
   grossAmount,
   customerDetails,
-  itemDetails
+  itemDetails,
+  paymentMethod
 }: {
   orderId: string;
   grossAmount: number;
   customerDetails: { first_name: string; email: string; phone: string };
   itemDetails: Array<{ id: string; price: number; quantity: number; name: string }>;
+  paymentMethod?: string;
 }) {
   const config = await getMidtransServerConfig();
   const apiUrl = config.isProduction ? "https://app.midtrans.com/snap/v1/transactions" : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+
+  let enabledPayments: string[] | undefined = undefined;
+  if (paymentMethod === "qris") {
+    enabledPayments = ["other_qris"];
+  } else if (paymentMethod === "gopay") {
+    enabledPayments = ["gopay"];
+  } else if (paymentMethod === "shopeepay") {
+    enabledPayments = ["shopeepay"];
+  } else if (paymentMethod === "bca_va") {
+    enabledPayments = ["bca_va"];
+  } else if (paymentMethod === "bni_va") {
+    enabledPayments = ["bni_va"];
+  } else if (paymentMethod === "bri_va") {
+    enabledPayments = ["bri_va"];
+  } else if (paymentMethod === "echannel") {
+    enabledPayments = ["echannel"];
+  } else if (paymentMethod === "permata_va") {
+    enabledPayments = ["permata_va"];
+  } else if (paymentMethod === "other_va") {
+    enabledPayments = ["other_va"];
+  }
+
+  const payload: any = {
+    transaction_details: {
+      order_id: orderId,
+      gross_amount: grossAmount
+    },
+    customer_details: customerDetails,
+    item_details: itemDetails
+  };
+
+  if (enabledPayments && enabledPayments.length > 0) {
+    payload.enabled_payments = enabledPayments;
+  }
 
   const response = await fetch(apiUrl, {
     method: "POST",
@@ -139,14 +156,7 @@ export async function createMidtransTransaction({
       "Authorization": `Basic ${Buffer.from(config.serverKey + ":").toString("base64")}`,
       "Idempotency-Key": orderId
     },
-    body: JSON.stringify({
-      transaction_details: {
-        order_id: orderId,
-        gross_amount: grossAmount
-      },
-      customer_details: customerDetails,
-      item_details: itemDetails
-    })
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
@@ -223,7 +233,6 @@ export async function refundMidtransTransaction({
 }
 
 export function verifySignatureKey(orderId: string, statusCode: string, grossAmount: string, signatureKey: string) {
-  const crypto = require("crypto");
   const serverKey = process.env.MIDTRANS_SERVER_KEY || "";
   const inputString = orderId + statusCode + grossAmount + serverKey;
   const hash = crypto.createHash("sha512").update(inputString).digest("hex");

@@ -1,4 +1,4 @@
-import app, { initServerLogic } from "../server";
+import app, { initServerLogic } from "../server.js";
 
 // Ensure Express routes & background workers are initialized for Serverless
 let isInitialized = false;
@@ -10,3 +10,4 @@ export default async function handler(req: any, res: any) {
   }
   return app(req, res);
 }
+

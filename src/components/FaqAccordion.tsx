@@ -54,7 +54,7 @@ function renderSafeInline(text: string): React.ReactNode {
             href={url}
             target={isExternal ? "_blank" : undefined}
             rel={isExternal ? "noopener noreferrer" : undefined}
-            className="text-primary hover:text-blue-600 underline font-medium"
+            className="text-primary hover:text-brand-600 underline font-medium"
           >
             {label}
           </a>
@@ -154,7 +154,7 @@ export default function FaqAccordion({
             key={item.id}
             className={`border rounded-2xl transition-all duration-200 overflow-hidden ${
               isOpen
-                ? "bg-white border-blue-200 shadow-sm ring-1 ring-indigo-500/10"
+                ? "bg-white border-brand-200 shadow-sm ring-1 ring-brand-500/10"
                 : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
             }`}
           >
@@ -170,11 +170,11 @@ export default function FaqAccordion({
                   toggleItem(index);
                 }
               }}
-              className="w-full text-left px-5 py-4 sm:px-6 sm:py-4.5 flex items-center justify-between gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 select-none"
+              className="w-full text-left px-5 py-4 sm:px-6 sm:py-4.5 flex items-center justify-between gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 select-none"
             >
               <div className="flex-1 min-w-0">
                 {showCategoryBadge && item.category && (
-                  <span className="inline-block px-2.5 py-0.5 mb-1.5 rounded-full text-xs font-semibold bg-blue-50 text-primary">
+                  <span className="inline-block px-2.5 py-0.5 mb-1.5 rounded-full text-xs font-semibold bg-brand-50 text-primary">
                     {item.category}
                   </span>
                 )}
@@ -187,7 +187,7 @@ export default function FaqAccordion({
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 ${
                   isOpen
-                    ? "bg-blue-100 text-primary rotate-180"
+                    ? "bg-brand-100 text-primary rotate-180"
                     : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
                 }`}
                 aria-hidden="true"
@@ -213,11 +213,11 @@ export default function FaqAccordion({
                     {item.relatedGame && (
                       <Link
                         to={`/games/${item.relatedGame.slug}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 transition"
                       >
-                        <Gamepad2 className="w-3.5 h-3.5 text-blue-600" />
+                        <Gamepad2 className="w-3.5 h-3.5 text-brand-600" />
                         <span>Katalog Game: {item.relatedGame.name}</span>
-                        <ArrowRight className="w-3 h-3 text-blue-500" />
+                        <ArrowRight className="w-3 h-3 text-brand-500" />
                       </Link>
                     )}
                     {item.relatedPromo && (

@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
 import { PaymentGateway } from '../../types/core';
 import { useAuthStore } from '../../store/auth-store';
 import { CreditCard, Activity, RefreshCw, Power } from 'lucide-react';
@@ -20,8 +18,16 @@ export default function AdminPaymentGatewaysPage() {
   const fetchGateways = async () => {
     try {
       setLoading(true);
-      const snap = await getDocs(collection(db, 'paymentGateways'));
-      setGateways(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PaymentGateway)));
+      const token = await user?.getIdToken?.();
+      const res = await fetch('/api/admin/gateways', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setGateways(data.data || []);
+      } else {
+        throw new Error(data.message || 'Failed to fetch gateways');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -32,7 +38,7 @@ export default function AdminPaymentGatewaysPage() {
   const handleToggleStatus = async (gateway: PaymentGateway) => {
     try {
       const newStatus = gateway.status === 'active' ? 'inactive' : 'active';
-      const token = await user?.getIdToken();
+      const token = await user?.getIdToken?.();
       const res = await fetch(`/api/admin/gateways/${gateway.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -48,15 +54,15 @@ export default function AdminPaymentGatewaysPage() {
   const testConnection = async (gateway: PaymentGateway) => {
     try {
       setTestingId(gateway.id || null);
-      const token = await user?.getIdToken();
+      const token = await user?.getIdToken?.();
       
       let endpoint = '';
       if (gateway.code === 'midtrans') {
-        endpoint = '/api/admin/integrations/midtrans/test'; // Use existing Midtrans test endpoint
+        endpoint = '/api/admin/integrations/midtrans/test';
       } else {
         throw new Error('Test connection not implemented for this gateway');
       }
-
+      
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
@@ -92,7 +98,7 @@ export default function AdminPaymentGatewaysPage() {
           ) : error ? (
              <div className="text-center py-10 text-red-500">{error}</div>
           ) : gateways.length === 0 ? (
-             <div className="text-center py-10 text-slate-500">No payment gateways found. Please initialize the database with basic gateways.</div>
+             <div className="text-center py-10 text-slate-500">No payment gateways found.</div>
           ) : (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
                {gateways.map(gateway => (

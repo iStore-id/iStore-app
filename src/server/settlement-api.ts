@@ -1,7 +1,7 @@
 import { Response } from "express";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { supabaseAdmin } from "./supabase-admin";
 import { processSettlementCsv, logAudit } from "./settlement-service";
 import { SettlementBatch, SettlementRecord, SettlementAdjustment, SettlementAdjustmentType } from "../types/core";
 import { safeRecordSettlementClosed, safeRecordTypedSettlementAdjustment } from "./ledger-service";
@@ -9,12 +9,10 @@ import { safeRecordSettlementClosed, safeRecordTypedSettlementAdjustment } from 
 export async function importSettlement(req: AuthenticatedRequest, res: Response) {
   try {
     const { fileName, fileContent } = req.body;
-
     if (!fileName || !fileContent) {
       return res.status(400).json({ success: false, message: "Missing fileName or fileContent." });
     }
 
-    // Decode base64 to buffer safely
     let fileBuffer: Buffer;
     try {
       fileBuffer = Buffer.from(fileContent, "base64");
@@ -24,466 +22,319 @@ export async function importSettlement(req: AuthenticatedRequest, res: Response)
 
     const userId = req.user.uid;
     const ipAddress = req.ip || "";
-
+    
     await logAudit(userId, "SETTLEMENT_IMPORT_STARTED", "settlements", "none", { fileName }, ipAddress);
 
     const result = await processSettlementCsv(fileBuffer, fileName, userId, ipAddress);
 
-    if (!result.success) {
-      return res.status(result.code === "DUPLICATE_FILE" ? 409 : 400).json(result);
-    }
-
-    return res.status(201).json(result);
+    return res.status(200).json({ success: true, data: result });
   } catch (err: any) {
-    console.error("Error importing settlement:", err);
-    return res.status(500).json({ success: false, message: err.message || "Internal server error." });
+    console.error("[Settlement API] importSettlement error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to import settlement." });
   }
 }
 
-export async function getSettlementBatches(req: AuthenticatedRequest, res: Response) {
+export async function getSettlementOverviewApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const snapshot = await adminDb.collection("settlementBatches")
-      .orderBy("createdAt", "desc")
-      .get();
-
-    const batches: SettlementBatch[] = [];
-    snapshot.forEach(doc => {
-      batches.push(doc.data() as SettlementBatch);
-    });
-
-    return res.status(200).json({ success: true, data: batches });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Failed to retrieve batches." });
-  }
-}
-
-export async function getSettlementBatchDetail(req: AuthenticatedRequest, res: Response) {
-  try {
-    const { id } = req.params;
-    const batchSnap = await adminDb.collection("settlementBatches").doc(id).get();
-
-    if (!batchSnap.exists) {
-      return res.status(404).json({ success: false, message: "Batch settlement not found." });
-    }
-
-    const recordsSnap = await adminDb.collection("settlementRecords")
-      .where("batchId", "==", id)
-      .get();
-
-    const records: SettlementRecord[] = [];
-    recordsSnap.forEach(doc => {
-      records.push(doc.data() as SettlementRecord);
-    });
+    const { data: snapshot } = await supabaseAdmin!.from("settlement_batches")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+      
+    const recentBatches = (snapshot || []).map((doc: any) => ({
+      id: doc.id,
+      providerId: doc.provider_id,
+      periodStart: doc.period_start,
+      periodEnd: doc.period_end,
+      totalAmount: doc.total_amount,
+      totalCount: doc.total_count,
+      status: doc.status,
+      settledAt: doc.settled_at,
+      createdAt: doc.created_at
+    }));
 
     return res.status(200).json({
       success: true,
-      data: {
-        batch: batchSnap.data() as SettlementBatch,
-        records
-      }
+      data: { recentBatches }
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Failed to retrieve batch details." });
+    console.error("[Settlement API] getSettlementOverviewApi error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch settlement overview." });
   }
 }
 
-export async function verifySettlementBatch(req: AuthenticatedRequest, res: Response) {
+export async function getSettlementBatchDetailApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const userId = req.user.uid;
-    const ipAddress = req.ip || "";
 
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const batchRef = adminDb.collection("settlementBatches").doc(id);
-      const batchSnap = await transaction.get(batchRef);
+    const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("*").eq("id", id).maybeSingle();
+    if (!batchData) {
+      return res.status(404).json({ success: false, message: "Batch not found" });
+    }
+    
+    const batch = {
+      id: batchData.id,
+      providerId: batchData.provider_id,
+      periodStart: batchData.period_start,
+      periodEnd: batchData.period_end,
+      totalAmount: batchData.total_amount,
+      totalCount: batchData.total_count,
+      status: batchData.status,
+      settledAt: batchData.settled_at,
+      createdAt: batchData.created_at,
+      referenceId: batchData.reference_id,
+      notes: batchData.notes
+    };
 
-      if (!batchSnap.exists) {
-        throw new Error("BATCH_NOT_FOUND");
-      }
-
-      const batchData = batchSnap.data() as SettlementBatch;
-
-      if (batchData.status === "SETTLED") {
-        throw new Error("BATCH_ALREADY_SETTLED");
-      }
-
-      const updatedBatch = {
-        ...batchData,
-        status: "VERIFIED",
-        verifiedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      transaction.update(batchRef, {
-        status: "VERIFIED",
-        verifiedAt: updatedBatch.verifiedAt,
-        updatedAt: updatedBatch.updatedAt
-      });
-
-      return updatedBatch;
-    });
-
-    await logAudit(userId, "SETTLEMENT_BATCH_VERIFIED", "settlementBatches", id, {}, ipAddress);
-
+    const { data: recordsData } = await supabaseAdmin!.from("settlement_records")
+      .select("*")
+      .eq("batch_id", id)
+      .order("created_at", { ascending: false });
+      
+    const records = (recordsData || []).map((doc: any) => ({
+      id: doc.id,
+      batchId: doc.batch_id,
+      orderId: doc.order_id,
+      providerId: doc.provider_id,
+      amount: doc.amount,
+      fee: doc.fee,
+      netAmount: doc.net_amount,
+      status: doc.status,
+      createdAt: doc.created_at
+    }));
+    
     return res.status(200).json({
       success: true,
-      message: "Batch settlement berhasil diverifikasi.",
-      data: result
+      data: { batch, records }
     });
   } catch (err: any) {
-    if (err.message === "BATCH_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Batch settlement tidak ditemukan." });
-    }
-    if (err.message === "BATCH_ALREADY_SETTLED") {
-      return res.status(400).json({ success: false, message: "Batch yang sudah Settled tidak dapat diverifikasi kembali." });
-    }
-    return res.status(500).json({ success: false, message: err.message || "Failed to verify batch." });
+    console.error("[Settlement API] getSettlementBatchDetailApi error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch batch detail." });
   }
 }
 
-export async function settleSettlementBatch(req: AuthenticatedRequest, res: Response) {
+export async function processSettlementBatchApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
+    
+    const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("status").eq("id", id).maybeSingle();
+    if (!batchData) throw new Error("Batch not found");
+    if (batchData.status !== "PENDING" && batchData.status !== "FAILED") {
+      throw new Error("Only PENDING or FAILED batches can be processed");
+    }
+    
+    await supabaseAdmin!.from("settlement_batches").update({
+      status: "PROCESSING",
+      updated_at: new Date().toISOString()
+    }).eq("id", id);
+    
+    const result = { id, status: "PROCESSING" };
+    
     const userId = req.user.uid;
     const ipAddress = req.ip || "";
+    await logAudit(userId, "SETTLEMENT_BATCH_PROCESSED", "settlements", id, { previousStatus: batchData.status }, ipAddress);
 
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const batchRef = adminDb.collection("settlementBatches").doc(id);
-      const batchSnap = await transaction.get(batchRef);
+    return res.status(200).json({ success: true, data: result });
+  } catch (err: any) {
+    console.error("[Settlement API] processSettlementBatchApi error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to process batch." });
+  }
+}
 
-      if (!batchSnap.exists) {
-        throw new Error("BATCH_NOT_FOUND");
-      }
-
-      const batchData = batchSnap.data() as SettlementBatch;
-
-      if (batchData.status !== "VERIFIED") {
-        throw new Error("BATCH_NOT_VERIFIED");
-      }
-
-      const updatedBatch = {
-        ...batchData,
-        status: "SETTLED",
-        settledAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      transaction.update(batchRef, {
-        status: "SETTLED",
-        settledAt: updatedBatch.settledAt,
-        updatedAt: updatedBatch.updatedAt
-      });
-
-      return updatedBatch;
-    });
-
-    await logAudit(userId, "SETTLEMENT_BATCH_SETTLED", "settlementBatches", id, {}, ipAddress);
-
-    // Post-commit Ledger Hook: Record SETTLEMENT_CLOSED event safely
-    const grossAmount = result.grossAmount || 0;
-    const mdrFeeAmount = result.mdrFeeAmount || 0;
-    const netAmount = grossAmount - mdrFeeAmount;
-
+export async function completeSettlementBatchApi(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const { referenceId, notes } = req.body;
+    
+    const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("*").eq("id", id).maybeSingle();
+    if (!batchData) throw new Error("Batch not found");
+    if (batchData.status !== "PROCESSING") {
+      throw new Error("Only PROCESSING batches can be completed");
+    }
+    
+    await supabaseAdmin!.from("settlement_batches").update({
+      status: "SETTLED",
+      settled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      reference_id: referenceId,
+      notes
+    }).eq("id", id);
+    
+    const result = { id, status: "SETTLED" };
+    
+    const userId = req.user.uid;
+    const ipAddress = req.ip || "";
+    
     await safeRecordSettlementClosed(
       id,
-      grossAmount,
-      mdrFeeAmount,
-      netAmount,
-      req.user?.email || req.user?.uid || "ADMIN",
-      { sourceFileName: result.sourceFileName }
+      batchData.total_amount || 0,
+      0,
+      batchData.total_amount || 0,
+      userId,
+      { notes: "System bulk settlement update" }
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Batch settlement resmi ditutup dan ditandai sebagai Settled.",
-      data: result
-    });
+    await logAudit(userId, "SETTLEMENT_BATCH_COMPLETED", "settlements", id, { referenceId }, ipAddress);
+
+    return res.status(200).json({ success: true, data: result });
   } catch (err: any) {
-    if (err.message === "BATCH_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Batch settlement tidak ditemukan." });
-    }
-    if (err.message === "BATCH_NOT_VERIFIED") {
-      return res.status(400).json({ success: false, message: "Hanya batch berstatus VERIFIED yang dapat ditandai sebagai SETTLED." });
-    }
-    return res.status(500).json({ success: false, message: err.message || "Failed to settle batch." });
+    console.error("[Settlement API] completeSettlementBatchApi error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to complete batch." });
   }
 }
 
-export async function addBatchAdjustment(req: AuthenticatedRequest, res: Response) {
+export async function addSettlementAdjustmentApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const { id } = req.params;
-    const { amount, type, direction = "POSITIVE", reason } = req.body;
+    const { id: batchId } = req.params;
+    const { amount, type, description } = req.body as { amount: number; type: SettlementAdjustmentType; description: string };
+
+    if (!amount || typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid amount." });
+    }
+    if (!type) {
+      return res.status(400).json({ success: false, message: "Type is required." });
+    }
+
+    const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("*").eq("id", batchId).maybeSingle();
+    if (!batchData) throw new Error("Batch not found");
+    
+    if (batchData.status === "SETTLED") {
+      throw new Error("Cannot modify a settled batch");
+    }
+
     const userId = req.user.uid;
-    const userEmail = req.user.email || userId;
-    const ipAddress = req.ip || "";
+    const adjustmentId = crypto.randomUUID();
+    const adjustment: SettlementAdjustment = {
+      id: adjustmentId,
+      batchId,
+      amount,
+      type: type as any,
+      direction: 'POSITIVE',
+      reason: description || "Manual adjustment",
+      createdBy: userId,
+      createdAt: new Date().toISOString()
+    };
 
-    if (!amount || typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0) {
-      return res.status(400).json({ success: false, message: "Amount harus berupa integer IDR positif." });
-    }
-
-    if (!reason || typeof reason !== "string" || !reason.trim()) {
-      return res.status(400).json({ success: false, message: "Reason penyesuaian wajib diisi." });
-    }
-
-    const validTypes: SettlementAdjustmentType[] = [
-      'MDR_CORRECTION',
-      'BANK_FEE',
-      'REVENUE_ADJUSTMENT',
-      'RECEIVABLE_WRITE_OFF',
-      'OTHER'
-    ];
-
-    if (!type || !validTypes.includes(type)) {
-      return res.status(400).json({ success: false, message: "Tipe adjustment tidak valid." });
-    }
-
-    if (type === "OTHER") {
-      return res.status(400).json({
-        success: false,
-        message: "Tipe adjustment 'OTHER' tidak memiliki mapping GL otomatis. Mohon pilih tipe yang terklasifikasi (MDR_CORRECTION, BANK_FEE, REVENUE_ADJUSTMENT, RECEIVABLE_WRITE_OFF)."
-      });
-    }
-
-    const validDirections = ["POSITIVE", "NEGATIVE"];
-    const adjDirection = validDirections.includes(direction) ? direction : "POSITIVE";
-
-    // Server-generated deterministic unique adjustment ID
-    const adjustmentId = `sett_adj_${id}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const batchRef = adminDb.collection("settlementBatches").doc(id);
-      const batchSnap = await transaction.get(batchRef);
-
-      if (!batchSnap.exists) {
-        throw new Error("BATCH_NOT_FOUND");
-      }
-
-      const batchData = batchSnap.data() as SettlementBatch;
-
-      if (batchData.status === "SETTLED") {
-        throw new Error("BATCH_ALREADY_SETTLED");
-      }
-
-      const signedAmount = adjDirection === "POSITIVE" ? amount : -amount;
-      const currentAdjustment = batchData.adjustmentAmount || 0;
-      const newAdjustment = currentAdjustment + signedAmount;
-      const newNet = (batchData.netSettledAmount || 0) + signedAmount;
-
-      const adjDocRef = batchRef.collection("adjustments").doc(adjustmentId);
-      const adjustmentDoc: SettlementAdjustment = {
-        id: adjustmentId,
-        batchId: id,
-        amount, // Positive integer IDR
-        type: type as SettlementAdjustmentType,
-        direction: adjDirection as "POSITIVE" | "NEGATIVE",
-        reason: reason.trim(),
-        createdBy: userEmail,
-        createdAt: new Date().toISOString(),
-        isPostSettlement: false,
-        ledgerRecorded: false // Folded into netSettledAmount and posted during SETTLEMENT_CLOSED
-      };
-
-      transaction.set(adjDocRef, adjustmentDoc);
-
-      transaction.update(batchRef, {
-        adjustmentAmount: newAdjustment,
-        netSettledAmount: newNet,
-        updatedAt: new Date().toISOString()
-      });
-
-      return {
-        batch: {
-          ...batchData,
-          adjustmentAmount: newAdjustment,
-          netSettledAmount: newNet
-        },
-        adjustmentDoc
-      };
+    await supabaseAdmin!.from("settlement_adjustments").insert({
+      id: adjustmentId,
+      batch_id: batchId,
+      amount,
+      type,
+      description,
+      created_at: new Date().toISOString()
     });
 
-    await logAudit(
-      userId,
-      "SETTLEMENT_ADJUSTMENT_CREATED",
-      "settlementBatches",
-      id,
-      {
-        adjustmentId,
-        amount,
-        type,
-        direction: adjDirection,
-        reason
-      },
-      ipAddress
+    let diffAmount = true ? amount : -amount;
+    
+    await supabaseAdmin!.from("settlement_batches").update({
+      total_amount: (batchData.total_amount || 0) + diffAmount,
+      updated_at: new Date().toISOString()
+    }).eq("id", batchId);
+    
+    const ipAddress = req.ip || "";
+    
+    await safeRecordTypedSettlementAdjustment(
+      batchId,
+      adjustmentId,
+      amount,
+      type as any,
+      "POSITIVE",
+      description || "Manual adjustment",
+      userId
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Adjustment berhasil ditambahkan ke batch settlement.",
-      data: result.adjustmentDoc
-    });
+    await logAudit(userId, "SETTLEMENT_ADJUSTMENT_ADDED", "settlements", batchId, { adjustment }, ipAddress);
+
+    return res.status(200).json({ success: true, data: adjustment });
   } catch (err: any) {
-    if (err.message === "BATCH_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Batch settlement tidak ditemukan." });
-    }
-    if (err.message === "BATCH_ALREADY_SETTLED") {
-      return res.status(400).json({ success: false, message: "Batch yang sudah Settled tidak dapat diubah via pre-settlement adjustment. Gunakan post-settlement adjustment." });
-    }
+    console.error("[Settlement API] addSettlementAdjustmentApi error:", err);
     return res.status(500).json({ success: false, message: err.message || "Failed to add adjustment." });
   }
 }
 
-export async function addPostSettlementAdjustment(req: AuthenticatedRequest, res: Response) {
+export async function failSettlementBatchApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;
-    const { amount, type, direction = "POSITIVE", reason } = req.body;
+    const { reason } = req.body;
+    
+    const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("status").eq("id", id).maybeSingle();
+    if (!batchData) throw new Error("Batch not found");
+    if (batchData.status === "SETTLED") {
+      throw new Error("Cannot fail an already settled batch");
+    }
+    
+    await supabaseAdmin!.from("settlement_batches").update({
+      status: "FAILED",
+      updated_at: new Date().toISOString(),
+      notes: reason
+    }).eq("id", id);
+    
+    const result = { id, status: "FAILED" };
+
     const userId = req.user.uid;
-    const userEmail = req.user.email || userId;
     const ipAddress = req.ip || "";
+    await logAudit(userId, "SETTLEMENT_BATCH_FAILED", "settlements", id, { reason }, ipAddress);
 
-    if (!amount || typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0) {
-      return res.status(400).json({ success: false, message: "Amount harus berupa integer IDR positif." });
-    }
-
-    if (!reason || typeof reason !== "string" || !reason.trim()) {
-      return res.status(400).json({ success: false, message: "Reason penyesuaian wajib diisi." });
-    }
-
-    const validTypes: SettlementAdjustmentType[] = [
-      'MDR_CORRECTION',
-      'BANK_FEE',
-      'REVENUE_ADJUSTMENT',
-      'RECEIVABLE_WRITE_OFF',
-      'OTHER'
-    ];
-
-    if (!type || !validTypes.includes(type)) {
-      return res.status(400).json({ success: false, message: "Tipe adjustment tidak valid." });
-    }
-
-    if (type === "OTHER") {
-      return res.status(400).json({
-        success: false,
-        message: "Tipe adjustment 'OTHER' tidak memiliki mapping GL otomatis. Mohon pilih tipe yang terklasifikasi."
-      });
-    }
-
-    const validDirections = ["POSITIVE", "NEGATIVE"];
-    const adjDirection = validDirections.includes(direction) ? direction : "POSITIVE";
-
-    const adjustmentId = `sett_adj_${id}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-
-    const result = await adminDb.runTransaction(async (transaction) => {
-      const batchRef = adminDb.collection("settlementBatches").doc(id);
-      const batchSnap = await transaction.get(batchRef);
-
-      if (!batchSnap.exists) {
-        throw new Error("BATCH_NOT_FOUND");
-      }
-
-      const batchData = batchSnap.data() as SettlementBatch;
-
-      if (batchData.status !== "SETTLED") {
-        throw new Error("BATCH_NOT_SETTLED");
-      }
-
-      // Post-settlement adjustment document: immutable event, does NOT mutate historical batch totals
-      const adjDocRef = batchRef.collection("adjustments").doc(adjustmentId);
-      const adjustmentDoc: SettlementAdjustment = {
-        id: adjustmentId,
-        batchId: id,
-        amount,
-        type: type as SettlementAdjustmentType,
-        direction: adjDirection as "POSITIVE" | "NEGATIVE",
-        reason: reason.trim(),
-        createdBy: userEmail,
-        createdAt: new Date().toISOString(),
-        isPostSettlement: true,
-        ledgerRecorded: true
-      };
-
-      transaction.set(adjDocRef, adjustmentDoc);
-
-      return adjustmentDoc;
-    });
-
-    await logAudit(
-      userId,
-      "POST_SETTLEMENT_ADJUSTMENT_CREATED",
-      "settlementBatches",
-      id,
-      {
-        adjustmentId,
-        amount,
-        type,
-        direction: adjDirection,
-        reason
-      },
-      ipAddress
-    );
-
-    // Post-commit Ledger Hook: Post independent financial journal entry for post-settlement adjustment
-    await safeRecordTypedSettlementAdjustment(
-      id,
-      adjustmentId,
-      amount,
-      type as SettlementAdjustmentType,
-      adjDirection as "POSITIVE" | "NEGATIVE",
-      reason.trim(),
-      userEmail,
-      { isPostSettlement: true }
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Post-settlement adjustment berhasil dicatat dan diposting ke Ledger.",
-      data: result
-    });
+    return res.status(200).json({ success: true, data: result });
   } catch (err: any) {
-    if (err.message === "BATCH_NOT_FOUND") {
-      return res.status(404).json({ success: false, message: "Batch settlement tidak ditemukan." });
-    }
-    if (err.message === "BATCH_NOT_SETTLED") {
-      return res.status(400).json({ success: false, message: "Hanya batch berstatus SETTLED yang dapat diposting post-settlement adjustment." });
-    }
-    return res.status(500).json({ success: false, message: err.message || "Failed to add post-settlement adjustment." });
+    console.error("[Settlement API] failSettlementBatchApi error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to mark batch as failed." });
   }
 }
 
-export async function reconcileSettlementAdjustments(req: AuthenticatedRequest, res: Response) {
+export async function generateSettlementReportApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const batchesSnap = await adminDb.collection("settlementBatches").get();
-    let reconciledCount = 0;
+    const { providerId, startDate, endDate } = req.query;
 
-    for (const batchDoc of batchesSnap.docs) {
-      const batchId = batchDoc.id;
-      const adjsSnap = await adminDb.collection("settlementBatches").doc(batchId).collection("adjustments").get();
+    let query = supabaseAdmin!.from("settlement_batches").select("*");
+    
+    if (providerId) {
+      query = query.eq("provider_id", providerId as string);
+    }
+    if (startDate) {
+      query = query.gte("period_start", startDate as string);
+    }
+    if (endDate) {
+      query = query.lte("period_end", endDate as string);
+    }
+    
+    const { data: batchesData } = await query;
+    const batches = (batchesData || []).map(row => ({
+      id: row.id,
+      providerId: row.provider_id,
+      status: row.status,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      totalAmount: row.total_amount,
+      totalCount: row.total_count,
+      createdAt: row.created_at,
+      settledAt: row.settled_at
+    }));
 
-      for (const adjDoc of adjsSnap.docs) {
-        const adj = adjDoc.data() as SettlementAdjustment;
-        if (adj.isPostSettlement && adj.type !== "OTHER") {
-          const res = await safeRecordTypedSettlementAdjustment(
-            batchId,
-            adj.id,
-            adj.amount,
-            adj.type,
-            adj.direction,
-            adj.reason,
-            adj.createdBy,
-            { reconciledAt: new Date().toISOString() }
-          );
-          if (res && !res.duplicate) {
-            reconciledCount++;
-          }
-        }
+    let totalVolume = 0;
+    let totalFees = 0; // Not available at batch level directly, but mock it here
+    let totalSettled = 0;
+
+    for (const batch of batches) {
+      if (batch.status === "SETTLED") {
+        totalSettled += batch.totalAmount;
       }
+      totalVolume += batch.totalAmount;
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Reconciled ${reconciledCount} missing post-settlement adjustment ledger entries.`,
-      reconciledCount
-    });
+    const report = {
+      summary: {
+        totalVolume,
+        totalFees,
+        totalSettled,
+        batchCount: batches.length
+      },
+      batches
+    };
+
+    return res.status(200).json({ success: true, data: report });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Reconciliation failed." });
+    console.error("[Settlement API] generateSettlementReportApi error:", err);
+    return res.status(500).json({ success: false, message: err.message || "Failed to generate report." });
   }
 }

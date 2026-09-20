@@ -1,91 +1,65 @@
-import crypto from "crypto";
-import { adminDb } from "./firebase-admin";
-import { SettlementBatch, SettlementRecord } from "../types/core";
+import { supabaseAdmin } from "./supabase-admin";
+import { OrderRepository } from "./supabase/order-repository";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { SettlementBatch, SettlementRecord, ProcessResult } from "../types/core";
+import * as crypto from "crypto";
 
-// Standalone audit logger helper for settlement
-export async function logAudit(userId: string, action: string, resource: string, resourceId: string, payload: any, ip: string = "") {
-  const auditRef = adminDb.collection("auditLogs").doc();
-  await auditRef.set({
-    id: auditRef.id,
-    adminUid: userId,
-    action,
-    resource,
-    resourceId,
-    payload,
-    ip,
-    createdAt: new Date().toISOString()
+const HEADER_MAPPING = {
+  orderId: ['order_id', 'order id', 'orderid', 'p_order_id', 'reference_id'],
+  grossAmount: ['gross_amount', 'gross amount', 'total_amount', 'amount', 'p_amount'],
+  feeAmount: ['fee_amount', 'fee', 'mdr_fee', 'mdr'],
+  refundAmount: ['refund_amount', 'refund'],
+  netAmount: ['net_amount', 'net'],
+  paymentType: ['payment_type', 'channel', 'method'],
+  settlementTime: ['settlement_time', 'settled_at', 'time']
+};
+
+function parseCSV(text: string): string[][] {
+  const lines = text.split(/\r?\n/);
+  return lines.map(line => {
+    const parts: string[] = [];
+    let currentPart = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        parts.push(currentPart);
+        currentPart = '';
+      } else {
+        currentPart += char;
+      }
+    }
+    parts.push(currentPart);
+    return parts;
   });
 }
 
-// State-machine based robust CSV parser
-export function parseCSV(csvText: string): string[][] {
-  const lines: string[][] = [];
-  let row: string[] = [];
-  let inQuotes = false;
-  let currentField = "";
-
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        currentField += '"';
-        i++; // skip escaped quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === "," && !inQuotes) {
-      row.push(currentField.trim());
-      currentField = "";
-    } else if ((char === "\r" || char === "\n") && !inQuotes) {
-      if (char === "\r" && nextChar === "\n") {
-        i++; // skip LF
-      }
-      row.push(currentField.trim());
-      lines.push(row);
-      row = [];
-      currentField = "";
-    } else {
-      currentField += char;
-    }
-  }
-  if (currentField || row.length > 0) {
-    row.push(currentField.trim());
-    lines.push(row);
-  }
-  return lines.filter(r => r.length > 0 && r.some(field => field !== ""));
+function findIndex(headers: string[], searchTerms: string[]): number {
+  return headers.findIndex(h => {
+    const normalized = h.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    return searchTerms.some(term => normalized.includes(term.replace(/[^a-z0-9]/g, '')));
+  });
 }
 
-const HEADER_MAPPING = {
-  orderId: ["order_id", "order id", "orderid", "payment_reference_number", "payment reference number", "order_number", "order number"],
-  grossAmount: ["gross_amount", "gross amount", "amount", "gross", "gross_amount_idr", "gross amount (idr)"],
-  feeAmount: ["fee", "mdr", "charge", "gateway_fee", "fee_amount", "mdr_amount", "fee amount", "mdr amount"],
-  refundAmount: ["refund", "refund_amount", "refund amount", "refund_amount_idr"],
-  netAmount: ["net", "net_amount", "net amount", "amount_net", "amount (net)", "net amount (idr)"],
-  paymentType: ["payment_type", "payment type", "payment_method", "payment method"],
-  settlementTime: ["settlement_time", "settlement time", "settled_at", "settled at", "transaction_time", "transaction time", "settlement_date", "settlement date", "date"]
-};
-
-function findIndex(headers: string[], keys: string[]): number {
-  return headers.findIndex(h => keys.includes(h.toLowerCase().trim()));
+export async function logAudit(userId: string, action: string, resource: string, resourceId: string, payload: any, ip: string = "") {
+  await supabaseAdmin!.from("audit_logs").insert({
+    actor: userId,
+    action,
+    entity: resource,
+    entity_id: resourceId,
+    details: payload,
+    ip_address: ip,
+    created_at: new Date().toISOString()
+  });
 }
 
-interface ProcessResult {
-  success: boolean;
-  code?: string;
-  message: string;
-  batch?: SettlementBatch;
-  recordsCount?: number;
+export async function processSettlementCsv(fileBuffer: Buffer, fileName: string, processedByUserId: string, ipAddress: string = ""): Promise<ProcessResult> {
+  return processSettlementImport(processedByUserId, fileName, fileBuffer, ipAddress);
 }
 
-export async function processSettlementCsv(
-  fileBuffer: Buffer,
-  fileName: string,
-  processedByUserId: string,
-  ipAddress: string = ""
-): Promise<ProcessResult> {
-  // 1. File validation
+export async function processSettlementImport(processedByUserId: string, fileName: string, fileBuffer: Buffer, ipAddress: string = ""): Promise<ProcessResult> {
   if (fileBuffer.length > 10 * 1024 * 1024) {
     await logAudit(processedByUserId, "SETTLEMENT_IMPORT_REJECTED", "settlements", "none", {
       reason: "FILE_SIZE_LIMIT_EXCEEDED",
@@ -95,16 +69,15 @@ export async function processSettlementCsv(
     return { success: false, code: "FILE_SIZE_EXCEEDED", message: "File size exceeds the 10MB limit." };
   }
 
-  // 2. Hash computation for idempotency
   const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+  
+  const { data: existingBatch } = await supabaseAdmin!
+    .from("settlement_batches")
+    .select("id")
+    .eq("source_file_hash", fileHash)
+    .maybeSingle();
 
-  // Check if this file hash was already imported
-  const existingBatchQuery = await adminDb.collection("settlementBatches")
-    .where("sourceFileHash", "==", fileHash)
-    .limit(1)
-    .get();
-
-  if (!existingBatchQuery.empty) {
+  if (existingBatch) {
     await logAudit(processedByUserId, "SETTLEMENT_DUPLICATE_DETECTED", "settlements", "none", {
       fileName,
       fileHash
@@ -112,10 +85,8 @@ export async function processSettlementCsv(
     return { success: false, code: "DUPLICATE_FILE", message: "This exact settlement report file has already been imported previously." };
   }
 
-  // 3. Parser
   const csvText = fileBuffer.toString("utf-8");
   const rows = parseCSV(csvText);
-
   if (rows.length < 2) {
     return { success: false, code: "MALFORMED_FILE", message: "The CSV file is empty or missing data rows." };
   }
@@ -129,7 +100,6 @@ export async function processSettlementCsv(
   const paymentTypeIdx = findIndex(headers, HEADER_MAPPING.paymentType);
   const settlementTimeIdx = findIndex(headers, HEADER_MAPPING.settlementTime);
 
-  // Core Columns Check
   if (orderIdIdx === -1 || grossAmountIdx === -1) {
     await logAudit(processedByUserId, "SETTLEMENT_IMPORT_REJECTED", "settlements", "none", {
       reason: "CONFIGURATION_REQUIRED",
@@ -143,42 +113,33 @@ export async function processSettlementCsv(
     };
   }
 
-  // Fetch Payment Method Fee Configuration Fallback
-  const feeConfigSnap = await adminDb.collection("systemConfigs").doc("payment_method_fees").get();
-  const fallbackConfig = feeConfigSnap.exists ? feeConfigSnap.data()?.value : null;
-
-  const recordsToInsert: SettlementRecord[] = [];
+  const fallbackConfig = await SystemConfigRepository.getInstance().getConfig("payment_method_fees");
+  const recordsToInsert: any[] = [];
   let totalGross = 0;
   let totalMdr = 0;
   let totalRefund = 0;
   let totalAdjustment = 0;
   let totalNet = 0;
   let isDisputed = false;
-
   const dateStr = new Date().toISOString().split("T")[0];
   const batchId = `sett_batch_${dateStr}_${crypto.randomBytes(4).toString("hex")}`;
 
-  // 4. Match with database
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row[orderIdIdx]) continue; // Skip rows without order ID
-
+    if (!row[orderIdIdx]) continue;
     const orderId = row[orderIdIdx].trim();
     const grossAmount = parseFloat(row[grossAmountIdx].replace(/[^0-9.-]+/g, "")) || 0;
-
+    
     let feeAmount = 0;
-    let isFeeFallbackUsed = false;
     if (feeAmountIdx !== -1 && row[feeAmountIdx]) {
       feeAmount = parseFloat(row[feeAmountIdx].replace(/[^0-9.-]+/g, "")) || 0;
     } else {
-      // Fee Fallback calculation
       const rowPaymentType = paymentTypeIdx !== -1 ? row[paymentTypeIdx].trim().toLowerCase() : "";
-      if (fallbackConfig && fallbackConfig[rowPaymentType]) {
-        const { percentage, flat } = fallbackConfig[rowPaymentType];
+      if (fallbackConfig && (fallbackConfig as any)[rowPaymentType]) {
+        const { percentage, flat } = (fallbackConfig as any)[rowPaymentType];
         feeAmount = (grossAmount * (percentage || 0)) + (flat || 0);
-        isFeeFallbackUsed = true;
       } else {
-        isDisputed = true; // No fee info found anywhere
+        isDisputed = true;
       }
     }
 
@@ -197,74 +158,63 @@ export async function processSettlementCsv(
     const paymentType = paymentTypeIdx !== -1 && row[paymentTypeIdx] ? row[paymentTypeIdx].trim() : "unknown";
     const gatewaySettledAt = settlementTimeIdx !== -1 && row[settlementTimeIdx] ? row[settlementTimeIdx].trim() : new Date().toISOString();
 
-    // Verification step
-    const orderRef = adminDb.collection("orders").doc(orderId);
-    const orderSnap = await orderRef.get();
-
+    const orderData = await OrderRepository.getInstance().getOrderById(orderId);
     let recordStatus = "SUCCESS";
-    let isRecordDisputed = false;
-
-    if (!orderSnap.exists) {
+    
+    if (!orderData) {
       isDisputed = true;
-      isRecordDisputed = true;
       recordStatus = "ORDER_NOT_FOUND";
     } else {
-      const orderData = orderSnap.data();
       const orderPaymentStatus = (orderData?.paymentStatus || "").toLowerCase();
-
       if (orderPaymentStatus !== "paid" && orderPaymentStatus !== "success") {
         isDisputed = true;
-        isRecordDisputed = true;
         recordStatus = "PAYMENT_STATUS_MISMATCH";
       }
 
-      // Check for Succeeded Refunds
-      const refundsQuery = await adminDb.collection("refunds")
-        .where("orderId", "==", orderId)
-        .where("status", "==", "SUCCEEDED")
-        .get();
-
+      const { data: refunds } = await supabaseAdmin!
+        .from("refunds")
+        .select("amount")
+        .eq("order_id", orderId)
+        .eq("status", "SUCCEEDED");
+      
       let fsRefundTotal = 0;
-      refundsQuery.forEach(doc => {
-        fsRefundTotal += doc.data().amount || 0;
-      });
+      refunds?.forEach(r => { fsRefundTotal += r.amount || 0; });
 
-      // Verification of refund consistency
       if (fsRefundTotal !== refundAmount) {
         isDisputed = true;
-        isRecordDisputed = true;
         recordStatus = "REFUND_MISMATCH";
       }
 
-      // Check unique deterministic ID for record duplicates
       const recordRefId = `sett_rec_${orderId}`;
-      const recordSnap = await adminDb.collection("settlementRecords").doc(recordRefId).get();
-      if (recordSnap.exists) {
+      const { data: existingRecord } = await supabaseAdmin!
+        .from("settlement_records")
+        .select("id")
+        .eq("id", recordRefId)
+        .maybeSingle();
+      
+      if (existingRecord) {
         isDisputed = true;
-        isRecordDisputed = true;
         recordStatus = "ALREADY_SETTLED";
       }
     }
 
     const sourceRowHash = crypto.createHash("md5").update(row.join(",")).digest("hex");
-
-    const record: SettlementRecord = {
+    recordsToInsert.push({
       id: `sett_rec_${orderId}`,
-      batchId,
-      orderId,
-      grossAmount,
-      mdrFeeAmount: feeAmount,
-      refundAmount,
-      adjustmentAmount: 0,
-      netAmount,
-      paymentType,
-      gatewayTransactionStatus: recordStatus,
-      gatewaySettledAt,
-      sourceRowHash,
-      createdAt: new Date().toISOString()
-    };
+      batch_id: batchId,
+      order_id: orderId,
+      gross_amount: grossAmount,
+      mdr_fee_amount: feeAmount,
+      refund_amount: refundAmount,
+      adjustment_amount: 0,
+      net_amount: netAmount,
+      payment_type: paymentType,
+      gateway_transaction_status: recordStatus,
+      gateway_settled_at: gatewaySettledAt,
+      source_row_hash: sourceRowHash,
+      created_at: new Date().toISOString()
+    });
 
-    recordsToInsert.push(record);
     totalGross += grossAmount;
     totalMdr += feeAmount;
     totalRefund += refundAmount;
@@ -275,38 +225,36 @@ export async function processSettlementCsv(
     return { success: false, code: "EMPTY_RECORDS", message: "No valid rows found to be imported." };
   }
 
-  // 5. Build and Write atomic transaction
-  const batchDoc: SettlementBatch = {
+  const batchRow = {
     id: batchId,
-    periodDate: dateStr,
-    periodStart: dateStr,
-    periodEnd: dateStr,
-    sourceType: "MIDTRANS_MAP_CSV",
-    sourceFileName: fileName,
-    sourceFileHash: fileHash,
-    grossAmount: totalGross,
-    mdrFeeAmount: totalMdr,
-    refundAmount: totalRefund,
-    adjustmentAmount: totalAdjustment,
-    netSettledAmount: totalNet,
-    orderCount: recordsToInsert.length,
+    period_date: dateStr,
+    period_start: dateStr,
+    period_end: dateStr,
+    source_type: "MIDTRANS_MAP_CSV",
+    source_file_name: fileName,
+    source_file_hash: fileHash,
+    gross_amount: totalGross,
+    mdr_fee_amount: totalMdr,
+    refund_amount: totalRefund,
+    adjustment_amount: totalAdjustment,
+    net_settled_amount: totalNet,
+    order_count: recordsToInsert.length,
     status: isDisputed ? "DISPUTED" : "CALCULATED",
-    idempotencyKey: `sett_batch_key_${fileHash}`,
-    processedBy: processedByUserId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    idempotency_key: `sett_batch_key_${fileHash}`,
+    processed_by: processedByUserId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   };
 
   try {
-    await adminDb.runTransaction(async (transaction) => {
-      const batchRef = adminDb.collection("settlementBatches").doc(batchId);
-      transaction.set(batchRef, batchDoc);
-
-      for (const rec of recordsToInsert) {
-        const recRef = adminDb.collection("settlementRecords").doc(rec.id);
-        transaction.set(recRef, rec);
-      }
-    });
+    await supabaseAdmin!.from("settlement_batches").insert(batchRow);
+    
+    // Chunked insert for records
+    const chunkSize = 100;
+    for (let i = 0; i < recordsToInsert.length; i += chunkSize) {
+      const chunk = recordsToInsert.slice(i, i + chunkSize);
+      await supabaseAdmin!.from("settlement_records").insert(chunk);
+    }
 
     await logAudit(processedByUserId, "SETTLEMENT_BATCH_CREATED", "settlementBatches", batchId, {
       recordCount: recordsToInsert.length,
@@ -317,14 +265,33 @@ export async function processSettlementCsv(
 
     return {
       success: true,
-      batch: batchDoc,
+      batch: {
+        id: batchId,
+        periodDate: dateStr,
+        periodStart: dateStr,
+        periodEnd: dateStr,
+        sourceType: "MIDTRANS_MAP_CSV",
+        sourceFileName: fileName,
+        sourceFileHash: fileHash,
+        grossAmount: totalGross,
+        mdrFeeAmount: totalMdr,
+        refundAmount: totalRefund,
+        adjustmentAmount: totalAdjustment,
+        netSettledAmount: totalNet,
+        orderCount: recordsToInsert.length,
+        status: isDisputed ? "DISPUTED" : "CALCULATED",
+        idempotencyKey: `sett_batch_key_${fileHash}`,
+        processedBy: processedByUserId,
+        createdAt: batchRow.created_at,
+        updatedAt: batchRow.updated_at
+      },
       recordsCount: recordsToInsert.length,
       message: isDisputed
         ? "Batch settlement berhasil ditambahkan sebagai DISPUTED karena terdeteksi ketidakcocokan data."
         : "Batch settlement berhasil diimpor dan divalidasi secara sempurna."
     };
   } catch (err: any) {
-    console.error("Settlement Transaction Fail:", err);
-    return { success: false, code: "TRANSACTION_FAIL", message: `Transaction write failed: ${err.message}` };
+    console.error("Settlement Insert Fail:", err);
+    return { success: false, code: "INSERT_FAIL", message: `Database insert failed: ${err.message}` };
   }
 }

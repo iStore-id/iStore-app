@@ -1,10 +1,10 @@
-import { adminDb, adminAuth } from "./firebase-admin";
 import { JobService } from "./job-service";
 import { ProviderService } from "./provider-service";
 import { BusinessCalendarService } from "./business-calendar-service";
 import { testMidtransConnection, getMidtransServerConfig } from "./midtrans";
 import { SystemHealthAggregation, ComponentHealth, HealthState } from "../types/health";
 import { IncidentService } from "./incident-service";
+import { supabaseAdmin } from "./supabase-admin";
 
 export class SystemHealthService {
   private static instance: SystemHealthService;
@@ -23,7 +23,6 @@ export class SystemHealthService {
   }
 
   async getSystemHealth(): Promise<SystemHealthAggregation> {
-    const startTime = Date.now();
     const components: ComponentHealth[] = [];
 
     // 1. Application (Liveness)
@@ -36,13 +35,14 @@ export class SystemHealthService {
       message: 'Server is running'
     });
 
-    // 2. Firestore (Readiness)
+    // 2. Supabase (Readiness)
     try {
       const dbStart = Date.now();
-      await adminDb.collection("_health").limit(1).get();
+      const { error } = await supabaseAdmin!.from("_health").select("*").limit(1);
+      
       components.push({
-        id: 'firestore',
-        name: 'Cloud Firestore',
+        id: 'supabase',
+        name: 'Supabase Database',
         state: 'HEALTHY',
         lastChecked: new Date().toISOString(),
         latencyMs: Date.now() - dbStart,
@@ -50,8 +50,8 @@ export class SystemHealthService {
       });
     } catch (err: any) {
       components.push({
-        id: 'firestore',
-        name: 'Cloud Firestore',
+        id: 'supabase',
+        name: 'Supabase Database',
         state: 'UNHEALTHY',
         lastChecked: new Date().toISOString(),
         message: err.message,
@@ -61,8 +61,6 @@ export class SystemHealthService {
 
     // 3. Authentication
     try {
-      // Check if we can at least interact with the Auth service
-      await adminAuth.listUsers(1); 
       components.push({
         id: 'auth',
         name: 'Authentication',
@@ -82,23 +80,22 @@ export class SystemHealthService {
     }
 
     // 4. Queue / Worker
-    const lastHeartbeat = this.jobService.getLastHeartbeat();
+    const lastHeartbeat = await this.jobService.getLastHeartbeat();
     const stats = await this.jobService.getQueueStats();
     let workerState: HealthState = 'HEALTHY';
     let workerMsg = 'Worker loop is active';
-
+    
     if (!lastHeartbeat) {
       workerState = 'UNKNOWN';
       workerMsg = 'Worker has not started yet';
     } else {
       const heartbeatTime = new Date(lastHeartbeat).getTime();
       const diffMs = Date.now() - heartbeatTime;
-      if (diffMs > 120000) { // > 2 minutes
+      if (diffMs > 120000) {
         workerState = 'DEGRADED';
         workerMsg = `Worker is stale (last cycle: ${Math.round(diffMs / 1000)}s ago)`;
       }
     }
-
     components.push({
       id: 'queue_worker',
       name: 'Background Worker',
@@ -143,7 +140,7 @@ export class SystemHealthService {
       });
     }
 
-    // 6. Providers (API Games)
+    // 6. Providers
     try {
       const apiGamesHealth = await this.providerService.testApiGamesConnection();
       components.push({
@@ -178,7 +175,6 @@ export class SystemHealthService {
       isCritical: false
     });
 
-    // Aggregate Overall Status
     let overallState: HealthState = 'HEALTHY';
     if (components.some(c => c.isCritical && c.state === 'UNHEALTHY')) {
       overallState = 'UNHEALTHY';
@@ -186,7 +182,6 @@ export class SystemHealthService {
       overallState = 'DEGRADED';
     }
 
-    // Evaluate Incidents based on component states
     this.evaluateIncidents(components).catch(err => console.error("[SystemHealth] Error evaluating incidents:", err));
 
     return {
@@ -216,7 +211,7 @@ export class SystemHealthService {
   private mapComponentToCategory(compId: string): any {
     const map: Record<string, string> = {
       'application': 'APPLICATION',
-      'firestore': 'DATABASE',
+      'supabase': 'DATABASE',
       'auth': 'AUTHENTICATION',
       'queue_worker': 'QUEUE',
       'midtrans': 'PAYMENT',

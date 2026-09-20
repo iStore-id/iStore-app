@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { Stock, ProductVariant } from '../../../types/core';
 import { useAuthStore } from '../../../store/auth-store';
 import { Package, Search, Plus, RefreshCw, AlertCircle } from 'lucide-react';
@@ -28,18 +26,30 @@ export default function StockTab() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const variantsSnap = await getDocs(collection(db, 'productVariants'));
-      const variantsData = variantsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ProductVariant));
+      const token = await (user as any)?.getIdToken?.();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // 1. Fetch variants
+      const variantsRes = await fetch('/api/admin/catalog/variants', { headers });
+      if (!variantsRes.ok) {
+        throw new Error('Failed to fetch variants');
+      }
+      const variantsJson = await variantsRes.json();
+      const variantsData = (variantsJson.data || []) as ProductVariant[];
       setVariants(variantsData);
 
-      const stocksSnap = await getDocs(collection(db, 'stocks'));
-      const stocksData = stocksSnap.docs.map(d => {
-        const data = d.data() as Stock;
-        const v = variantsData.find(v => v.id === data.variantId);
+      // 2. Fetch stocks
+      const stocksRes = await fetch('/api/admin/stocks', { headers });
+      if (!stocksRes.ok) {
+        throw new Error('Failed to fetch stocks');
+      }
+      const stocksJson = await stocksRes.json();
+      const stocksRaw = (stocksJson.data || []) as Stock[];
+
+      const stocksData = stocksRaw.map(s => {
+        const v = variantsData.find(v => v.id === s.variantId);
         return {
-          id: d.id,
-          ...data,
+          ...s,
           variantName: v ? `${v.displayName || v.name} (${v.sku})` : 'Unknown Variant'
         };
       });

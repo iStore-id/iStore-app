@@ -227,12 +227,29 @@ export default function AdminLandingsPage() {
         type: "HERO",
         order: 0,
         data: {
-          title: "Promo Spesial",
-          subtitle: "Dapatkan penawaran top up terbaik hanya di iStore.id",
-          badge: "Event Terbatas",
+          title: "Promo Spesial iStore",
+          subtitle: "Dapatkan promo menarik dan nikmati proses transaksi yang cepat.",
+          badge: "PROMO TERBATAS",
           alignment: "center",
-          ctaText: "Lihat Penawaran",
-          ctaUrl: "#katalog"
+          ctaText: "Belanja Sekarang",
+          ctaUrl: "/"
+        }
+      },
+      {
+        id: `block_${Date.now()}_2`,
+        type: "TEXT",
+        order: 1,
+        data: {
+          content: "Nikmati kemudahan top up game favorit Anda dengan berbagai metode pembayaran dan promo menarik setiap harinya."
+        }
+      },
+      {
+        id: `block_${Date.now()}_3`,
+        type: "CTA",
+        order: 2,
+        data: {
+          text: "Mulai Sekarang",
+          targetUrl: "/"
         }
       }
     ]);
@@ -355,25 +372,51 @@ export default function AdminLandingsPage() {
     try {
       setSaving(true);
       const token = await (user as any)?.getIdToken?.();
+      const validSections = [];
+      for (let i = 0; i < sections.length; i++) {
+        const s = { ...sections[i] };
+        if (!s.type) continue; // Skip truly empty blocks
+        
+        // Basic configuration check
+        if (!s.id) {
+           setFormError(`Blok urutan ${i + 1} tidak memiliki konfigurasi yang valid.`);
+           return;
+        }
+
+        // Sanitize URL fields
+        if (s.data) {
+          if (s.data.ctaUrl !== undefined) {
+             const trimmedCta = s.data.ctaUrl.trim();
+             s.data.ctaUrl = trimmedCta === "" ? undefined : trimmedCta;
+          }
+          if (s.data.targetUrl !== undefined) {
+             const trimmedTarget = s.data.targetUrl.trim();
+             s.data.targetUrl = trimmedTarget === "" ? undefined : trimmedTarget;
+          }
+        }
+
+        validSections.push(s);
+      }
+
       const payload = {
         name,
         title,
         slug,
         description,
-        seoTitle,
-        seoDescription,
-        mediaId,
-        mediaUrl,
-        ctaText,
-        ctaUrl,
-        campaignId,
-        gameId,
-        categoryId,
-        startAt: startAt ? new Date(startAt).toISOString() : "",
-        endAt: endAt ? new Date(endAt).toISOString() : "",
+        seoTitle: seoTitle || undefined,
+        seoDescription: seoDescription || undefined,
+        mediaId: mediaId || undefined,
+        mediaUrl: mediaUrl || undefined,
+        ctaText: ctaText || undefined,
+        ctaUrl: ctaUrl || undefined,
+        campaignId: campaignId || undefined,
+        gameId: gameId || undefined,
+        categoryId: categoryId || undefined,
+        startAt: startAt ? new Date(startAt).toISOString() : undefined,
+        endAt: endAt ? new Date(endAt).toISOString() : undefined,
         enabled,
         published,
-        sections
+        sections: validSections
       };
 
       const url = editingLanding ? `/api/admin/landings/${editingLanding.id}` : "/api/admin/landings";
@@ -802,17 +845,17 @@ export default function AdminLandingsPage() {
             </div>
 
             {/* Modal Tabs */}
-            <div className="flex border-b border-slate-100 bg-slate-50/50 px-6">
+            <div className="flex border-b border-slate-100 bg-slate-50/50 px-6 gap-4">
               <button
                 type="button"
                 onClick={() => setActiveTab("info")}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition ${
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center ${
                   activeTab === "info"
                     ? "border-indigo-600 text-indigo-600"
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
-                1. Informasi & Header
+                1. Informasi Utama
               </button>
               <button
                 type="button"
@@ -823,18 +866,18 @@ export default function AdminLandingsPage() {
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
-                2. Blok Konten ({sections.length})
+                2. Konten Landing Page ({sections.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("schedule")}
-                className={`py-3 px-4 text-xs font-bold border-b-2 transition ${
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition flex items-center ${
                   activeTab === "schedule"
                     ? "border-indigo-600 text-indigo-600"
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
-                3. Jadwal, Publikasi & SEO
+                3. Publikasi, SEO & Referensi
               </button>
             </div>
 
@@ -1373,9 +1416,12 @@ export default function AdminLandingsPage() {
                   </div>
                 )}
 
-                {/* TAB 3: JADWAL & PUBLIKASI */}
+                {/* TAB 3: PUBLIKASI & SEO */}
                 {activeTab === "schedule" && (
-                  <div className="space-y-4">
+                  <div className="space-y-8">
+                    {/* Group 3: Publikasi */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">3. Publikasi</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1430,11 +1476,11 @@ export default function AdminLandingsPage() {
                         </div>
                       </label>
                     </div>
+                  </div> 
 
-                    <div className="pt-4 border-t border-slate-100 space-y-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        SEO Metadata Reference
-                      </h4>
+                    {/* Group 4: SEO & Referensi */}
+                    <div className="space-y-4 pt-6 border-t border-slate-100">
+                      <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">4. SEO & Referensi Katalog</h3>
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">SEO Title Override</label>
                         <input
@@ -1529,7 +1575,7 @@ export default function AdminLandingsPage() {
 
             <div className="p-4 overflow-y-auto flex-1 grid grid-cols-3 sm:grid-cols-4 gap-3">
               {mediaList
-                .filter((m) => m.originalName.toLowerCase().includes(mediaSearch.toLowerCase()))
+                .filter((m) => (m.originalName || (m as any).fileName || (m as any).name || "").toLowerCase().includes((mediaSearch || "").trim().toLowerCase()))
                 .map((item) => (
                   <div
                     key={item.id}

@@ -1,6 +1,6 @@
-import { adminDb } from "./firebase-admin";
 import { logCoreAudit } from "./core-service";
 import { SecuritySettings } from "../types/core";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 
 export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   auth: {
@@ -58,17 +58,17 @@ export async function getSecuritySettings(): Promise<SecuritySettings> {
   }
 
   try {
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "security_settings").limit(1).get();
-    if (snap.empty) {
+    const rawVal = await SystemConfigRepository.getInstance().getConfig("security_settings");
+    if (!rawVal) {
       cachedSecuritySettings = { ...DEFAULT_SECURITY_SETTINGS };
     } else {
-      const data = snap.docs[0].data();
+      const data = rawVal;
       cachedSecuritySettings = {
-        auth: { ...DEFAULT_SECURITY_SETTINGS.auth, ...(data.value?.auth || {}) },
-        rateLimiting: { ...DEFAULT_SECURITY_SETTINGS.rateLimiting, ...(data.value?.rateLimiting || {}) },
-        network: { ...DEFAULT_SECURITY_SETTINGS.network, ...(data.value?.network || {}) },
-        dataProtection: { ...DEFAULT_SECURITY_SETTINGS.dataProtection, ...(data.value?.dataProtection || {}) },
-        emergency: { ...DEFAULT_SECURITY_SETTINGS.emergency, ...(data.value?.emergency || {}) }
+        auth: { ...DEFAULT_SECURITY_SETTINGS.auth, ...(data.value?.auth || data.auth || {}) },
+        rateLimiting: { ...DEFAULT_SECURITY_SETTINGS.rateLimiting, ...(data.value?.rateLimiting || data.rateLimiting || {}) },
+        network: { ...DEFAULT_SECURITY_SETTINGS.network, ...(data.value?.network || data.network || {}) },
+        dataProtection: { ...DEFAULT_SECURITY_SETTINGS.dataProtection, ...(data.value?.dataProtection || data.dataProtection || {}) },
+        emergency: { ...DEFAULT_SECURITY_SETTINGS.emergency, ...(data.value?.emergency || data.emergency || {}) }
       };
     }
     lastCacheRefresh = now;
@@ -94,39 +94,29 @@ export async function updateSecuritySettings(
     emergency: { ...currentSettings.emergency, ...(newSettings.emergency || {}) }
   };
 
-  const snap = await adminDb.collection("systemConfigs").where("key", "==", "security_settings").limit(1).get();
+  const existingRaw = await SystemConfigRepository.getInstance().getConfig("security_settings");
   const nowIso = new Date().toISOString();
 
-  if (snap.empty) {
-    const docRef = adminDb.collection("systemConfigs").doc();
-    const configDoc = {
-      id: docRef.id,
-      key: "security_settings",
-      name: "Security & Access Policies",
-      description: "Pengaturan keamanan otentikasi, rate limit, IP filter, dan data protection",
-      value: mergedSettings,
-      valueType: "structured",
-      scope: "global",
-      status: "active",
-      version: 1,
-      updatedBy: actor.uid,
-      createdAt: nowIso,
-      updatedAt: nowIso
-    };
-    await docRef.set(configDoc);
-    await logCoreAudit(actor, role, "INIT_SECURITY_SETTINGS", `systemConfigs/${docRef.id}`, null, mergedSettings, reason || "Initial setup");
+  const configDoc = {
+    key: "security_settings",
+    name: "Security & Access Policies",
+    description: "Pengaturan keamanan otentikasi, rate limit, IP filter, dan data protection",
+    value: mergedSettings,
+    valueType: "structured",
+    scope: "global",
+    status: "active",
+    version: existingRaw ? ((existingRaw.version || 1) + 1) : 1,
+    updatedBy: actor.uid,
+    createdAt: existingRaw?.createdAt || nowIso,
+    updatedAt: nowIso
+  };
+
+  await SystemConfigRepository.getInstance().upsertConfig("security_settings", configDoc);
+
+  if (!existingRaw) {
+    await logCoreAudit(actor, role, "INIT_SECURITY_SETTINGS", "systemConfigs/security_settings", null, mergedSettings, reason || "Initial setup");
   } else {
-    const docRef = snap.docs[0].ref;
-    const existing = snap.docs[0].data();
-    const updatedDoc = {
-      ...existing,
-      value: mergedSettings,
-      version: (existing.version || 1) + 1,
-      updatedBy: actor.uid,
-      updatedAt: nowIso
-    };
-    await docRef.set(updatedDoc, { merge: true });
-    await logCoreAudit(actor, role, "UPDATE_SECURITY_SETTINGS", `systemConfigs/${docRef.id}`, existing.value, mergedSettings, reason || "Update via Admin Security Panel");
+    await logCoreAudit(actor, role, "UPDATE_SECURITY_SETTINGS", "systemConfigs/security_settings", existingRaw.value || existingRaw, mergedSettings, reason || "Update via Admin Security Panel");
   }
 
   // Invalidate cache immediately

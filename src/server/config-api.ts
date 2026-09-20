@@ -1,16 +1,17 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "./middleware";
-import { adminDb } from "./firebase-admin";
+import { getUserRole } from "./auth-service";
 import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration, getSystemConfiguration, setSystemConfiguration } from "./core-service";
 import { StoreConfiguration } from "../types/core";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 
 export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Response) {
   try {
     const storeConfig = await getStoreConfiguration();
-    const snapshot = await adminDb.collection("systemConfigs").get();
+    const allConfigs = await SystemConfigRepository.getInstance().getAllConfigs();
     
     // Convert systemConfigs to a set of keys for fast lookup
-    const sysKeys = new Set(snapshot.docs.map(doc => doc.data().key));
+    const sysKeys = new Set(allConfigs.map(c => c.key));
 
     // Status Evaluators
     const isStoreConfigured = !!storeConfig && storeConfig.name !== "iStore.id" && storeConfig.name.trim() !== "";
@@ -78,14 +79,34 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
       return res.status(200).json({
         success: true,
         data: {
-          name: "iStore.id",
+          name: "",
           logo: "",
           favicon: "",
           description: "Platform Top Up Game Terpercaya",
           tagline: "Top up game cepat dan aman",
-          primaryColor: "#3b82f6",
-          secondaryColor: "#1d4ed8",
-          brandTextColor: "#1e3a8a",
+          primaryColor: "#ff4400",
+          secondaryColor: "#0f172a",
+          brandTextColor: "#0f172a",
+          backgroundColor: "#f8fafc",
+          surfaceColor: "#ffffff",
+          textColor: "#0f172a",
+          textSecondaryColor: "#64748b",
+          borderColor: "#e2e8f0",
+          accentColor: "#f59e0b",
+          hoverColor: "#e63d00",
+          headerBackgroundColor: "#ffffff",
+          headerTextColor: "#475569",
+          logoStyle: "natural",
+          logoShowName: false,
+          homepageBackgroundColor: "",
+          homepageBackgroundImage: "",
+          homepageBackgroundMode: "color",
+          footerBackgroundColor: "",
+          footerBackgroundImage: "",
+          footerBackgroundMode: "color",
+          borderRadius: "xl",
+          buttonStyle: "solid",
+          themePreference: "system",
           currency: "IDR",
           currencySymbol: "Rp",
           currencyPosition: "prefix",
@@ -105,7 +126,8 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
             whatsapp: "",
             address: ""
           },
-          socialMedia: {}
+          socialMedia: {},
+          catalogMarqueeText: "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."
         }
       });
     }
@@ -113,14 +135,41 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       data: {
-        name: config.name || "iStore.id",
+        name: config.name ?? "",
         logo: config.logo || "",
         favicon: config.favicon || "",
         description: config.description || "",
         tagline: config.basicInformation?.tagline || "",
-        primaryColor: config.primaryColor || "#3b82f6",
-        secondaryColor: config.secondaryColor || "#1d4ed8",
-        brandTextColor: config.brandTextColor || config.primaryColor || "#1e3a8a",
+        catalogMarqueeText: config.catalogMarqueeText?.trim() || "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
+        primaryColor: config.primaryColor || "#ff4400",
+        secondaryColor: config.secondaryColor || "#0f172a",
+        brandTextColor: config.brandTextColor || config.primaryColor || "#0f172a",
+        backgroundColor: config.backgroundColor || "#f8fafc",
+        surfaceColor: config.surfaceColor || "#ffffff",
+        textColor: config.textColor || "#0f172a",
+        textSecondaryColor: config.textSecondaryColor || "#64748b",
+        borderColor: config.borderColor || "#e2e8f0",
+        accentColor: config.accentColor || "#f59e0b",
+        hoverColor: config.hoverColor || "#e63d00",
+        headerBackgroundColor: config.headerBackgroundColor || "#ffffff",
+        headerTextColor: config.headerTextColor || "#475569",
+        logoStyle: config.logoStyle || "natural",
+        logoShowName: config.logoShowName || false,
+        homepageBackgroundColor: config.homepageBackgroundColor || "",
+        homepageBackgroundImage: config.homepageBackgroundImage || "",
+        homepageBackgroundMode: config.homepageBackgroundMode || "color",
+        footerBackgroundColor: config.footerBackgroundColor || "",
+        footerBackgroundImage: config.footerBackgroundImage || "",
+        footerBackgroundMode: config.footerBackgroundMode || "color",
+        transactionCardColor: config.transactionCardColor || "#ffffff",
+        transactionCardOpacity: typeof config.transactionCardOpacity === "number" ? config.transactionCardOpacity : 85,
+        transactionCardBlur: config.transactionCardBlur || "md",
+        headerScrollEffect: config.headerScrollEffect ?? true,
+        logoHoverEffect: config.logoHoverEffect ?? true,
+        navIndicator: config.navIndicator ?? true,
+        borderRadius: config.borderRadius || "xl",
+        buttonStyle: config.buttonStyle || "solid",
+        themePreference: config.themePreference || "system",
         currency: config.currency || "IDR",
         currencySymbol: config.currencySymbol || "Rp",
         currencyPosition: config.currencyPosition || "prefix",
@@ -241,8 +290,7 @@ export async function updateStoreConfig(req: AuthenticatedRequest, res: Response
       }
     }
 
-    const userDoc = await adminDb.collection("users").doc(req.user.uid).get();
-    const role = userDoc.exists ? userDoc.data()?.role : "admin";
+    const role = await getUserRole(req.user.uid, req.user.email);
     const config = await updateStoreConfiguration({uid: req.user.uid, email: req.user.email || ""}, role, updates, "Admin UI Update");
     return res.status(200).json({ success: true, data: config });
   } catch (error: any) {
@@ -252,8 +300,7 @@ export async function updateStoreConfig(req: AuthenticatedRequest, res: Response
 
 export async function getSystemConfigs(req: AuthenticatedRequest, res: Response) {
   try {
-    const snapshot = await adminDb.collection("systemConfigs").get();
-    const configs = snapshot.docs.map(doc => doc.data());
+    const configs = await SystemConfigRepository.getInstance().getAllConfigs();
     return res.status(200).json({ success: true, data: configs });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -271,8 +318,7 @@ export async function updateSystemConfig(req: AuthenticatedRequest, res: Respons
     }
     configData.key = key;
 
-    const userDoc = await adminDb.collection("users").doc(req.user.uid).get();
-    const role = userDoc.exists ? userDoc.data()?.role : "admin";
+    const role = await getUserRole(req.user.uid, req.user.email);
     const config = await setSystemConfiguration({uid: req.user.uid, email: req.user.email || ""}, role, configData);
     return res.status(200).json({ success: true, data: config });
   } catch (error: any) {

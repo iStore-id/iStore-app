@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Truck, 
   Package, 
@@ -24,29 +25,47 @@ import { motion, AnimatePresence } from 'motion/react';
 import ProvidersTab from '../../components/admin/providers/ProvidersTab';
 import ProviderSkusTab from '../../components/admin/providers/ProviderSkusTab';
 import MappingsTab from '../../components/admin/providers/MappingsTab';
-import { db } from '../../lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useAuthStore } from '../../store/auth-store';
 
 const AdminProvidersPage = () => {
-  const [activeTab, setActiveTab] = useState('providers');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'providers';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [addTrigger, setAddTrigger] = useState<{ tab: string; timestamp: number } | null>(null);
 
   const tabs = [
-    { id: 'providers', title: 'Providers', icon: Truck },
-    { id: 'skus', title: 'Provider SKUs', icon: Package },
-    { id: 'mappings', title: 'Mappings', icon: LinkIcon },
-    { id: 'routing', title: 'Routing', icon: GitBranch },
-    { id: 'discovery', title: 'Catalog Discovery', icon: Activity },
+    { id: 'providers', title: 'Supplier', icon: Truck },
+    { id: 'skus', title: 'Produk Supplier', icon: Package },
+    { id: 'mappings', title: 'Hubungan Produk', icon: LinkIcon },
+    { id: 'routing', title: 'Pengaturan Jalur', icon: GitBranch },
+    { id: 'discovery', title: 'Tarik Produk', icon: Activity },
   ];
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['providers', 'skus', 'mappings', 'routing', 'discovery'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', newTab);
+      return next;
+    });
+    setImportSuccessResult(null);
+    setImportError("");
+  };
 
   // Catalog Discovery States
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedSkus, setSelectedSkus] = useState<Record<string, boolean>>({});
-  const [existingSkus, setExistingSkus] = useState<Set<string>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<string>("tokovoucher");
+  const [discoveryMode, setDiscoveryMode] = useState<"brand" | "50" | "100" | "full">("brand");
   
   // Review/Import States
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -61,31 +80,12 @@ const AdminProvidersPage = () => {
     setAddTrigger({ tab: activeTab, timestamp: Date.now() });
   };
 
-  // Fetch DB existing TokoVoucher SKUs to flag them in discovery list
-  const fetchExistingSkus = async () => {
-    try {
-      const q = query(collection(db, 'providerSkus'), where('providerId', '==', 'tokovoucher'));
-      const querySnapshot = await getDocs(q);
-      const skuSet = new Set<string>();
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.providerSku) {
-          skuSet.add(data.providerSku.trim().toLowerCase());
-        }
-      });
-      setExistingSkus(skuSet);
-    } catch (err) {
-      console.error("Failed to fetch existing SKUs:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'discovery') {
-      fetchExistingSkus();
-    }
-  }, [activeTab]);
-
   const handleDiscover = async () => {
+    if (discoveryMode === "brand" && search.trim() === "") {
+      setImportError("Masukkan kode/prefix produk terlebih dahulu. Contoh: ML, FF, PLN.");
+      return;
+    }
+
     setLoading(true);
     setResults([]);
     setSelectedSkus({});
@@ -93,14 +93,32 @@ const AdminProvidersPage = () => {
     setImportError("");
     
     try {
+      const token = await user?.getIdToken();
+      if (!token) {
+        setImportError("Sesi otentikasi tidak ditemukan. Silakan muat ulang halaman atau login kembali.");
+        setLoading(false);
+        return;
+      }
+
       // Query discovery for selected provider
-      const response = await fetch(`/api/admin/providers/catalog-discovery?provider=${selectedProvider}&code=${encodeURIComponent(search)}`);
-      const data = await response.json();
-      if (data.success) {
+      const response = await fetch(`/api/admin/providers/catalog-discovery?provider=${selectedProvider}&code=${encodeURIComponent(search)}&limit=${discoveryMode}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      let data: any = {};
+      try {
+        const text = await response.text();
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        // Handle non-json
+      }
+
+      if (response.ok && data.success) {
         setResults(data.data || []);
-        await fetchExistingSkus(); // Refresh DB list
       } else {
-        setImportError(data.message || `Gagal melakukan discovery dari ${selectedProvider}.`);
+        setImportError(data.message || `Gagal melakukan discovery dari ${selectedProvider} (Status: ${response.status}).`);
       }
     } catch (e: any) {
       setImportError(e.message || "Koneksi ke server terputus.");
@@ -157,15 +175,22 @@ const AdminProvidersPage = () => {
         })
       });
 
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || "Gagal melakukan proses impor.");
+      let responseJson: any = {};
+      try {
+        const text = await response.text();
+        responseJson = text ? JSON.parse(text) : {};
+      } catch (e) {
+        // Handle non-json
       }
 
-      setImportSuccessResult(resData.data);
-      // Clean selections and refresh existing SKUs
+      if (!response.ok) {
+        throw new Error(responseJson.message || `Gagal melakukan proses impor (Status: ${response.status})`);
+      }
+
+      setImportSuccessResult(responseJson.data);
+      
+      // Clean selections
       setSelectedSkus({});
-      await fetchExistingSkus();
     } catch (err: any) {
       setImportError(err.message || "Terjadi kesalahan saat memproses impor.");
     } finally {
@@ -212,12 +237,24 @@ const AdminProvidersPage = () => {
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">Parameter Discovery</label>
                   <div className="flex flex-col md:flex-row gap-3">
+                    <div className="w-full md:w-48">
+                      <select
+                        value={discoveryMode}
+                        onChange={(e) => setDiscoveryMode(e.target.value as any)}
+                        className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-sm font-medium"
+                      >
+                        <option value="brand">Per Brand / Kategori</option>
+                        <option value="50">50 Item</option>
+                        <option value="100">100 Item</option>
+                        <option value="full">Full Catalog</option>
+                      </select>
+                    </div>
                     <div className="relative flex-1">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
                       <input 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder={selectedProvider === 'tokovoucher' ? "Masukkan Product Code (contoh: ML, FF)..." : "Fitur discovery APIGames mungkin terbatas..."}
+                        placeholder={discoveryMode === "brand" ? "WAJIB: Masukkan prefix produk (contoh: ML, FF)..." : "Cari Product Code (opsional)..."}
                         className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                       />
                     </div>
@@ -232,6 +269,13 @@ const AdminProvidersPage = () => {
                   </div>
                 </div>
               </div>
+              
+              {discoveryMode === "full" && (
+                <div className="p-3 bg-amber-50 border border-amber-100 text-amber-800 rounded-lg text-sm flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                  <span><strong>Warning:</strong> Full Catalog berisi 11.000+ item dan tidak melakukan pengecekan duplikat ke database demi menjaga kuota. Gunakan mode ini hanya untuk inspeksi/sinkronisasi bertahap.</span>
+                </div>
+              )}
               
               <div className="flex items-center gap-4 text-xs text-slate-500 bg-white/50 p-2 rounded-lg border border-slate-100">
                 <div className="flex items-center gap-1.5">
@@ -311,7 +355,7 @@ const AdminProvidersPage = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {results.map((item) => {
-                          const isAlreadyExist = existingSkus.has(item.providerSku.trim().toLowerCase());
+                          const isAlreadyExist = item.isExisting === true;
                           return (
                             <tr key={item.providerSku} className="hover:bg-slate-50 transition-colors">
                               <td className="px-5 py-3 text-center">
@@ -335,7 +379,12 @@ const AdminProvidersPage = () => {
                               <td className="px-5 py-3 text-slate-500 font-medium capitalize">{item.metadata?.category || "-"}</td>
                               <td className="px-5 py-3 text-slate-500 font-medium capitalize">{item.metadata?.type || "-"}</td>
                               <td className="px-5 py-3">
-                                {isAlreadyExist ? (
+                                {item.isExisting === null ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                    <Info className="w-3 h-3 shrink-0" />
+                                    <span>UNCHECKED</span>
+                                  </span>
+                                ) : item.isExisting === true ? (
                                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                     <AlertTriangle className="w-3 h-3 shrink-0" />
                                     <span>EXISTING IN DB</span>
@@ -377,8 +426,12 @@ const AdminProvidersPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Provider & Routing Engine</h1>
-          <p className="text-slate-500 text-sm">Manajemen koneksi supplier, pemetaan SKU, dan kebijakan routing otomatis.</p>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Provider & Integrasi Supplier
+          </h1>
+          <p className="text-slate-500 text-sm">
+            Manajemen koneksi supplier, pemetaan SKU, dan kebijakan routing otomatis.
+          </p>
         </div>
         {['skus', 'mappings'].includes(activeTab) && (
           <button 
@@ -396,11 +449,7 @@ const AdminProvidersPage = () => {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setImportSuccessResult(null);
-              setImportError("");
-            }}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-all whitespace-nowrap text-sm ${
               activeTab === tab.id 
                 ? 'border-blue-600 text-blue-600 font-bold' 
@@ -423,8 +472,8 @@ const AdminProvidersPage = () => {
             transition={{ duration: 0.2 }}
             className="p-6"
           >
-            {/* Filter Bar (Only for tables except routing policy and discovery page) */}
-            {!['routing', 'discovery'].includes(activeTab) && (
+            {/* Filter Bar (Only for tables except routing policy, discovery page, and mappings) */}
+            {!['routing', 'discovery', 'mappings'].includes(activeTab) && (
               <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -597,7 +646,7 @@ const AdminProvidersPage = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {selectedItems.map((item) => {
-                            const isAlreadyExist = existingSkus.has(item.providerSku.trim().toLowerCase());
+                            const isAlreadyExist = item.isExisting === true;
                             return (
                               <tr key={item.providerSku} className="hover:bg-slate-50/50">
                                 <td className="px-4 py-2 font-mono font-bold text-slate-800">{item.providerSku}</td>

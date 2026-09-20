@@ -34,8 +34,22 @@ export default function AdminPricingRulesPage() {
     fetchRules();
   }, []);
 
+  const [saving, setSaving] = useState(false);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const handleSaveRule = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (saving) return;
+
+    setSaving(true);
+    setNotification(null);
     const formData = new FormData(e.currentTarget);
     const idToken = await user?.getIdToken();
     
@@ -45,7 +59,7 @@ export default function AdminPricingRulesPage() {
       value: parseFloat(formData.get("value") as string) || 0,
       scope: formData.get("scope") as any,
       scopeId: formData.get("scopeId") as string || null,
-      priority: parseInt(formData.get("priority") as string) || 0,
+      priority: parseInt(formData.get("priority") as string) || 1,
       status: formData.get("status") as any,
       effectiveFrom: formData.get("effectiveFrom") as string || null,
       effectiveUntil: formData.get("effectiveUntil") as string || null,
@@ -62,20 +76,40 @@ export default function AdminPricingRulesPage() {
       });
 
       const result = await res.json();
-      if (result.success) {
+      
+      if (res.ok && result.success) {
+        const isRuleActive = ruleData.status === 'active';
+        setNotification({
+          message: isRuleActive ? "✓ Aturan harga berhasil disimpan dan diterapkan." : "✓ Aturan harga berhasil disimpan.",
+          type: 'success'
+        });
         setIsModalOpen(false);
         setEditingRule(null);
         fetchRules();
       } else {
-        alert(result.message);
+        setNotification({
+          message: `✕ Gagal menyimpan aturan harga. ${result.message || "Terjadi kesalahan."}`,
+          type: 'error'
+        });
       }
     } catch (err) {
       console.error("Error saving rule:", err);
+      setNotification({
+        message: "✕ Gagal menyimpan aturan harga. Periksa koneksi dan coba lagi.",
+        type: 'error'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="space-y-6">
+      {notification && (
+        <div className={`fixed top-4 right-4 z-[60] px-6 py-4 rounded-xl shadow-lg border ${notification.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'}`}>
+          {notification.message}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Pricing Rules</h1>
@@ -218,7 +252,7 @@ export default function AdminPricingRulesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700">Prioritas</label>
-                    <input name="priority" type="number" defaultValue={editingRule?.priority || 0} className="w-full px-4 py-2.5 rounded-xl border border-slate-200" />
+                    <input name="priority" type="number" defaultValue={editingRule?.priority || 1} className="w-full px-4 py-2.5 rounded-xl border border-slate-200" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-slate-700">Status</label>
@@ -242,7 +276,7 @@ export default function AdminPricingRulesPage() {
 
                 <div className="pt-4 flex gap-3">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold">Batal</button>
-                  <button type="submit" className="flex-1 px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold">Simpan Aturan</button>
+                  <button type="submit" disabled={saving} className="flex-1 px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold disabled:opacity-50">{saving ? "Menyimpan..." : "Simpan Aturan"}</button>
                 </div>
               </form>
             </motion.div>

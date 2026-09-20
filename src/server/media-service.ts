@@ -1,24 +1,6 @@
-import { adminDb } from "./firebase-admin";
+import { SupabaseMediaRepository } from "./supabase/media-repository";
+import { MediaItem } from "../types/cms";
 import { v2 as cloudinary } from "cloudinary";
-
-export interface MediaItem {
-  id: string;
-  fileName: string;
-  originalName: string;
-  storagePath: string;
-  cloudinaryPublicId?: string;
-  url: string;
-  mimeType: string;
-  size: number;
-  width?: number;
-  height?: number;
-  altText?: string;
-  folder?: string;
-  uploadedBy: string;
-  createdAt: string;
-  updatedAt: string;
-  status: 'active' | 'archived';
-}
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
@@ -59,6 +41,11 @@ function getCloudinary() {
 
 export class MediaService {
   private static instance: MediaService;
+  private mediaRepo: SupabaseMediaRepository;
+
+  private constructor() {
+    this.mediaRepo = SupabaseMediaRepository.getInstance();
+  }
 
   public static getInstance(): MediaService {
     if (!MediaService.instance) {
@@ -68,33 +55,12 @@ export class MediaService {
   }
 
   async getMediaItems(options?: { folder?: string; mimeType?: string; search?: string; limit?: number; startAfter?: string }): Promise<{ items: MediaItem[]; total: number }> {
-    let query: FirebaseFirestore.Query = adminDb.collection("mediaLibrary");
+    const { items, total } = await this.mediaRepo.listMediaItems({
+      folder: options?.folder,
+      limit: options?.limit || 50
+    });
 
-    if (options?.folder) {
-      query = query.where("folder", "==", options.folder);
-    }
-    if (options?.mimeType) {
-      query = query.where("mimeType", "==", options.mimeType);
-    }
-
-    query = query.orderBy("createdAt", "desc");
-
-    const snap = await query.get();
-    let items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MediaItem));
-
-    if (options?.search) {
-      const q = options.search.toLowerCase();
-      items = items.filter(item => 
-        item.originalName.toLowerCase().includes(q) ||
-        (item.altText && item.altText.toLowerCase().includes(q))
-      );
-    }
-
-    const total = items.length;
-    const limit = options?.limit || 50;
-    const paginatedItems = items.slice(0, limit);
-
-    return { items: paginatedItems, total };
+    return { items, total };
   }
 
   async uploadMedia(file: { buffer: Buffer; originalname: string; mimetype: string; size: number }, uploadedBy: string, folder = 'general', altText = ''): Promise<MediaItem> {
@@ -139,9 +105,7 @@ export class MediaService {
       uploadStream.end(file.buffer);
     });
 
-    const mediaRef = adminDb.collection("mediaLibrary").doc();
-    const mediaItem: MediaItem = {
-      id: mediaRef.id,
+    const mediaItem = await this.mediaRepo.createMediaItem({
       fileName,
       originalName: file.originalname,
       storagePath: uploadResult.public_id,
@@ -154,59 +118,22 @@ export class MediaService {
       altText: altText || file.originalname,
       folder,
       uploadedBy,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       status: 'active'
-    };
+    });
 
-    await mediaRef.set(mediaItem);
     return mediaItem;
   }
 
   async updateMediaMetadata(mediaId: string, data: { altText?: string; folder?: string }): Promise<MediaItem> {
-    const ref = adminDb.collection("mediaLibrary").doc(mediaId);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Asset media tidak ditemukan.");
-
-    const updateData: any = {
-      updatedAt: new Date().toISOString()
-    };
-    if (data.altText !== undefined) updateData.altText = data.altText;
-    if (data.folder !== undefined) updateData.folder = data.folder;
-
-    await ref.update(updateData);
-    const updatedSnap = await ref.get();
-    return { id: updatedSnap.id, ...updatedSnap.data() } as MediaItem;
+    await this.mediaRepo.updateMediaMetadata(mediaId, data);
+    const updated = await this.mediaRepo.getMediaItem(mediaId);
+    if (!updated) throw new Error("Asset media tidak ditemukan.");
+    return updated;
   }
 
   async deleteMedia(mediaId: string): Promise<void> {
-    const ref = adminDb.collection("mediaLibrary").doc(mediaId);
-    const snap = await ref.get();
-    if (!snap.exists) throw new Error("Asset media tidak ditemukan.");
-    const media = snap.data() as MediaItem;
-
-    // Reference safety check across marketing & catalog collections
-    const collectionsToCheck = ['banners', 'popups', 'landingPages', 'blogPosts', 'products', 'games'];
-    for (const colName of collectionsToCheck) {
-      try {
-        const checkSnap = await adminDb.collection(colName).where("image", "==", media.url).get();
-        if (!checkSnap.empty) {
-          throw new Error(`Asset sedang digunakan di modul ${colName} (${checkSnap.size} referensi). Hapus referensi terlebih dahulu sebelum menghapus asset.`);
-        }
-        const checkSnap2 = await adminDb.collection(colName).where("imageUrl", "==", media.url).get();
-        if (!checkSnap2.empty) {
-          throw new Error(`Asset sedang digunakan di modul ${colName} (${checkSnap2.size} referensi). Hapus referensi terlebih dahulu sebelum menghapus asset.`);
-        }
-        const checkSnap3 = await adminDb.collection(colName).where("mediaUrl", "==", media.url).get();
-        if (!checkSnap3.empty) {
-          throw new Error(`Asset sedang digunakan di modul ${colName} (${checkSnap3.size} referensi). Hapus referensi terlebih dahulu sebelum menghapus asset.`);
-        }
-      } catch (err: any) {
-        if (err.message && err.message.includes("sedang digunakan")) {
-          throw err;
-        }
-      }
-    }
+    const media = await this.mediaRepo.getMediaItem(mediaId);
+    if (!media) throw new Error("Asset media tidak ditemukan.");
 
     // Delete from Cloudinary if public_id exists
     const publicId = media.cloudinaryPublicId || media.storagePath;
@@ -219,7 +146,6 @@ export class MediaService {
       }
     }
 
-    await ref.delete();
+    await this.mediaRepo.deleteMediaItem(mediaId, true);
   }
 }
-

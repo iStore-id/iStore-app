@@ -92,6 +92,11 @@ export default function AdminTokoVoucherIntegrationPage() {
   };
 
   const handleTestConnection = async () => {
+    if (!configured) {
+      setError("Konfigurasi TokoVoucher belum disimpan ke basis data. Silakan klik 'Simpan Konfigurasi' terlebih dahulu sebelum melakukan Test Connection.");
+      return;
+    }
+
     setTesting(true);
     setError(null);
     setSuccessMsg(null);
@@ -314,7 +319,8 @@ export default function AdminTokoVoucherIntegrationPage() {
             <button
               type="button"
               onClick={handleTestConnection}
-              disabled={testing || !configured}
+              disabled={testing}
+              title={!configured ? "Konfigurasi TokoVoucher belum disimpan. Klik untuk petunjuk." : "Uji koneksi ke API TokoVoucher"}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 text-purple-600" />}

@@ -33,13 +33,13 @@ export default function TransactionCheckPage() {
               value={invoice}
               onChange={(e) => setInvoice(e.target.value)}
               placeholder="Contoh: INV-123456789"
-              className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700"
+              className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-slate-700"
             />
           </div>
           <button 
             type="submit"
             disabled={loading}
-            className="bg-blue-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-70 whitespace-nowrap"
+            className="bg-brand-600 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-700 transition-colors disabled:opacity-70 whitespace-nowrap"
           >
             {loading ? "Mencari..." : "Lacak Pesanan"}
           </button>

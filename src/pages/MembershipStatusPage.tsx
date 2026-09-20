@@ -56,7 +56,7 @@ export default function MembershipStatusPage() {
   if (authLoading || (loading && user)) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-primary rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-brand-200 border-t-primary rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -65,9 +65,9 @@ export default function MembershipStatusPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <Crown className="w-16 h-16 text-gray-200 mx-auto mb-6" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Membership VIP iStore</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Membership VIP Toko</h1>
         <p className="text-gray-500 mb-8 max-w-md mx-auto">Masuk untuk melihat status keanggotaan Anda dan menikmati berbagai keuntungan eksklusif.</p>
-        <Link to="/login" className="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-blue-700 transition-all shadow-lg shadow-indigo-200">
+        <Link to="/login" className="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200">
           Login Sekarang
         </Link>
       </div>
@@ -87,20 +87,20 @@ export default function MembershipStatusPage() {
         <motion.div 
           initial={{ scale: 0.98, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-gradient-to-br from-primary to-indigo-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden"
+          className="bg-gradient-to-br from-primary to-brand-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden"
         >
           {/* Decorative Background */}
           <div className="absolute top-0 right-0 -mt-20 -mr-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-indigo-400/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-64 h-64 bg-brand-400/20 rounded-full blur-3xl"></div>
 
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full w-fit backdrop-blur-sm">
-                <ShieldCheck className="w-4 h-4 text-indigo-200" />
-                <span className="text-xs font-bold uppercase tracking-widest text-indigo-100">Member Aktif</span>
+                <ShieldCheck className="w-4 h-4 text-brand-200" />
+                <span className="text-xs font-bold uppercase tracking-widest text-brand-100">Member Aktif</span>
               </div>
               <h2 className="text-4xl font-black">{membership.metadata?.planName}</h2>
-              <div className="flex flex-wrap gap-6 text-sm text-indigo-100">
+              <div className="flex flex-wrap gap-6 text-sm text-brand-100">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   <span>Berlaku hingga: <b>{membership.expiryDate ? new Date(membership.expiryDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Selamanya'}</b></span>
@@ -110,11 +110,11 @@ export default function MembershipStatusPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/10">
-                <p className="text-[10px] uppercase font-bold text-indigo-200 mb-1">Point Multiplier</p>
+                <p className="text-[10px] uppercase font-bold text-brand-200 mb-1">Point Multiplier</p>
                 <p className="text-2xl font-black">{membership.metadata?.pointMultiplier}x</p>
               </div>
               <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/10">
-                <p className="text-[10px] uppercase font-bold text-indigo-200 mb-1">Special Discount</p>
+                <p className="text-[10px] uppercase font-bold text-brand-200 mb-1">Special Discount</p>
                 <p className="text-2xl font-black">{membership.metadata?.discountRate}%</p>
               </div>
             </div>
@@ -127,7 +127,7 @@ export default function MembershipStatusPage() {
           </div>
           <div className="space-y-2">
             <h3 className="text-xl font-bold text-gray-900">Anda belum memiliki Membership aktif</h3>
-            <p className="text-gray-500 max-w-sm mx-auto text-sm">Pilih plan di bawah ini untuk mengaktifkan berbagai benefit eksklusif dari iStore.</p>
+            <p className="text-gray-500 max-w-sm mx-auto text-sm">Pilih plan di bawah ini untuk mengaktifkan berbagai benefit eksklusif dari Toko.</p>
           </div>
         </div>
       )}
@@ -170,7 +170,7 @@ export default function MembershipStatusPage() {
                 className={`w-full py-4 rounded-2xl font-bold text-center transition-all flex items-center justify-center gap-2 ${
                   membership?.planId === plan.id 
                     ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : 'bg-primary text-white hover:bg-blue-700 group-hover:scale-[1.02]'
+                    : 'bg-primary text-white hover:bg-brand-700 group-hover:scale-[1.02]'
                 }`}
               >
                 {membership?.planId === plan.id ? 'Plan Aktif' : 'Pilih Plan'}
@@ -187,7 +187,7 @@ export default function MembershipStatusPage() {
 const BenefitItem: React.FC<{ icon: any, text: string }> = ({ icon: Icon, text }) => {
   return (
     <li className="flex items-start gap-3">
-      <div className="p-1 bg-blue-50 rounded-lg shrink-0 mt-0.5">
+      <div className="p-1 bg-brand-50 rounded-lg shrink-0 mt-0.5">
         <Icon className="w-3.5 h-3.5 text-primary" />
       </div>
       <span className="text-sm text-gray-600">{text}</span>

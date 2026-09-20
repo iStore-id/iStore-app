@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { PageMetadataInput, PublicSEOSettings } from "../types/seo";
 
 export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
-  siteName: "iStore.id",
+  siteName: "",
   titleSeparator: " | ",
-  defaultTitle: "iStore.id - Solusi Top Up Game & Voucher Digital Terpercaya",
+  defaultTitle: " - Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
   defaultKeywords: [
     "top up game",
@@ -16,7 +16,7 @@ export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
   canonicalBaseUrl: "",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
+    altText: " - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
@@ -191,7 +191,7 @@ export function useSEO(metadata: PageMetadataInput) {
   }, []);
 
   useEffect(() => {
-    const siteName = globalSettings.siteName || "iStore.id";
+    const siteName = globalSettings.siteName || "";
     const separator = globalSettings.titleSeparator || " | ";
 
     // 1. Resolve Title

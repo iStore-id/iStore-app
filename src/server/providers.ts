@@ -1,3 +1,5 @@
+import * as crypto from "crypto";
+
 export interface ProviderAdapter {
   createTransaction(order: any): Promise<{ success: boolean; reference?: string; message?: string }>;
   checkTransaction(reference: string): Promise<{ status: string; message?: string; serialNumber?: string }>;
@@ -13,7 +15,6 @@ export class ApiGamesProvider implements ProviderAdapter {
   }
 
   private generateSignature(merchantId: string, secret: string, refId: string) {
-    const crypto = require("crypto");
     // Format: md5(merchant_id:secret_key:ref_id)
     return crypto.createHash("md5").update(`${merchantId}:${secret}:${refId}`).digest("hex");
   }
@@ -66,7 +67,7 @@ export class ApiGamesProvider implements ProviderAdapter {
       const data = await response.json();
       
       if (data.data?.status === "Sukses") {
-         return { status: "success", serialNumber: data.data?.sn || "SN-FOUND" };
+         return { status: "success", serialNumber: data.data?.sn || undefined };
       } else if (data.data?.status === "Gagal") {
          return { status: "failed", message: data.data?.sn };
       }
@@ -75,22 +76,53 @@ export class ApiGamesProvider implements ProviderAdapter {
        return { status: "processing", message: error.message };
     }
   }
+
+  async checkUsername(gameCode: string, userId: string, zoneId?: string): Promise<{ isValid: boolean; username: string | null; message?: string }> {
+    const { merchantId, secret } = await this.getCredentials();
+    if (!merchantId || !secret) {
+      return { isValid: false, username: null, message: "API Games credentials not configured." };
+    }
+
+    try {
+      // Signature inquiry format according to APIGames official docs: md5(merchant_id + secret_key)
+      const signature = crypto.createHash("md5").update(`${merchantId}${secret}`).digest("hex");
+      let url = `https://v1.apigames.id/merchant/${merchantId}/cek-username/${gameCode}?user_id=${encodeURIComponent(userId)}&signature=${signature}`;
+      if (zoneId) {
+        url += `&zone_id=${encodeURIComponent(zoneId)}`;
+      }
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      const responseData = data.data || data;
+      const isValid = Boolean(responseData.is_valid === true || responseData.is_valid === "true" || responseData.status === 1 || data.status === 1);
+      const username = responseData.username || responseData.nama || null;
+
+      return {
+        isValid,
+        username: isValid && username ? String(username) : null,
+        message: isValid ? "Akun ditemukan" : (data.error_msg || "Akun tidak ditemukan / ID tidak valid")
+      };
+    } catch (error: any) {
+      console.error("[APIGames Inquiry Error]", error);
+      return { isValid: false, username: null, message: error.message || "Gagal melakukan inquiry akun" };
+    }
+  }
 }
 
-import { adminDb } from "./firebase-admin";
+import { SystemConfigRepository } from "./supabase/system-config-repository";
 import { decryptSecret } from "./midtrans";
-import crypto from "crypto";
 
 export async function getApiGamesServerConfig() {
   try {
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "apigames_integration").limit(1).get();
-    if (!snap.empty) {
-      const data = snap.docs[0].data();
-      const encryptedMerchantId = data.encryptedMerchantId || "";
-      const encryptedSecretKey = data.encryptedSecretKey || "";
+    const repo = SystemConfigRepository.getInstance();
+    const config = await repo.getApiGamesConfig();
+    if (config) {
+      const encryptedMerchantId = config.encryptedMerchantId || "";
+      const encryptedSecretKey = config.encryptedSecretKey || "";
       
-      const merchantId = encryptedMerchantId ? decryptSecret(encryptedMerchantId) : (process.env.APIGAMES_MERCHANT_ID || "");
-      const secret = encryptedSecretKey ? decryptSecret(encryptedSecretKey) : (process.env.APIGAMES_SECRET || "");
+      const merchantId = encryptedMerchantId ? decryptSecret(encryptedMerchantId) : (config.merchantId || process.env.APIGAMES_MERCHANT_ID || "");
+      const secret = encryptedSecretKey ? decryptSecret(encryptedSecretKey) : (config.secretKey || process.env.APIGAMES_SECRET || "");
       
       if (merchantId) process.env.APIGAMES_MERCHANT_ID = merchantId;
       if (secret) process.env.APIGAMES_SECRET = secret;
@@ -109,13 +141,13 @@ export async function getApiGamesServerConfig() {
 
 export async function getTokoVoucherServerConfig() {
   try {
-    const snap = await adminDb.collection("systemConfigs").where("key", "==", "tokovoucher_integration").limit(1).get();
-    if (!snap.empty) {
-      const data = snap.docs[0].data();
-      const memberCode = data.memberCode || process.env.TOKOVOUCHER_MEMBER_CODE || "";
-      const encryptedKey = data.encryptedSecretKey || "";
+    const repo = SystemConfigRepository.getInstance();
+    const config = await repo.getTokoVoucherConfig();
+    if (config) {
+      const memberCode = config.memberCode || process.env.TOKOVOUCHER_MEMBER_CODE || "";
+      const encryptedKey = config.encryptedSecretKey || "";
       const secret = encryptedKey ? decryptSecret(encryptedKey) : (process.env.TOKOVOUCHER_SECRET || "");
-      const isEnabled = data.isEnabled !== undefined ? data.isEnabled : true;
+      const isEnabled = config.isEnabled !== undefined ? config.isEnabled : true;
       
       if (memberCode) process.env.TOKOVOUCHER_MEMBER_CODE = memberCode;
       if (secret) process.env.TOKOVOUCHER_SECRET = secret;
@@ -236,8 +268,13 @@ export class TokoVoucherProvider implements ProviderAdapter {
       
       return { success: true, reference: data.trx_id || `TV-${order.id}` };
     } catch (error: any) {
-      console.error("[TokoVoucher Error]", error);
-      return { success: true, message: error.message, reference: `TV-PENDING-${order.id}` };
+      console.error("[TokoVoucher Error]", error?.message || error);
+      return { 
+        success: false, 
+        status: "pending", 
+        message: `Network error or timeout calling TokoVoucher: ${error?.message || "Unknown error"}`, 
+        reference: `TV-PENDING-${order.id}` 
+      };
     }
   }
 
@@ -252,14 +289,22 @@ export class TokoVoucherProvider implements ProviderAdapter {
       const response = await fetch(`https://api.tokovoucher.net/v1/transaksi/status?ref_id=${refId}&member_code=${memberCode}&signature=${signature}`);
       const data = await response.json();
       
-      if (data.status === "Sukses" || data.status === 1 || data.data?.status === "Sukses") {
-         return { status: "success", serialNumber: data.sn || data.data?.sn || "SN-FOUND" };
-      } else if (data.status === "Gagal" || data.status === 2 || data.data?.status === "Gagal") {
-         return { status: "failed", message: data.sn || data.data?.sn };
+      // Extract status safely avoiding falsy '0' JS coercion issues
+      const rawStatus = data?.status !== undefined ? data.status : (data?.data?.status !== undefined ? data.data.status : (data?.code !== undefined ? data.code : ""));
+      const statusStr = String(rawStatus).toLowerCase().trim();
+      const sn = data?.sn || data?.data?.sn || data?.catatan || data?.data?.catatan || "";
+
+      if (statusStr === "1" || statusStr === "sukses" || statusStr === "success") {
+         return { status: "success", serialNumber: sn || undefined };
+      } else if (statusStr === "2" || statusStr === "gagal" || statusStr === "failed") {
+         return { status: "failed", message: sn || data?.message || data?.data?.message || "Transaction failed" };
+      } else if (statusStr === "0" || statusStr === "pending" || statusStr === "proses" || statusStr === "processing") {
+         return { status: "processing" };
       }
+      
       return { status: "processing" };
     } catch (error: any) {
-       return { status: "processing", message: error.message };
+       return { status: "processing", message: error?.message || "Network error checking status" };
     }
   }
 }

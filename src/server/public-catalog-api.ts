@@ -1,14 +1,31 @@
 import { Request, Response } from "express";
-import { CatalogService } from "./catalog-service";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { DynamicCatalogService } from "./dynamic-catalog-service";
 import { FlashSaleService } from "./flash-sale-service";
 
-const catalogService = CatalogService.getInstance();
+const supabaseCatalogRepo = SupabaseCatalogRepository.getInstance();
+const dynamicCatalogService = DynamicCatalogService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
 
 export async function getPublicGames(req: Request, res: Response) {
   try {
-    const games = await catalogService.getPublicGames();
-    return res.status(200).json({ success: true, data: games });
+    const games = await dynamicCatalogService.getMergedGames(true);
+    const sanitizedGames = games.map((game) => ({
+      id: game.id,
+      name: game.name,
+      slug: game.slug,
+      description: game.description,
+      image: game.image,
+      icon: game.icon,
+      categoryIds: game.categoryIds,
+      labels: game.labels,
+      status: game.status,
+      availability: game.availability,
+      sortOrder: game.sortOrder,
+      minPrice: game.minPrice,
+      maxPrice: game.maxPrice
+    }));
+    return res.status(200).json({ success: true, data: sanitizedGames });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -17,18 +34,49 @@ export async function getPublicGames(req: Request, res: Response) {
 export async function getPublicGameDetail(req: Request, res: Response) {
   try {
     const { slug } = req.params;
-    const game = await catalogService.getPublicGameBySlug(slug);
-    if (!game) {
+    const merged = await dynamicCatalogService.getMergedGameDetail(slug);
+    
+    if (!merged || merged.game.status !== "active") {
       return res.status(404).json({ success: false, message: "Game not found" });
     }
 
-    const products = await catalogService.getPublicProductsByGameId(game.id!);
+    const { game, products } = merged;
+
+    const sanitizedGame = {
+      id: game.id,
+      name: game.name,
+      slug: game.slug,
+      description: game.description,
+      image: game.image,
+      icon: game.icon,
+      categoryIds: game.categoryIds,
+      labels: game.labels,
+      status: game.status,
+      availability: game.availability,
+      minPrice: game.minPrice,
+      maxPrice: game.maxPrice,
+      metadata: game.metadata || {}
+    };
+
+    const sanitizedProducts = products.map((p) => ({
+      id: p.id,
+      gameId: p.gameId,
+      categoryIds: p.categoryIds,
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      type: p.type,
+      image: p.image,
+      status: p.status,
+      availability: p.availability,
+      metadata: p.metadata || {}
+    }));
     
     return res.status(200).json({ 
       success: true, 
       data: { 
-        game, 
-        products 
+        game: sanitizedGame, 
+        products: sanitizedProducts 
       } 
     });
   } catch (error: any) {
@@ -39,10 +87,32 @@ export async function getPublicGameDetail(req: Request, res: Response) {
 export async function getPublicVariants(req: Request, res: Response) {
   try {
     const { productId } = req.params;
-    const variants = await catalogService.getPublicVariantsByProductId(productId);
+    const variants = await dynamicCatalogService.getMergedVariants(productId);
     
-    const enriched = await Promise.all(variants.map(async (v: any) => {
-      const activeFs = await flashSaleService.getActiveFlashSaleForVariant(v.id);
+    const formattedVariants = variants.map((v) => ({
+      id: v.id,
+      productId: v.productId,
+      name: v.name,
+      displayName: v.displayName,
+      sku: v.sku,
+      status: v.status,
+      availability: v.availability,
+      sortOrder: v.sortOrder,
+      sellingPrice: v.pricing?.sellingPrice || 0
+    }));
+
+    // Fail-safe and optimized bulk flash sale fetching
+    let activeFlashSales: any[] = [];
+    try {
+      const variantIds = formattedVariants.map(v => v.id);
+      activeFlashSales = await flashSaleService.getActiveFlashSalesForVariants(variantIds);
+    } catch (fsError) {
+      console.error("[getPublicVariants] Flash Sale fetch failed, proceeding without flash sales:", fsError);
+      // We continue with empty flash sales instead of 500 error
+    }
+
+    const enriched = formattedVariants.map((v: any) => {
+      const activeFs = activeFlashSales.find(fs => fs.variantId === v.id);
       if (activeFs) {
         return {
           ...v,
@@ -58,7 +128,7 @@ export async function getPublicVariants(req: Request, res: Response) {
         };
       }
       return v;
-    }));
+    });
 
     return res.status(200).json({ success: true, data: enriched });
   } catch (error: any) {
@@ -68,9 +138,73 @@ export async function getPublicVariants(req: Request, res: Response) {
 
 export async function getPublicCategories(req: Request, res: Response) {
   try {
-    const categories = await catalogService.getPublicCategories();
-    return res.status(200).json({ success: true, data: categories });
+    const categories = await supabaseCatalogRepo.listCategories(true);
+    const sanitizedCategories = categories.map((cat) => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description,
+      icon: cat.icon,
+      status: cat.status,
+      sortOrder: cat.sortOrder
+    }));
+    return res.status(200).json({ success: true, data: sanitizedCategories });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 }
+
+export async function getPublicFlashSales(req: Request, res: Response) {
+  try {
+    const allFlashSales = await flashSaleService.getFlashSales();
+    const now = new Date();
+    
+    // Filter active flash sales
+    const activeSales = allFlashSales.filter(fs => {
+      if (fs.status !== 'active') return false;
+      if (fs.startAt && new Date(fs.startAt) > now) return false;
+      if (fs.endAt && new Date(fs.endAt) <= now) return false;
+      if (fs.remainingQuota !== null && fs.remainingQuota !== undefined && fs.remainingQuota <= 0) return false;
+      return true;
+    });
+
+    const enrichedSales = [];
+    for (const fs of activeSales) {
+      const variant = await supabaseCatalogRepo.getVariant(fs.variantId);
+      if (!variant || variant.status !== "active") continue;
+      
+      const product = await supabaseCatalogRepo.getProduct(fs.productId);
+      if (!product || product.status !== "active") continue;
+      
+      const game = await supabaseCatalogRepo.getGame(product.gameId);
+      if (!game || game.status !== "active") continue;
+
+      const normalPrice = variant.pricing?.sellingPrice || 0;
+      const discount = normalPrice > 0 ? Math.round(((normalPrice - fs.salePrice) / normalPrice) * 100) : 0;
+
+      enrichedSales.push({
+        id: fs.id,
+        name: fs.name,
+        salePrice: fs.salePrice,
+        startAt: fs.startAt,
+        endAt: fs.endAt,
+        remainingQuota: fs.remainingQuota,
+        totalQuota: fs.totalQuota,
+        variantId: fs.variantId,
+        productId: fs.productId,
+        gameSlug: game.slug,
+        gameName: game.name,
+        productName: product.name,
+        variantName: variant.name,
+        image: product.image || game.image || "",
+        normalPrice: normalPrice,
+        discount: discount > 0 ? discount : undefined
+      });
+    }
+
+    return res.status(200).json({ success: true, data: enrichedSales });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+

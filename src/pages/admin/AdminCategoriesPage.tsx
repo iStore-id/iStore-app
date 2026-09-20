@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "../../lib/firebase";
 import { Category } from "../../types/core";
+import { supabase } from "../../lib/supabase";
 import { 
   Plus, Search, Edit2, CheckCircle2, XCircle, 
   Layers, Filter, Info
@@ -21,9 +20,24 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const q = query(collection(db, "categories"), orderBy("sortOrder", "asc"));
-      const snap = await getDocs(q);
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order", { ascending: true });
+        
+      if (error) throw error;
+      
+      const list = (data || []).map(row => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        description: row.description || "",
+        icon: row.icon || "",
+        status: row.status,
+        sortOrder: row.sort_order
+      } as Category));
+      
       setCategories(list);
     } catch (err) {
       console.error("Error fetching categories:", err);
@@ -151,7 +165,7 @@ export default function AdminCategoriesPage() {
                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
                       cat.status === 'active' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'
                     }`}>
-                      {cat.status || (cat.active ? 'active' : 'inactive')}
+                      {cat.status || 'inactive'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">

@@ -45,10 +45,25 @@ export interface PublicBlogItem {
   status: BlogStatus;
 }
 
+export interface BlogNavPreview {
+  slug: string;
+  title: string;
+  coverMediaUrl?: string;
+  excerpt?: string;
+  category?: string;
+  readTime?: number;
+  author?: string;
+  publishedAt?: string;
+}
+
 export interface PublicBlogDetail extends PublicBlogItem {
   content: string;
   seoTitle?: string;
   seoDescription?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  previousBlog?: BlogNavPreview | null;
+  nextBlog?: BlogNavPreview | null;
   relatedGame?: {
     id: string;
     name: string;

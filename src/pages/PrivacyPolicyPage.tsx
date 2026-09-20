@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
 
   useSEO({
     title: privacyData?.privacyPolicy.title || "Kebijakan Privasi",
-    description: "Kebijakan Privasi resmi iStore.id mengenai pengumpulan, perlindungan, penggunaan, dan keamanan data pengguna saat transaksi top up game.",
+    description: "Kebijakan Privasi resmi Toko Kami mengenai pengumpulan, perlindungan, penggunaan, dan keamanan data pengguna saat transaksi top up game.",
     keywords: ["kebijakan privasi", "privacy policy istore", "keamanan data transaksi", "dpo istore id"],
     canonicalPath: "/privacy",
     ogType: "website"
@@ -54,7 +54,7 @@ export default function PrivacyPolicyPage() {
           </Link>
           <Link
             to="/terms"
-            className="text-xs sm:text-sm font-medium text-blue-600 hover:underline"
+            className="text-xs sm:text-sm font-medium text-brand-600 hover:underline"
           >
             Lihat Syarat & Ketentuan →
           </Link>
@@ -62,7 +62,7 @@ export default function PrivacyPolicyPage() {
 
         {loading ? (
           <div className="py-24 text-center space-y-3 bg-white border border-slate-200 rounded-3xl shadow-xs">
-            <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+            <RefreshCw className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
             <p className="text-slate-500 text-sm font-medium">Memuat Kebijakan Privasi...</p>
           </div>
         ) : error || !privacyData ? (
@@ -84,12 +84,12 @@ export default function PrivacyPolicyPage() {
             {/* Header Hero */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xs space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
                   <Shield className="w-6 h-6" />
                 </div>
                 <div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold mb-1">
-                    <FileCheck className="w-3 h-3 text-blue-600" />
+                    <FileCheck className="w-3 h-3 text-brand-600" />
                     <span>Versi {privacyData.privacyPolicy.version || "1.0.0"}</span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -121,7 +121,7 @@ export default function PrivacyPolicyPage() {
 
             {/* DPO & Contact Information Box */}
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-3xl p-6 sm:p-8 space-y-4 shadow-md">
-              <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-brand-400 text-xs font-bold uppercase tracking-wider">
                 <Shield className="w-4 h-4" />
                 <span>Petugas Perlindungan Data (DPO)</span>
               </div>
@@ -139,21 +139,21 @@ export default function PrivacyPolicyPage() {
                 )}
                 {privacyData.dpoContact.email && (
                   <div className="flex items-center gap-2 text-slate-200">
-                    <Mail className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                    <a href={`mailto:${privacyData.dpoContact.email}`} className="text-blue-300 hover:underline">
+                    <Mail className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                    <a href={`mailto:${privacyData.dpoContact.email}`} className="text-brand-300 hover:underline">
                       {privacyData.dpoContact.email}
                     </a>
                   </div>
                 )}
                 {privacyData.dpoContact.phone && (
                   <div className="flex items-center gap-2 text-slate-200">
-                    <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <Phone className="w-3.5 h-3.5 text-brand-400 shrink-0" />
                     <span>{privacyData.dpoContact.phone}</span>
                   </div>
                 )}
                 {privacyData.dpoContact.address && (
                   <div className="flex items-start gap-2 text-slate-200 sm:col-span-2">
-                    <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                    <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0 mt-0.5" />
                     <span>{privacyData.dpoContact.address}</span>
                   </div>
                 )}

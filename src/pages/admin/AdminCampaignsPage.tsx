@@ -443,7 +443,6 @@ export default function AdminCampaignsPage() {
                         </div>
                       </div>
                     </td>
-
                     <td className="py-3 px-4">
                       <div className="space-y-1">
                         <div>{getStatusBadge(c.status)}</div>
@@ -454,7 +453,6 @@ export default function AdminCampaignsPage() {
                         </div>
                       </div>
                     </td>
-
                     <td className="py-3 px-4">
                       <div className="flex flex-wrap gap-1.5 text-xs">
                         {c.promoIds && c.promoIds.length > 0 && (
@@ -477,17 +475,15 @@ export default function AdminCampaignsPage() {
                             <MousePointer2 className="w-3 h-3" /> {c.popupIds.length} Popup
                           </span>
                         )}
-                        {(!c.promoIds || c.promoIds.length === 0) &&
-                         (!c.flashSaleIds || c.flashSaleIds.length === 0) &&
-                         (!c.bannerIds || c.bannerIds.length === 0) &&
+                        {(!c.promoIds || c.promoIds.length === 0) && 
+                         (!c.flashSaleIds || c.flashSaleIds.length === 0) && 
+                         (!c.bannerIds || c.bannerIds.length === 0) && 
                          (!c.popupIds || c.popupIds.length === 0) && (
                           <span className="text-gray-400 text-xs italic">Tanpa komponen</span>
                         )}
                       </div>
                     </td>
-
                     <td className="py-3 px-4 font-mono text-gray-600">{c.priority}</td>
-
                     <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
                       <button onClick={() => openEditModal(c)} className="text-gray-600 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-100 transition" title="Edit Campaign">
                         <Edit2 className="w-4 h-4" />
@@ -559,6 +555,17 @@ export default function AdminCampaignsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Link / Tujuan (Slug) - Opsional</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: ramadhan-sale"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
               {/* Media Asset (Media Library integration) */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Visual Cover (Dari Media Library)</label>
@@ -600,105 +607,105 @@ export default function AdminCampaignsPage() {
                 <p className="text-xs text-slate-500">Hubungkan promo, flash sale, banner, atau popup yang sudah ada ke dalam kampanye ini.</p>
 
                 {/* Promo Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <TicketPercent className="w-3.5 h-3.5 text-blue-600" /> Hubungkan Promo / Voucher
-                  </label>
-                  {componentsData.promos.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">Belum ada promo aktif di Promo Engine.</p>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {componentsData.promos.map((p) => (
-                        <label key={p.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={selectedPromoIds.includes(p.id)}
-                            onChange={() => toggleArrayItem(p.id, selectedPromoIds, setSelectedPromoIds)}
-                            className="rounded text-indigo-600"
-                          />
-                          <span className="font-semibold text-slate-900">{p.code}</span>
-                          <span className="text-slate-500">- {p.name} ({p.discountType === 'percentage' ? `${p.discountValue}%` : `Rp ${p.discountValue}`})</span>
-                        </label>
-                      ))}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <TicketPercent className="w-3.5 h-3.5 text-blue-600" /> Hubungkan Promo / Voucher
+                      </label>
+                      {componentsData.promos.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Belum ada promo aktif di Promo Engine.</p>
+                      ) : (
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                          {componentsData.promos.map((p) => (
+                            <label key={p.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedPromoIds.includes(p.id)}
+                                onChange={() => toggleArrayItem(p.id, selectedPromoIds, setSelectedPromoIds)}
+                                className="rounded text-indigo-600"
+                              />
+                              <span className="font-semibold text-slate-900">{p.code}</span>
+                              <span className="text-slate-500">- {p.name} ({p.discountType === 'percentage' ? `${p.discountValue}%` : `Rp ${p.discountValue}`})</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Flash Sale Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-600" /> Hubungkan Flash Sale
-                  </label>
-                  {componentsData.flashSales.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">Belum ada item Flash Sale.</p>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {componentsData.flashSales.map((fs) => (
-                        <label key={fs.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={selectedFlashSaleIds.includes(fs.id)}
-                            onChange={() => toggleArrayItem(fs.id, selectedFlashSaleIds, setSelectedFlashSaleIds)}
-                            className="rounded text-indigo-600"
-                          />
-                          <span className="font-semibold text-slate-900">{fs.name}</span>
-                          <span className="text-slate-500">- Rp {fs.salePrice.toLocaleString("id-ID")}</span>
-                        </label>
-                      ))}
+                    {/* Flash Sale Selection */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-amber-600" /> Hubungkan Flash Sale
+                      </label>
+                      {componentsData.flashSales.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Belum ada item Flash Sale.</p>
+                      ) : (
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                          {componentsData.flashSales.map((fs) => (
+                            <label key={fs.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedFlashSaleIds.includes(fs.id)}
+                                onChange={() => toggleArrayItem(fs.id, selectedFlashSaleIds, setSelectedFlashSaleIds)}
+                                className="rounded text-indigo-600"
+                              />
+                              <span className="font-semibold text-slate-900">{fs.name}</span>
+                              <span className="text-slate-500">- Rp {fs.salePrice.toLocaleString("id-ID")}</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Banner Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-purple-600" /> Hubungkan Banner
-                  </label>
-                  {componentsData.banners.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">Belum ada banner terkonfigurasi.</p>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {componentsData.banners.map((b) => (
-                        <label key={b.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={selectedBannerIds.includes(b.id)}
-                            onChange={() => toggleArrayItem(b.id, selectedBannerIds, setSelectedBannerIds)}
-                            className="rounded text-indigo-600"
-                          />
-                          <span className="font-semibold text-slate-900">{b.name}</span>
-                          <span className="text-slate-500">({b.placement})</span>
-                        </label>
-                      ))}
+                    {/* Banner Selection */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5 text-purple-600" /> Hubungkan Banner
+                      </label>
+                      {componentsData.banners.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Belum ada banner terkonfigurasi.</p>
+                      ) : (
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                          {componentsData.banners.map((b) => (
+                            <label key={b.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedBannerIds.includes(b.id)}
+                                onChange={() => toggleArrayItem(b.id, selectedBannerIds, setSelectedBannerIds)}
+                                className="rounded text-indigo-600"
+                              />
+                              <span className="font-semibold text-slate-900">{b.name}</span>
+                              <span className="text-slate-500">({b.placement})</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Popup Selection */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                    <MousePointer2 className="w-3.5 h-3.5 text-pink-600" /> Hubungkan Popup
-                  </label>
-                  {componentsData.popups.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">Belum ada popup terkonfigurasi.</p>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {componentsData.popups.map((pop) => (
-                        <label key={pop.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
-                          <input
-                            type="checkbox"
-                            checked={selectedPopupIds.includes(pop.id)}
-                            onChange={() => toggleArrayItem(pop.id, selectedPopupIds, setSelectedPopupIds)}
-                            className="rounded text-indigo-600"
-                          />
-                          <span className="font-semibold text-slate-900">{pop.name}</span>
-                          <span className="text-slate-500">({pop.trigger})</span>
-                        </label>
-                      ))}
+                    {/* Popup Selection */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                        <MousePointer2 className="w-3.5 h-3.5 text-pink-600" /> Hubungkan Popup
+                      </label>
+                      {componentsData.popups.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Belum ada popup terkonfigurasi.</p>
+                      ) : (
+                        <div className="max-h-32 overflow-y-auto space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                          {componentsData.popups.map((pop) => (
+                            <label key={pop.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={selectedPopupIds.includes(pop.id)}
+                                onChange={() => toggleArrayItem(pop.id, selectedPopupIds, setSelectedPopupIds)}
+                                className="rounded text-indigo-600"
+                              />
+                              <span className="font-semibold text-slate-900">{pop.name}</span>
+                              <span className="text-slate-500">({pop.trigger})</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
               {/* Schedule and Priority */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -743,7 +750,6 @@ export default function AdminCampaignsPage() {
                   />
                   <span className="text-sm font-medium text-gray-700">Enabled (Aktif)</span>
                 </label>
-
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"

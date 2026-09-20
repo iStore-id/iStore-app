@@ -32,6 +32,7 @@ export interface PayoutAccount {
   accountNumberMasked: string;
   accountHolderName: string;
   accountNumber?: string; // Optional: only used when submitting a new account number in form payloads
+  encryptedAccountNumber?: string; // Optional: encrypted bank account number
 }
 
 export interface FirestorePayoutAccount {
@@ -47,7 +48,7 @@ export interface CommissionRecord {
   recipientId: string;
   recipientCode: string;
   recipientName: string;
-  recipientType: 'AFFILIATE';
+  recipientType: RecipientType;
   ruleId: string;
   ruleName: string;
   calculationMethod: CommissionCalculationMethod;
