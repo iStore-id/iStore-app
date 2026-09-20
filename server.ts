@@ -3,11 +3,11 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
-import { processCheckout } from "./src/server/order-engine";
-import { midtransWebhook, tokovoucherWebhook } from "./src/server/webhooks";
-import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware";
-import { ApiGamesProvider } from "./src/server/providers";
-import { performGameAccountInquiry } from "./src/server/inquiry-adapter";
+import { processCheckout } from "./src/server/order-engine.js";
+import { midtransWebhook, tokovoucherWebhook } from "./src/server/webhooks.js";
+import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
+import { ApiGamesProvider } from "./src/server/providers.js";
+import { performGameAccountInquiry } from "./src/server/inquiry-adapter.js";
 const ISTORE_PROJECT_ID = process.env.ISTORE_PROJECT_ID || "istore-id";
 const ISTORE_FIRESTORE_DATABASE_ID = process.env.ISTORE_FIRESTORE_DATABASE_ID || "(default)";
 
@@ -25,16 +25,16 @@ import {
   getProviderMappingSuggestions, bulkCreateProviderMappings, listMappingsApi, mapSkuApi, getProviderSkusApi,
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
-} from "./src/server/admin-api";
-import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import";
-import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig } from "./src/server/config-api";
-import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api";
-import { getCustomerProfileApi, getCustomerOrdersApi } from "./src/server/customer-api";
-import { getRoles, createRoleApi, updateRoleApi, deleteRoleApi, assignRoleApi, getUserPermissionsApi, checkPermissionApi, getAdminUsersApi, updateProfileApi } from "./src/server/auth-api";
-import { getPublicGames, getPublicGameDetail, getPublicVariants, getPublicCategories, getPublicFlashSales } from "./src/server/public-catalog-api";
-import { createPricingRule, getPricingRules, updatePricingRule, getPriceHistory, previewPriceCalculation, refreshVariantPrice, bulkRefreshPrices } from "./src/server/pricing-api";
-import { reconcileSingleOrder, triggerReconciliationBatch, getReconciliationOverviewApi, getReconciliationRunsApi, getReconciliationRecordsApi, getReconciliationRunDetailApi } from "./src/server/reconciliation-api";
-import { getTaxAndFeeConfigApi, updateTaxAndFeeConfigApi } from "./src/server/taxes-api";
+} from "./src/server/admin-api.js";
+import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
+import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig } from "./src/server/config-api.js";
+import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
+import { getCustomerProfileApi, getCustomerOrdersApi } from "./src/server/customer-api.js";
+import { getRoles, createRoleApi, updateRoleApi, deleteRoleApi, assignRoleApi, getUserPermissionsApi, checkPermissionApi, getAdminUsersApi, updateProfileApi } from "./src/server/auth-api.js";
+import { getPublicGames, getPublicGameDetail, getPublicVariants, getPublicCategories, getPublicFlashSales } from "./src/server/public-catalog-api.js";
+import { createPricingRule, getPricingRules, updatePricingRule, getPriceHistory, previewPriceCalculation, refreshVariantPrice, bulkRefreshPrices } from "./src/server/pricing-api.js";
+import { reconcileSingleOrder, triggerReconciliationBatch, getReconciliationOverviewApi, getReconciliationRunsApi, getReconciliationRecordsApi, getReconciliationRunDetailApi } from "./src/server/reconciliation-api.js";
+import { getTaxAndFeeConfigApi, updateTaxAndFeeConfigApi } from "./src/server/taxes-api.js";
 import { 
   getCommissionConfigApi, 
   updateCommissionConfigApi, 
@@ -59,44 +59,44 @@ import {
   handleCancelPayoutBatch,
   handleMarkPayoutBatchFailed,
   handleExportTransferInstruction
-} from "./src/server/commission-api";
-import { triggerSupabaseCatalogSyncApi } from "./src/server/supabase-sync-api";
-import { getLoyaltyConfigAdmin, updateLoyaltyConfigAdmin, getAllLoyaltyTransactionsAdmin, adjustCustomerPointsAdmin, getCustomerPointsInfo } from "./src/server/loyalty-api";
-import referralApi from "./src/server/referral-api";
-import adminReferralApi from "./src/server/admin-referral-api";
-import membershipApi from "./src/server/membership-api";
-import adminMembershipApi from "./src/server/admin-membership-api";
-import { getPublicRewards, redeemCustomerReward, getCustomerRedemptionsApi, getAdminRewards, createAdminReward, updateAdminReward, deleteAdminReward, getAdminRedemptions } from "./src/server/reward-api";
-import { getCustomerWishlist, addToCustomerWishlist, removeFromCustomerWishlist } from "./src/server/wishlist-api";
-import { getPublicProductReviews, createCustomerReview, getAdminReviewsApi, updateAdminReviewStatusApi, deleteAdminReviewApi } from "./src/server/review-api";
-import { getMediaLibraryApi, uploadMediaApi, updateMediaMetadataApi, deleteMediaApi, uploadMiddleware } from "./src/server/media-api";
-import { getPublicBannersApi, getAdminBannersApi, createBannerApi, updateBannerApi, deleteBannerApi } from "./src/server/banner-api";
-import { getPublicPopupsApi, getAdminPopupsApi, createPopupApi, updatePopupApi, deletePopupApi } from "./src/server/popup-api";
-import { getPublicCampaignsApi, getPublicCampaignDetailApi, getAdminCampaignsApi, getCampaignComponentsDataApi, createCampaignApi, updateCampaignApi, archiveCampaignApi, deleteCampaignApi } from "./src/server/campaign-api";
-import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi, getAdminLandingPageByIdApi, getAdminLandingPagePreviewApi, getAdminLandingComponentsApi, createLandingPageApi, updateLandingPageApi, publishLandingPageApi, archiveLandingPageApi, deleteLandingPageApi } from "./src/server/landing-api";
-import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi } from "./src/server/blog-api";
-import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api";
-import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api";
-import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api";
-import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service";
-import { getQuotas, saveQuota, getVariantStock, adjustStock, getStockMovements, getReservations, getStocks } from "./src/server/inventory-api";
-import { getCustomerDelivery, getAdminDeliveries, getAdminDeliveryDetail } from "./src/server/delivery-api";
-import { getCustomerNotifications, getAdminNotifications, markNotificationRead, markAllNotificationsRead, getAdminNotificationSettings, updateAdminNotificationSettings } from "./src/server/notification-api";
-import { getSystemHealth } from "./src/server/health-api";
-import { getAdminIncidents, acknowledgeIncidentApi, assignIncidentApi, resolveIncidentApi, closeIncidentApi } from "./src/server/incident-api";
+} from "./src/server/commission-api.js";
+import { triggerSupabaseCatalogSyncApi } from "./src/server/supabase-sync-api.js";
+import { getLoyaltyConfigAdmin, updateLoyaltyConfigAdmin, getAllLoyaltyTransactionsAdmin, adjustCustomerPointsAdmin, getCustomerPointsInfo } from "./src/server/loyalty-api.js";
+import referralApi from "./src/server/referral-api.js";
+import adminReferralApi from "./src/server/admin-referral-api.js";
+import membershipApi from "./src/server/membership-api.js";
+import adminMembershipApi from "./src/server/admin-membership-api.js";
+import { getPublicRewards, redeemCustomerReward, getCustomerRedemptionsApi, getAdminRewards, createAdminReward, updateAdminReward, deleteAdminReward, getAdminRedemptions } from "./src/server/reward-api.js";
+import { getCustomerWishlist, addToCustomerWishlist, removeFromCustomerWishlist } from "./src/server/wishlist-api.js";
+import { getPublicProductReviews, createCustomerReview, getAdminReviewsApi, updateAdminReviewStatusApi, deleteAdminReviewApi } from "./src/server/review-api.js";
+import { getMediaLibraryApi, uploadMediaApi, updateMediaMetadataApi, deleteMediaApi, uploadMiddleware } from "./src/server/media-api.js";
+import { getPublicBannersApi, getAdminBannersApi, createBannerApi, updateBannerApi, deleteBannerApi } from "./src/server/banner-api.js";
+import { getPublicPopupsApi, getAdminPopupsApi, createPopupApi, updatePopupApi, deletePopupApi } from "./src/server/popup-api.js";
+import { getPublicCampaignsApi, getPublicCampaignDetailApi, getAdminCampaignsApi, getCampaignComponentsDataApi, createCampaignApi, updateCampaignApi, archiveCampaignApi, deleteCampaignApi } from "./src/server/campaign-api.js";
+import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi, getAdminLandingPageByIdApi, getAdminLandingPagePreviewApi, getAdminLandingComponentsApi, createLandingPageApi, updateLandingPageApi, publishLandingPageApi, archiveLandingPageApi, deleteLandingPageApi } from "./src/server/landing-api.js";
+import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi } from "./src/server/blog-api.js";
+import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api.js";
+import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api.js";
+import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api.js";
+import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service.js";
+import { getQuotas, saveQuota, getVariantStock, adjustStock, getStockMovements, getReservations, getStocks } from "./src/server/inventory-api.js";
+import { getCustomerDelivery, getAdminDeliveries, getAdminDeliveryDetail } from "./src/server/delivery-api.js";
+import { getCustomerNotifications, getAdminNotifications, markNotificationRead, markAllNotificationsRead, getAdminNotificationSettings, updateAdminNotificationSettings } from "./src/server/notification-api.js";
+import { getSystemHealth } from "./src/server/health-api.js";
+import { getAdminIncidents, acknowledgeIncidentApi, assignIncidentApi, resolveIncidentApi, closeIncidentApi } from "./src/server/incident-api.js";
 import { 
   getSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, 
   getSLAMonitor, getOrderSLADetail 
-} from "./src/server/sla-api";
+} from "./src/server/sla-api.js";
 import { 
   getCalendarConfig, updateCalendarConfig, upsertCalendarException, deleteCalendarException, getCalendarPreview 
-} from "./src/server/business-calendar-api";
+} from "./src/server/business-calendar-api.js";
 import {
   getPublicPrivacyApi,
   getAdminPrivacyApi,
   updateAdminPrivacyApi,
   resetAdminPrivacyApi
-} from "./src/server/privacy-api";
+} from "./src/server/privacy-api.js";
 import {
   getSecuritySettingsApi,
   updateSecuritySettingsApi,
@@ -107,33 +107,33 @@ import {
   auditPasswordChangeApi,
   auditPasswordResetApi,
   auditMfaChangeApi
-} from "./src/server/security-api";
+} from "./src/server/security-api.js";
 import {
   getAuditLogsApi,
   getAuditMetricsApi,
   getAuditDetailApi,
   exportAuditLogsApi
-} from "./src/server/audit-api";
-import supportApi from "./src/server/support-api";
-import adminSupportApi from "./src/server/admin-support-api";
+} from "./src/server/audit-api.js";
+import supportApi from "./src/server/support-api.js";
+import adminSupportApi from "./src/server/admin-support-api.js";
 import {
   getSystemLogsApi,
   getSystemLogMetricsApi,
   getSystemLogDetailApi,
   exportSystemLogsApi,
   emitDiagnosticLogApi
-} from "./src/server/system-log-api";
+} from "./src/server/system-log-api.js";
 import {
   securityHeadersMiddleware,
   ipFirewallMiddleware,
   rateLimitMiddleware,
   emergencyLockdownMiddleware
-} from "./src/server/security-middleware";
+} from "./src/server/security-middleware.js";
 import {
-} from "./src/server/customer-api";
-import { customerSegmentRouter } from "./src/server/customer-segment-api";
-import { supabaseAdmin } from "./src/server/supabase-admin";
-import { OrderRepository } from "./src/server/supabase/order-repository";
+} from "./src/server/customer-api.js";
+import { customerSegmentRouter } from "./src/server/customer-segment-api.js";
+import { supabaseAdmin } from "./src/server/supabase-admin.js";
+import { OrderRepository } from "./src/server/supabase/order-repository.js";
 
 dotenv.config();
 
@@ -745,7 +745,7 @@ export async function initServerLogic() {
     migrateInitialRoles().catch(err => console.warn("[Startup] Initial roles migration warning:", err?.message || err));
 
     // Initialize Background Worker
-    import("./src/server/job-service")
+    import("./src/server/job-service.js")
       .then(({ JobService }) => {
         const jobService = JobService.getInstance();
 

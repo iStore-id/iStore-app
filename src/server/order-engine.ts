@@ -155,7 +155,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     // 2.2 STOCK & QUOTA VALIDATION
-    const inventoryService = (await import('./inventory-service')).InventoryService.getInstance();
+    const inventoryService = (await import('./inventory-service.js')).InventoryService.getInstance();
     const stock = await inventoryService.getStockForVariant(variantId);
     if (stock && stock.status === 'active') {
       if (stock.availableQuantity < 1) {
