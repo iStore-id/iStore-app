@@ -1,4 +1,4 @@
-import { SupabasePaymentRepository } from "./supabase/payment-repository";
+import { SupabasePaymentRepository } from "./supabase/payment-repository.js";
 import * as crypto from "crypto";
 
 let ENCRYPTION_KEY: Buffer | null = null;
