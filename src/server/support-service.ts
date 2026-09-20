@@ -1,11 +1,11 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { SupportCase } from "../types/support";
-import { CustomerService } from "./customer-service";
-import { MembershipService } from "./membership-service";
-import { LoyaltyService } from "./loyalty-service";
-import { ReferralService } from "./referral-service";
-import { SLAService } from "./sla-service";
-import { OrderRepository } from "./supabase/order-repository";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { SupportCase } from "../types/support.js";
+import { CustomerService } from "./customer-service.js";
+import { MembershipService } from "./membership-service.js";
+import { LoyaltyService } from "./loyalty-service.js";
+import { ReferralService } from "./referral-service.js";
+import { SLAService } from "./sla-service.js";
+import { OrderRepository } from "./supabase/order-repository.js";
 
 export class SupportService {
   private static instance: SupportService;

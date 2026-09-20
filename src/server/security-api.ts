@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { getSecuritySettings, updateSecuritySettings, DEFAULT_SECURITY_SETTINGS, validatePasswordPolicy } from "./security-service";
-import { logCoreAudit } from "./core-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { getSecuritySettings, updateSecuritySettings, DEFAULT_SECURITY_SETTINGS, validatePasswordPolicy } from "./security-service.js";
+import { logCoreAudit } from "./core-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 export async function getSecuritySettingsApi(req: AuthenticatedRequest, res: Response) {
   try {

@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { Role, Permission } from "../../types/auth";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { Role, Permission } from "../../types/auth.js";
 
 export class AuthRepository {
   private static instance: AuthRepository;

@@ -11,18 +11,18 @@
  * - Does not perform data migration or catalog synchronization.
  */
 
-export * from "./provider-sku-identity";
-export * from "./catalog-repository";
-export * from "./provider-repository";
-export * from "./catalog-sync-service";
-export * from "./cms-repository";
-export * from "./media-repository";
-export * from "./order-repository";
-export * from "./payment-repository";
-export * from "./reconciliation-repository";
-export * from "./system-config-repository";
-export * from "./promo-repository";
-export * from "./flash-sale-repository";
-export * from "./wishlist-repository";
-export * from "./review-repository";
-export * from "./ledger-repository";
+export * from "./provider-sku-identity.js";
+export * from "./catalog-repository.js";
+export * from "./provider-repository.js";
+export * from "./catalog-sync-service.js";
+export * from "./cms-repository.js";
+export * from "./media-repository.js";
+export * from "./order-repository.js";
+export * from "./payment-repository.js";
+export * from "./reconciliation-repository.js";
+export * from "./system-config-repository.js";
+export * from "./promo-repository.js";
+export * from "./flash-sale-repository.js";
+export * from "./wishlist-repository.js";
+export * from "./review-repository.js";
+export * from "./ledger-repository.js";

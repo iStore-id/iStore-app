@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { logCoreAudit } from "./core-service";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { logCoreAudit } from "./core-service.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 const DEFAULT_PAYMENT_FEES = {
   gopay: { name: "GoPay", percentage: 0.7, flat: 0, enabled: true },

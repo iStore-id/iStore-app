@@ -1,6 +1,6 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { logCoreAudit } from "./core-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { logCoreAudit } from "./core-service.js";
 
 export interface FeatureFlag {
   key: string;

@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { PromoData } from "../promo-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { PromoData } from "../promo-service.js";
 
 export class SupabasePromoRepository {
   private static instance: SupabasePromoRepository;

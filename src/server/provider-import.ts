@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabase-admin";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { Request, Response } from "express";
 
 interface AuthenticatedRequest extends Request {

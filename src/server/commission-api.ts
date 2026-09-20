@@ -1,9 +1,9 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { logCoreAudit } from "./core-service";
-import { encryptSecret, decryptSecret } from "./midtrans";
-import { SupabaseRefundRepository } from "./supabase/refund-repository";
-import * as repo from "./commission-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { logCoreAudit } from "./core-service.js";
+import { encryptSecret, decryptSecret } from "./midtrans.js";
+import { SupabaseRefundRepository } from "./supabase/refund-repository.js";
+import * as repo from "./commission-repository.js";
 import * as crypto from "crypto";
 import { 
   CommissionConfig, 
@@ -13,7 +13,7 @@ import {
   RecipientType, 
   PayoutAccount,
   FirestorePayoutAccount 
-} from "../types/commission";
+} from "../types/commission.js";
 
 const DEFAULT_COMMISSION_CONFIG: CommissionConfig = {
   enabled: false,

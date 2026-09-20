@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { getUserRole } from "./auth-service";
-import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration, getSystemConfiguration, setSystemConfiguration } from "./core-service";
-import { StoreConfiguration } from "../types/core";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { getUserRole } from "./auth-service.js";
+import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration, getSystemConfiguration, setSystemConfiguration } from "./core-service.js";
+import { StoreConfiguration } from "../types/core.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Response) {
   try {
@@ -53,7 +53,7 @@ export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Re
   }
 }
 
-import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans";
+import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans.js";
 
 export async function getPublicMidtransConfig(req: Request, res: Response) {
   try {

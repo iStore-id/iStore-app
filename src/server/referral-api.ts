@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { ReferralService } from "./referral-service";
-import { AuthenticatedRequest, requireAuth } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
+import { ReferralService } from "./referral-service.js";
+import { AuthenticatedRequest, requireAuth } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const router = Router();
 const referralService = ReferralService.getInstance();

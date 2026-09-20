@@ -1,5 +1,5 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
-import { SystemConfigRepository } from "./system-config-repository";
+import { SystemConfigRepository } from "./system-config-repository.js";
 import * as crypto from "crypto";
 
 export interface MidtransConfigData {

@@ -1,9 +1,9 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { SEOSettings, PublicSEOSettings } from "../types/seo";
-import { logCoreAudit } from "./core-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { SEOSettings, PublicSEOSettings } from "../types/seo.js";
+import { logCoreAudit } from "./core-service.js";
 
 const SEO_DOC_PATH = "system_configs/seo_settings";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes

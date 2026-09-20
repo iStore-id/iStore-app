@@ -1,8 +1,8 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { BlogPost, BlogStatus } from "../../types/blog";
-import { FAQItem, FAQStatus } from "../../types/faq";
-import { LandingPage, LandingStatus } from "../../types/landing";
-import { Banner, Popup, Campaign, CampaignStatus, computeCampaignStatus } from "../../types/cms";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { BlogPost, BlogStatus } from "../../types/blog.js";
+import { FAQItem, FAQStatus } from "../../types/faq.js";
+import { LandingPage, LandingStatus } from "../../types/landing.js";
+import { Banner, Popup, Campaign, CampaignStatus, computeCampaignStatus } from "../../types/cms.js";
 
 export class SupabaseCMSRepository {
   private static instance: SupabaseCMSRepository;

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { TicketService } from "./ticket-service";
-import { SupportService } from "./support-service";
-import { requirePermission, AuthenticatedRequest } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
+import { TicketService } from "./ticket-service.js";
+import { SupportService } from "./support-service.js";
+import { requirePermission, AuthenticatedRequest } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const router = Router();
 const ticketService = TicketService.getInstance();

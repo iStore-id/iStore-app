@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { FlashSaleData } from "../flash-sale-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { FlashSaleData } from "../flash-sale-service.js";
 
 export class SupabaseFlashSaleRepository {
   private static instance: SupabaseFlashSaleRepository;

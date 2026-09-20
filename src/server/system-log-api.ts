@@ -1,8 +1,8 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { querySystemLogs, getSystemLogMetrics, sanitizeSystemLogMetadata, logSystem } from "./system-log-service";
-import { logCoreAudit } from "./core-service";
-import { SystemLogRepository } from "./supabase/system-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { querySystemLogs, getSystemLogMetrics, sanitizeSystemLogMetadata, logSystem } from "./system-log-service.js";
+import { logCoreAudit } from "./core-service.js";
+import { SystemLogRepository } from "./supabase/system-log-repository.js";
 
 export async function getSystemLogsApi(req: AuthenticatedRequest, res: Response) {
   try {

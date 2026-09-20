@@ -1,6 +1,6 @@
-import { logCoreAudit } from "./core-service";
-import { SecuritySettings } from "../types/core";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { logCoreAudit } from "./core-service.js";
+import { SecuritySettings } from "../types/core.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   auth: {

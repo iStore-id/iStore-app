@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../supabase-admin.js";
-import { Order } from "../../types/order";
+import { Order } from "../../types/order.js";
 
 export class OrderRepository {
   private static instance: OrderRepository;

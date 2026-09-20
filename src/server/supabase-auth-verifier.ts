@@ -11,7 +11,7 @@
  * - It never exposes SUPABASE_SERVICE_ROLE_KEY to the browser.
  */
 
-import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase-admin';
+import { supabaseAdmin, isSupabaseAdminConfigured } from './supabase-admin.js';
 import type { User } from '@supabase/supabase-js';
 
 export interface VerifiedSupabaseIdentity {

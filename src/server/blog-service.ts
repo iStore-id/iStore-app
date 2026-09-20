@@ -1,7 +1,7 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { SupabaseMediaRepository } from "./supabase/media-repository";
-import { BlogPost, BlogStatus, PublicBlogItem, PublicBlogDetail } from "../types/blog";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { SupabaseMediaRepository } from "./supabase/media-repository.js";
+import { BlogPost, BlogStatus, PublicBlogItem, PublicBlogDetail } from "../types/blog.js";
 
 const RESERVED_SLUGS = [
   "admin", "api", "login", "register", "games", "transactions",

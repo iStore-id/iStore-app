@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { WishlistService } from "./wishlist-service";
+import { AuthenticatedRequest } from "./middleware.js";
+import { WishlistService } from "./wishlist-service.js";
 
 const wishlistService = WishlistService.getInstance();
 

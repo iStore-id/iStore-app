@@ -1,4 +1,4 @@
-import { SystemConfiguration, StoreConfiguration, AuditLog } from "../types/core";
+import { SystemConfiguration, StoreConfiguration, AuditLog } from "../types/core.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import * as crypto from "crypto";

@@ -1,10 +1,10 @@
 import { Response } from "express";
-import { SLAService } from "./sla-service";
-import { AuthenticatedRequest } from "./middleware";
-import { logCoreAudit } from "./core-service";
-import { Job } from "../types/core";
-import { OrderRepository } from "./supabase/order-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { SLAService } from "./sla-service.js";
+import { AuthenticatedRequest } from "./middleware.js";
+import { logCoreAudit } from "./core-service.js";
+import { Job } from "../types/core.js";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const slaService = SLAService.getInstance();
 

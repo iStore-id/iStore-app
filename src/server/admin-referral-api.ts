@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { ReferralService } from "./referral-service";
-import { AuthenticatedRequest, requireAuth, requireAdmin } from "./middleware";
-import { logCoreAudit } from "./core-service";
-import { supabaseAdmin } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { ReferralService } from "./referral-service.js";
+import { AuthenticatedRequest, requireAuth, requireAdmin } from "./middleware.js";
+import { logCoreAudit } from "./core-service.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 const router = Router();
 const referralService = ReferralService.getInstance();

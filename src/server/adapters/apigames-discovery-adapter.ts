@@ -1,5 +1,5 @@
-import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/discovery";
-import { getApiGamesServerConfig } from "../providers";
+import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/discovery.js";
+import { getApiGamesServerConfig } from "../providers.js";
 import * as crypto from "crypto";
 
 export class ApiGamesDiscoveryAdapter implements ProviderCatalogDiscoveryAdapter {

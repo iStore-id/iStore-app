@@ -1,9 +1,9 @@
 
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { PricingService } from "./pricing-service";
-import { PricingRule } from "../types/core";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { PricingService } from "./pricing-service.js";
+import { PricingRule } from "../types/core.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const pricingService = PricingService.getInstance();
 

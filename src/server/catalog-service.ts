@@ -1,6 +1,6 @@
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { supabaseAdmin } from "./supabase-admin.js";
-import { Game, Category, Product, ProductVariant, ProviderMapping, CatalogStatus, AvailabilityStatus, PricingMethod } from "../types/core";
+import { Game, Category, Product, ProductVariant, ProviderMapping, CatalogStatus, AvailabilityStatus, PricingMethod } from "../types/core.js";
 import { PricingService } from "./pricing-service.js";
 import { v4 as uuidv4 } from "uuid";
 

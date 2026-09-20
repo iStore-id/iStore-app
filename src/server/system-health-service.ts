@@ -1,10 +1,10 @@
-import { JobService } from "./job-service";
-import { ProviderService } from "./provider-service";
-import { BusinessCalendarService } from "./business-calendar-service";
-import { testMidtransConnection, getMidtransServerConfig } from "./midtrans";
-import { SystemHealthAggregation, ComponentHealth, HealthState } from "../types/health";
-import { IncidentService } from "./incident-service";
-import { supabaseAdmin } from "./supabase-admin";
+import { JobService } from "./job-service.js";
+import { ProviderService } from "./provider-service.js";
+import { BusinessCalendarService } from "./business-calendar-service.js";
+import { testMidtransConnection, getMidtransServerConfig } from "./midtrans.js";
+import { SystemHealthAggregation, ComponentHealth, HealthState } from "../types/health.js";
+import { IncidentService } from "./incident-service.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 export class SystemHealthService {
   private static instance: SystemHealthService;

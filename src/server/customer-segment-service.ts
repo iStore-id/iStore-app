@@ -1,5 +1,5 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { 
   CustomerSegment, 
   CustomerSegmentMembership, 
@@ -8,8 +8,8 @@ import {
   SegmentRuleGroup,
   SegmentRule,
   SegmentOperator
-} from "../types/customer";
-import { logCoreAudit } from "./core-service";
+} from "../types/customer.js";
+import { logCoreAudit } from "./core-service.js";
 import * as crypto from "crypto";
 
 export class CustomerSegmentService {

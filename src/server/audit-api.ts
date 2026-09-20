@@ -1,8 +1,8 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { queryAuditLogs, getAuditMetrics, sanitizeAuditData } from "./audit-service";
-import { logCoreAudit } from "./core-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { queryAuditLogs, getAuditMetrics, sanitizeAuditData } from "./audit-service.js";
+import { logCoreAudit } from "./core-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 export async function getAuditLogsApi(req: AuthenticatedRequest, res: Response) {
   try {

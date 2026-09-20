@@ -1,9 +1,9 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { NotificationService } from "./notification-service";
-import { logCoreAudit } from "./core-service";
-import { getUserRole } from "./auth-service";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { NotificationService } from "./notification-service.js";
+import { logCoreAudit } from "./core-service.js";
+import { getUserRole } from "./auth-service.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const notificationService = NotificationService.getInstance();
 

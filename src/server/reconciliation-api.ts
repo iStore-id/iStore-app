@@ -1,9 +1,9 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
-import { reconcileOrder, runReconciliationBatch } from "./reconciliation-service";
-import { logCoreAudit } from "./core-service";
-import { OrderRepository } from "./supabase/order-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { reconcileOrder, runReconciliationBatch } from "./reconciliation-service.js";
+import { logCoreAudit } from "./core-service.js";
+import { OrderRepository } from "./supabase/order-repository.js";
 
 export async function getReconciliationOverviewApi(req: AuthenticatedRequest, res: Response) {
   try {

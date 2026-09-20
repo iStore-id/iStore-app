@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { seoService } from "./seo-service";
-import { getUserRole } from "./auth-service";
+import { AuthenticatedRequest } from "./middleware.js";
+import { seoService } from "./seo-service.js";
+import { getUserRole } from "./auth-service.js";
 
 /**
  * GET /api/public/seo

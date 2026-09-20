@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { SystemHealthService } from "./system-health-service";
-import { requirePermission } from "./middleware";
+import { AuthenticatedRequest } from "./middleware.js";
+import { SystemHealthService } from "./system-health-service.js";
+import { requirePermission } from "./middleware.js";
 
 const healthService = SystemHealthService.getInstance();
 

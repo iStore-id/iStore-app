@@ -1,5 +1,5 @@
-import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/discovery";
-import { getTokoVoucherServerConfig } from "../providers";
+import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/discovery.js";
+import { getTokoVoucherServerConfig } from "../providers.js";
 import * as crypto from "crypto";
 
 export class TokoVoucherDiscoveryAdapter implements ProviderCatalogDiscoveryAdapter {

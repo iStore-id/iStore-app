@@ -1,6 +1,6 @@
-import { LedgerLineItem } from "../types/ledger";
-import { supabaseAdmin } from "./supabase-admin";
-import { mapLegacyAccountToCanonical } from "./ledger-mapping";
+import { LedgerLineItem } from "../types/ledger.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { mapLegacyAccountToCanonical } from "./ledger-mapping.js";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

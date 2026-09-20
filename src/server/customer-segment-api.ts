@@ -1,7 +1,7 @@
 import express, { Response } from "express";
-import { AuthenticatedRequest, requireAuth, requirePermission } from "./middleware";
-import { CustomerSegmentService } from "./customer-segment-service";
-import { SEGMENT_FIELD_CATALOG } from "../types/customer-segment";
+import { AuthenticatedRequest, requireAuth, requirePermission } from "./middleware.js";
+import { CustomerSegmentService } from "./customer-segment-service.js";
+import { SEGMENT_FIELD_CATALOG } from "../types/customer-segment.js";
 
 export const customerSegmentRouter = express.Router();
 const segmentService = CustomerSegmentService.getInstance();

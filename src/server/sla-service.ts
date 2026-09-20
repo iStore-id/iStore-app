@@ -1,7 +1,7 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { SLAPolicy, SLAStatus, SLAMeasurement, SLAResource, OrderSLA, Job } from "../types/core";
-import { BusinessCalendarService } from "./business-calendar-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { SLAPolicy, SLAStatus, SLAMeasurement, SLAResource, OrderSLA, Job } from "../types/core.js";
+import { BusinessCalendarService } from "./business-calendar-service.js";
 
 const SLA_POLICIES_KEY = "sla_policies";
 

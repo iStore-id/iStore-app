@@ -1,8 +1,8 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { SupportCase, SupportMessage, SupportStatus, SupportPriority } from "../types/support";
-import { logCoreAudit } from "./core-service";
-import { NotificationService } from "./notification-service";
-import { SLAService } from "./sla-service";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { SupportCase, SupportMessage, SupportStatus, SupportPriority } from "../types/support.js";
+import { logCoreAudit } from "./core-service.js";
+import { NotificationService } from "./notification-service.js";
+import { SLAService } from "./sla-service.js";
 import * as crypto from "crypto";
 
 export class TicketService {

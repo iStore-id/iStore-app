@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 export async function listJobsApi(req: AuthenticatedRequest, res: Response) {
   try {

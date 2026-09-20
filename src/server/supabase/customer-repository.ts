@@ -1,5 +1,5 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
-import { CustomerUser, PointTransaction } from "../../types/customer";
+import { CustomerUser, PointTransaction } from "../../types/customer.js";
 
 export class CustomerRepository {
   private static instance: CustomerRepository;

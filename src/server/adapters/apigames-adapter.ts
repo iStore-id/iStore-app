@@ -4,8 +4,8 @@ import {
   ProviderFulfillmentRequest, 
   ProviderFulfillmentResponse,
   BaseProviderAdapter
-} from "../provider-adapters";
-import { getApiGamesServerConfig } from "../providers";
+} from "../provider-adapters.js";
+import { getApiGamesServerConfig } from "../providers.js";
 
 // API Games Adapter with real integration logic
 export class ApiGamesAdapter extends BaseProviderAdapter {

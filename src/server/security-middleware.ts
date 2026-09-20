@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import { getSecuritySettings, checkRateLimit } from "./security-service";
-import { logSystem } from "./system-log-service";
+import { getSecuritySettings, checkRateLimit } from "./security-service.js";
+import { logSystem } from "./system-log-service.js";
 
 export function getClientIp(req: Request): string {
   const forwarded = req.headers["x-forwarded-for"];

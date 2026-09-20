@@ -1,7 +1,7 @@
 import { DateTime, Interval } from "luxon";
-import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { BusinessCalendarConfig, CalendarException, TimeWindow, DaySchedule } from "../types/core";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { BusinessCalendarConfig, CalendarException, TimeWindow, DaySchedule } from "../types/core.js";
 
 const CONFIG_KEY = "business_calendar_config";
 const EXCEPTIONS_KEY = "business_calendar_exceptions";

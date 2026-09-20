@@ -1,7 +1,7 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { Campaign, CampaignStatus, computeCampaignStatus } from "../types/cms";
-import { PromoService } from "./promo-service";
-import { FlashSaleService } from "./flash-sale-service";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { Campaign, CampaignStatus, computeCampaignStatus } from "../types/cms.js";
+import { PromoService } from "./promo-service.js";
+import { FlashSaleService } from "./flash-sale-service.js";
 
 export { computeCampaignStatus };
 

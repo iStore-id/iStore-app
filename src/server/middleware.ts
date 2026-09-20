@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { can, isOwnerIdentity } from './auth-service';
-import { verifySupabaseAccessToken } from './supabase-auth-verifier';
-import { supabaseAdmin } from './supabase-admin';
+import { can, isOwnerIdentity } from './auth-service.js';
+import { verifySupabaseAccessToken } from './supabase-auth-verifier.js';
+import { supabaseAdmin } from './supabase-admin.js';
 
 // Auto-mocked adminDb for Supabase (backward compatibility during migration)
 const adminDb: any = {

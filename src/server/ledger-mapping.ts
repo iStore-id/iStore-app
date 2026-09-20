@@ -1,4 +1,4 @@
-import { LedgerAccount } from "../types/ledger";
+import { LedgerAccount } from "../types/ledger.js";
 
 /**
  * Maps legacy account codes to canonical PostgreSQL Chart of Accounts.

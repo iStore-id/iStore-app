@@ -1,5 +1,5 @@
-import { SupabaseMediaRepository } from "./supabase/media-repository";
-import { MediaItem } from "../types/cms";
+import { SupabaseMediaRepository } from "./supabase/media-repository.js";
+import { MediaItem } from "../types/cms.js";
 import { v2 as cloudinary } from "cloudinary";
 
 const ALLOWED_MIME_TYPES = [

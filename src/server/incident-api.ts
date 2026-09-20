@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { IncidentService } from "./incident-service";
-import { IncidentStatus, IncidentSeverity, IncidentCategory } from "../types/incident";
+import { AuthenticatedRequest } from "./middleware.js";
+import { IncidentService } from "./incident-service.js";
+import { IncidentStatus, IncidentSeverity, IncidentCategory } from "../types/incident.js";
 
 const incidentService = IncidentService.getInstance();
 

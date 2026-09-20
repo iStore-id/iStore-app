@@ -3,8 +3,8 @@ import {
   ProviderFulfillmentRequest, 
   ProviderFulfillmentResponse,
   BaseProviderAdapter
-} from "../provider-adapters";
-import { getTokoVoucherServerConfig } from "../providers";
+} from "../provider-adapters.js";
+import { getTokoVoucherServerConfig } from "../providers.js";
 
 export class TokoVoucherAdapter extends BaseProviderAdapter {
   code = "tokovoucher";

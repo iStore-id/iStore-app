@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { LoyaltyService } from "./loyalty-service";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { LoyaltyService } from "./loyalty-service.js";
 import * as crypto from "crypto";
 
 const loyaltyService = LoyaltyService.getInstance();

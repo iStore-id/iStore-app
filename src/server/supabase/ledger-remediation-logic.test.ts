@@ -1,5 +1,5 @@
-import { mapLegacyAccountToCanonical, mapCanonicalToLegacyAccount } from "../ledger-mapping";
-import { LedgerAccount } from "../../types/ledger";
+import { mapLegacyAccountToCanonical, mapCanonicalToLegacyAccount } from "../ledger-mapping.js";
+import { LedgerAccount } from "../../types/ledger.js";
 
 async function runTests() {
   console.log("Starting Ledger Remediation Validation...");

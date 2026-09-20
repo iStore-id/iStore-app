@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { PopupService } from "./popup-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { PopupService } from "./popup-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const popupService = PopupService.getInstance();
 

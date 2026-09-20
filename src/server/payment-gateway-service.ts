@@ -1,5 +1,5 @@
-import { SupabasePaymentRepository } from "./supabase/payment-repository";
-import { PaymentGateway } from "../types/core";
+import { SupabasePaymentRepository } from "./supabase/payment-repository.js";
+import { PaymentGateway } from "../types/core.js";
 
 export class PaymentGatewayService {
   private static instance: PaymentGatewayService;

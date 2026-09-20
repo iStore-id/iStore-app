@@ -1,10 +1,10 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { 
   LandingPage, 
   LandingStatus, 
   LandingBlock
-} from "../types/landing";
+} from "../types/landing.js";
 
 const RESERVED_SLUGS = [
   "admin", "api", "login", "register", "games", "transactions",

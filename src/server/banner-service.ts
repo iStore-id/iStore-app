@@ -1,5 +1,5 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { Banner } from "../types/cms";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { Banner } from "../types/cms.js";
 
 export class BannerService {
   private static instance: BannerService;

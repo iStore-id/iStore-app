@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { PrivacySettings, PublicPrivacySettings } from "../types/privacy";
-import { logCoreAudit } from "./core-service";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { PrivacySettings, PublicPrivacySettings } from "../types/privacy.js";
+import { logCoreAudit } from "./core-service.js";
 
 const PRIVACY_DOC_PATH = "privacySettings/global";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache

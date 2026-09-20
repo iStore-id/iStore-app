@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { DeliveryService } from "./delivery-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { DeliveryService } from "./delivery-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const deliveryService = DeliveryService.getInstance();
 

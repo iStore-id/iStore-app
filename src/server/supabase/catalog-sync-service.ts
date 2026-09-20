@@ -1,8 +1,8 @@
-import { DiscoveryResult } from "../../types/discovery";
-import { TokoVoucherDiscoveryAdapter } from "../adapters/tokovoucher-discovery-adapter";
-import { ApiGamesDiscoveryAdapter } from "../adapters/apigames-discovery-adapter";
-import { SupabaseProviderRepository } from "./provider-repository";
-import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity";
+import { DiscoveryResult } from "../../types/discovery.js";
+import { TokoVoucherDiscoveryAdapter } from "../adapters/tokovoucher-discovery-adapter.js";
+import { ApiGamesDiscoveryAdapter } from "../adapters/apigames-discovery-adapter.js";
+import { SupabaseProviderRepository } from "./provider-repository.js";
+import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity.js";
 
 export interface SyncOptions {
   providerId: "tokovoucher" | "apigames";

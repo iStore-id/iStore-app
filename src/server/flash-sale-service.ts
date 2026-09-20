@@ -1,5 +1,5 @@
-import { SupabaseFlashSaleRepository } from "./supabase/flash-sale-repository";
-import { CatalogService } from "./catalog-service";
+import { SupabaseFlashSaleRepository } from "./supabase/flash-sale-repository.js";
+import { CatalogService } from "./catalog-service.js";
 
 export interface FlashSaleData {
   id?: string;

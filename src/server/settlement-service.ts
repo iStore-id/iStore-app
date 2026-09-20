@@ -1,7 +1,7 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { OrderRepository } from "./supabase/order-repository";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { SettlementBatch, SettlementRecord, ProcessResult } from "../types/core";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { SettlementBatch, SettlementRecord, ProcessResult } from "../types/core.js";
 import * as crypto from "crypto";
 
 const HEADER_MAPPING = {

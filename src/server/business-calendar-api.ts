@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { BusinessCalendarService } from "./business-calendar-service";
-import { AuthenticatedRequest } from "./middleware";
-import { logCoreAudit } from "./core-service";
+import { BusinessCalendarService } from "./business-calendar-service.js";
+import { AuthenticatedRequest } from "./middleware.js";
+import { logCoreAudit } from "./core-service.js";
 
 const calendarService = BusinessCalendarService.getInstance();
 

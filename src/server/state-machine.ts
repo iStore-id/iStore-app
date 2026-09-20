@@ -1,8 +1,8 @@
-import { OrderRepository } from "./supabase/order-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { safeRecordPaymentReceived, safeRecordFulfillmentSuccess } from "./ledger-service";
-import { LoyaltyService } from "./loyalty-service";
-import { NotificationService } from "./notification-service";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { safeRecordPaymentReceived, safeRecordFulfillmentSuccess } from "./ledger-service.js";
+import { LoyaltyService } from "./loyalty-service.js";
+import { NotificationService } from "./notification-service.js";
 
 const loyaltyService = LoyaltyService.getInstance();
 const notificationService = NotificationService.getInstance();

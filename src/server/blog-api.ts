@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { BlogService } from "./blog-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { BlogService } from "./blog-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const blogService = BlogService.getInstance();
 

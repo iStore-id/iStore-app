@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { CustomerRepository } from "./supabase/customer-repository";
-import { OrderRepository } from "./supabase/order-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { CustomerRepository } from "./supabase/customer-repository.js";
+import { OrderRepository } from "./supabase/order-repository.js";
 
 export async function getCustomerProfileApi(req: AuthenticatedRequest, res: Response) {
   try {

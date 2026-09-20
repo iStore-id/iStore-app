@@ -1,8 +1,8 @@
-import { ProviderMapping, ProviderSku } from "../types/core";
-import { SupabaseProviderRepository } from "./supabase/provider-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
-import { PricingService } from "./pricing-service";
+import { ProviderMapping, ProviderSku } from "../types/core.js";
+import { SupabaseProviderRepository } from "./supabase/provider-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { PricingService } from "./pricing-service.js";
 import { v4 as uuidv4 } from "uuid";
 
 export type MappingStatus = 'UNMAPPED' | 'CANDIDATE' | 'NEEDS_REVIEW' | 'MAPPED' | 'APPROVED' | 'REJECTED';

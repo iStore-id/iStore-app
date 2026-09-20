@@ -1,5 +1,5 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
-import { Provider, ProviderSku, ProviderMapping, RoutingDecision } from "../../types/core";
+import { Provider, ProviderSku, ProviderMapping, RoutingDecision } from "../../types/core.js";
 import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity.js";
 
 export class SupabaseProviderRepository {

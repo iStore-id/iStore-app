@@ -1,4 +1,4 @@
-import { SupabaseWishlistRepository } from "./supabase/wishlist-repository";
+import { SupabaseWishlistRepository } from "./supabase/wishlist-repository.js";
 
 export interface WishlistItem {
   id: string;

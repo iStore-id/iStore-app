@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { MembershipService } from "./membership-service";
-import { requireAdmin, AuthenticatedRequest } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
+import { MembershipService } from "./membership-service.js";
+import { requireAdmin, AuthenticatedRequest } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const router = Router();
 const membershipService = MembershipService.getInstance();

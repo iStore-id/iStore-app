@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { ReviewService } from "./review-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { ReviewService } from "./review-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const reviewService = ReviewService.getInstance();
 

@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { LoyaltyService } from "./loyalty-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { LoyaltyService } from "./loyalty-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const loyaltyService = LoyaltyService.getInstance();
 

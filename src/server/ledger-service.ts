@@ -27,17 +27,17 @@ const adminDb: any = {
   }),
   doc: (path: string) => adminDb.collection("doc").doc()
 };
-import * as commissionRepo from "./commission-repository";
+import * as commissionRepo from "./commission-repository.js";
 import { 
   LedgerAccount, 
   LEDGER_ACCOUNT_NAMES, 
   LedgerEventType, 
   LedgerLineItem, 
   LedgerJournalEntry 
-} from "../types/ledger";
-import { SettlementAdjustmentType } from "../types/core";
-import { DualLedgerRepository } from "./ledger-dual-repository";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+} from "../types/ledger.js";
+import { SettlementAdjustmentType } from "../types/core.js";
+import { DualLedgerRepository } from "./ledger-dual-repository.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 // Audit logger helper for Ledger operations
 export async function logLedgerAudit(
@@ -142,7 +142,7 @@ export interface CreateJournalEntryResult {
   mirrorStatus?: 'SUCCESS' | 'FAILED' | 'DUPLICATE';
 }
 
-import { adapterPostLedgerJournal } from "./ledger-adapter";
+import { adapterPostLedgerJournal } from "./ledger-adapter.js";
 
 /**
  * Creates an append-only, immutable double-entry ledger record.

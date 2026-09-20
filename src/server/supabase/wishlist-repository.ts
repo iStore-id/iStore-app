@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { WishlistItem } from "../wishlist-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { WishlistItem } from "../wishlist-service.js";
 
 export class SupabaseWishlistRepository {
   private static instance: SupabaseWishlistRepository;

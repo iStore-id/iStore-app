@@ -1,8 +1,8 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { createRole, updateRole, deleteRole, assignUserRole, getRole, updateUserProfile, getUserRole } from "./auth-service";
-import { AuthRepository } from "./supabase/auth-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { createRole, updateRole, deleteRole, assignUserRole, getRole, updateUserProfile, getUserRole } from "./auth-service.js";
+import { AuthRepository } from "./supabase/auth-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 export async function updateProfileApi(req: AuthenticatedRequest, res: Response) {
   try {

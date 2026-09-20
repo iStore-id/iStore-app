@@ -1,11 +1,11 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
+import { AuthenticatedRequest } from "./middleware.js";
 import {
   getPrivacySettings,
   getPublicPrivacySettings,
   updatePrivacySettings,
   resetPrivacySettings
-} from "./privacy-service";
+} from "./privacy-service.js";
 
 /**
  * Public Endpoint: GET /api/public/privacy

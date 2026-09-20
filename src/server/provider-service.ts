@@ -1,5 +1,5 @@
-import { SupabaseProviderRepository } from "./supabase/provider-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
+import { SupabaseProviderRepository } from "./supabase/provider-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { 
   Provider, 
   ProviderSku, 
@@ -7,12 +7,12 @@ import {
   RoutingDecision, 
   RoutingPolicy,
   ProviderHealthState
-} from "../types/core";
-import { ProviderAdapterRegistry, ProviderFulfillmentRequest } from "./provider-adapters";
-import { ApiGamesAdapter } from "./adapters/apigames-adapter";
-import { TokoVoucherAdapter } from "./adapters/tokovoucher-adapter";
+} from "../types/core.js";
+import { ProviderAdapterRegistry, ProviderFulfillmentRequest } from "./provider-adapters.js";
+import { ApiGamesAdapter } from "./adapters/apigames-adapter.js";
+import { TokoVoucherAdapter } from "./adapters/tokovoucher-adapter.js";
 import { v4 as uuidv4 } from "uuid";
-import { generateDeterministicProviderSkuUuid } from "./supabase/provider-sku-identity";
+import { generateDeterministicProviderSkuUuid } from "./supabase/provider-sku-identity.js";
 export { generateDeterministicProviderSkuUuid as generateDeterministicProviderSkuId };
 
 const providerRepo = SupabaseProviderRepository.getInstance();

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { CampaignService } from "./campaign-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { CampaignService } from "./campaign-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const campaignService = CampaignService.getInstance();
 

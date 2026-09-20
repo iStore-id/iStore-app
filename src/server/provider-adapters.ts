@@ -1,4 +1,4 @@
-import { RoutingDecision } from "../types/core";
+import { RoutingDecision } from "../types/core.js";
 
 export interface ProviderFulfillmentRequest {
   orderId: string;

@@ -110,8 +110,8 @@ export class ApiGamesProvider implements ProviderAdapter {
   }
 }
 
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { decryptSecret } from "./midtrans";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { decryptSecret } from "./midtrans.js";
 
 export async function getApiGamesServerConfig() {
   try {

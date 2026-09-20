@@ -1,6 +1,6 @@
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { supabaseAdmin } from "./supabase-admin.js";
-import { Game, Product, ProductVariant, CatalogStatus, AvailabilityStatus } from "../types/core";
+import { Game, Product, ProductVariant, CatalogStatus, AvailabilityStatus } from "../types/core.js";
 import slugify from "slugify";
 import { PricingService } from "./pricing-service.js";
 

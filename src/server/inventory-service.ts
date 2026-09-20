@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "./supabase-admin";
-import { Stock, Quota, StockMovement, Reservation } from "../types/core";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { Stock, Quota, StockMovement, Reservation } from "../types/core.js";
 import * as crypto from "crypto";
 
 export class InventoryService {

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabase-admin";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { 
   CommissionRecipient, 
   CommissionRule, 
@@ -10,7 +10,7 @@ import {
   CommissionRecordStatus,
   PayoutBatch,
   PayoutBatchStatus
-} from "../types/commission";
+} from "../types/commission.js";
 
 function getSupabase() {
   if (!supabaseAdmin) {

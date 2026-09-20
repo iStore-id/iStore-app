@@ -1,6 +1,6 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { SystemLog } from "../../types/core";
-import { sanitizeSystemLogMetadata } from "../system-log-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { SystemLog } from "../../types/core.js";
+import { sanitizeSystemLogMetadata } from "../system-log-service.js";
 
 export class SystemLogRepository {
   private static instance: SystemLogRepository;

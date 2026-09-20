@@ -1,9 +1,9 @@
-import { transitionOrderState } from "./state-machine";
-import { OrderRepository } from "./supabase/order-repository";
-import { ProviderService } from "./provider-service";
-import { getProvider } from "./providers";
-import { logSystem } from "./system-log-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { transitionOrderState } from "./state-machine.js";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { ProviderService } from "./provider-service.js";
+import { getProvider } from "./providers.js";
+import { logSystem } from "./system-log-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 export async function dispatchFulfillment(orderId: string): Promise<void> {
   console.log(`[Fulfillment Dispatcher] Initiating fulfillment process for order: ${orderId}`);

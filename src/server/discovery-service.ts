@@ -1,4 +1,4 @@
-import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../types/discovery";
+import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../types/discovery.js";
 
 export class ProviderCatalogDiscoveryService {
   private adapters: Map<string, ProviderCatalogDiscoveryAdapter> = new Map();

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { FAQService } from "./faq-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { FAQService } from "./faq-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const faqService = FAQService.getInstance();
 

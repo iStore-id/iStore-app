@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { MediaItem } from "../../types/cms";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { MediaItem } from "../../types/cms.js";
 
 export class SupabaseMediaRepository {
   private static instance: SupabaseMediaRepository;

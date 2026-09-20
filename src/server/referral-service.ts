@@ -1,15 +1,15 @@
-import { logCoreAudit } from "./core-service";
-import { LoyaltyService } from "./loyalty-service";
-import { CommissionService } from "./commission-service";
+import { logCoreAudit } from "./core-service.js";
+import { LoyaltyService } from "./loyalty-service.js";
+import { CommissionService } from "./commission-service.js";
 import { 
   ReferralConfig, 
   ReferralRelationship, 
   ReferralRelationshipStatus,
   ReferralRewardStatus
-} from "../types/referral";
-import { CustomerUser } from "../types/customer";
-import { supabaseAdmin } from "./supabase-admin";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+} from "../types/referral.js";
+import { CustomerUser } from "../types/customer.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 const DEFAULT_REFERRAL_CONFIG: ReferralConfig = {
   enabled: false,

@@ -1,6 +1,6 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { FAQItem, FAQAdminItem, FAQStatus, PublicFAQItem, FAQAdminListResponse } from "../types/faq";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { FAQItem, FAQAdminItem, FAQStatus, PublicFAQItem, FAQAdminListResponse } from "../types/faq.js";
 
 // Content Sanitizer to ensure Zero XSS and Zero Dangerous Executable Code
 export function sanitizeFaqContent(text: string): string {

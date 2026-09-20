@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../supabase-admin";
+import { supabaseAdmin } from "../supabase-admin.js";
 
 async function diagnosePermissions() {
   console.log("--- PHASE 6D: CONTROLLED PERMISSION DIAGNOSIS ---");

@@ -1,6 +1,6 @@
-import { SystemLog, SystemLogLevel, SystemLogCategory } from "../types/core";
-import { logCoreAudit } from "./core-service";
-import { SystemLogRepository } from "./supabase/system-log-repository";
+import { SystemLog, SystemLogLevel, SystemLogCategory } from "../types/core.js";
+import { logCoreAudit } from "./core-service.js";
+import { SystemLogRepository } from "./supabase/system-log-repository.js";
 
 export interface SystemLogQueryFilters {
   page?: number;

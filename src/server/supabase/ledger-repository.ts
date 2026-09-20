@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../supabase-admin";
+import { supabaseAdmin } from "../supabase-admin.js";
 import { 
   LedgerJournalEntry, 
   LedgerLineItem, 
@@ -8,8 +8,8 @@ import {
   ILedgerRepository,
   LedgerListOptions,
   LedgerOverview
-} from "../../types/ledger";
-import { mapCanonicalToLegacyAccount, mapLegacyAccountToCanonical } from "../ledger-mapping";
+} from "../../types/ledger.js";
+import { mapCanonicalToLegacyAccount, mapLegacyAccountToCanonical } from "../ledger-mapping.js";
 
 /**
  * Validates financial amounts for the Integer IDR domain.

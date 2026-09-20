@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { RewardService } from "./reward-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { RewardService } from "./reward-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const rewardService = RewardService.getInstance();
 

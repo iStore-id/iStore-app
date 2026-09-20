@@ -1,5 +1,5 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
-import { Game, Category, Product, ProductVariant, CatalogStatus, AvailabilityStatus, PricingMethod } from "../../types/core";
+import { Game, Category, Product, ProductVariant, CatalogStatus, AvailabilityStatus, PricingMethod } from "../../types/core.js";
 
 export class SupabaseCatalogRepository {
   private static instance: SupabaseCatalogRepository;

@@ -1,5 +1,5 @@
 import { logCoreAudit } from "./core-service.js";
-import { AuditLog } from "../types/core";
+import { AuditLog } from "../types/core.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 export interface AuditQueryFilters {

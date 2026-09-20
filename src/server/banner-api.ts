@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { BannerService } from "./banner-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { BannerService } from "./banner-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const bannerService = BannerService.getInstance();
 

@@ -1,4 +1,4 @@
-import { ApiGamesProvider } from "./providers";
+import { ApiGamesProvider } from "./providers.js";
 
 export interface InquiryResult {
   isValid: boolean;

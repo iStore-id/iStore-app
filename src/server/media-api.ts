@@ -1,7 +1,7 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { MediaService } from "./media-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { MediaService } from "./media-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import multer from "multer";
 
 const mediaService = MediaService.getInstance();

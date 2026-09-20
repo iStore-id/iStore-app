@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { MembershipService } from "./membership-service";
-import { requireAuth, AuthenticatedRequest } from "./middleware";
+import { MembershipService } from "./membership-service.js";
+import { requireAuth, AuthenticatedRequest } from "./middleware.js";
 
 const router = Router();
 const membershipService = MembershipService.getInstance();

@@ -1,6 +1,6 @@
 import { Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { SupabaseCatalogSyncService } from "./supabase/catalog-sync-service";
+import { AuthenticatedRequest } from "./middleware.js";
+import { SupabaseCatalogSyncService } from "./supabase/catalog-sync-service.js";
 
 /**
  * Controller for Supabase Catalog Sync (STEP 4.5B)

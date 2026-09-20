@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { getFeatureFlags, updateFeatureFlags, FeatureFlag } from "./feature-flag-service";
+import { AuthenticatedRequest } from "./middleware.js";
+import { getFeatureFlags, updateFeatureFlags, FeatureFlag } from "./feature-flag-service.js";
 
 export async function getAdminFeatureFlags(req: AuthenticatedRequest, res: Response) {
   try {

@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { InventoryService } from "./inventory-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { InventoryService } from "./inventory-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 
 const inventoryService = InventoryService.getInstance();
 

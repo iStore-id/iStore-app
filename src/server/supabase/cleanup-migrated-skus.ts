@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../supabase-admin";
+import { supabaseAdmin } from "../supabase-admin.js";
 
 async function executeCleanup() {
   console.log("--- PHASE 6D: CONTROLLED DATA CLEANUP ---");

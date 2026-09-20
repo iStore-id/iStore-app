@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { LandingService } from "./landing-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { AuthenticatedRequest } from "./middleware.js";
+import { LandingService } from "./landing-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 const landingService = LandingService.getInstance();
 

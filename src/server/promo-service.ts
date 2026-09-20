@@ -1,4 +1,4 @@
-import { SupabasePromoRepository } from "./supabase/promo-repository";
+import { SupabasePromoRepository } from "./supabase/promo-repository.js";
 
 export interface PromoData {
   id?: string;

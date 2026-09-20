@@ -1,5 +1,5 @@
-import { OrderRepository } from "./order-repository";
-import { Order } from "../../types/order";
+import { OrderRepository } from "./order-repository.js";
+import { Order } from "../../types/order.js";
 
 async function testMapping() {
     console.log("Running mapping test...");

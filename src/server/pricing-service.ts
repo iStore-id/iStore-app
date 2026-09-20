@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabase-admin.js";
-import { PricingMethod, ProductVariant, PricingRule, PriceHistory } from "../types/core";
+import { PricingMethod, ProductVariant, PricingRule, PriceHistory } from "../types/core.js";
 
 export class PricingService {
   private static instance: PricingService;

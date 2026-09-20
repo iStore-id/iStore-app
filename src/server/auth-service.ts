@@ -1,5 +1,5 @@
 import { AuthRepository } from "./supabase/auth-repository.js";
-import { Role, Permission } from "../types/auth";
+import { Role, Permission } from "../types/auth.js";
 import { logCoreAudit } from "./core-service.js";
 
 export const OWNER_EMAIL = process.env.OWNER_EMAIL || "kabay.cs@gmail.com";

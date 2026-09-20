@@ -1,10 +1,10 @@
 import { Response } from "express";
 import * as crypto from "crypto";
-import { AuthenticatedRequest } from "./middleware";
-import { supabaseAdmin } from "./supabase-admin";
-import { processSettlementCsv, logAudit } from "./settlement-service";
-import { SettlementBatch, SettlementRecord, SettlementAdjustment, SettlementAdjustmentType } from "../types/core";
-import { safeRecordSettlementClosed, safeRecordTypedSettlementAdjustment } from "./ledger-service";
+import { AuthenticatedRequest } from "./middleware.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import { processSettlementCsv, logAudit } from "./settlement-service.js";
+import { SettlementBatch, SettlementRecord, SettlementAdjustment, SettlementAdjustmentType } from "../types/core.js";
+import { safeRecordSettlementClosed, safeRecordTypedSettlementAdjustment } from "./ledger-service.js";
 
 export async function importSettlement(req: AuthenticatedRequest, res: Response) {
   try {

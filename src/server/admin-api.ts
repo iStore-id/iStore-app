@@ -1,20 +1,20 @@
 import { Request, Response } from "express";
-import { AuthenticatedRequest } from "./middleware";
-import { ProviderCatalogDiscoveryService } from "./discovery-service";
-import { ProviderMappingService } from "./provider-mapping-service";
-import { TokoVoucherDiscoveryAdapter } from "./adapters/tokovoucher-discovery-adapter";
-import { ApiGamesDiscoveryAdapter } from "./adapters/apigames-discovery-adapter";
-import { CatalogService } from "./catalog-service";
-import { ProviderService } from "./provider-service";
-import { SupabaseProviderRepository } from "./supabase/provider-repository";
-import { SupabaseRefundRepository } from "./supabase/refund-repository";
-import { OrderRepository } from "./supabase/order-repository";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { AuthenticatedRequest } from "./middleware.js";
+import { ProviderCatalogDiscoveryService } from "./discovery-service.js";
+import { ProviderMappingService } from "./provider-mapping-service.js";
+import { TokoVoucherDiscoveryAdapter } from "./adapters/tokovoucher-discovery-adapter.js";
+import { ApiGamesDiscoveryAdapter } from "./adapters/apigames-discovery-adapter.js";
+import { CatalogService } from "./catalog-service.js";
+import { ProviderService } from "./provider-service.js";
+import { SupabaseProviderRepository } from "./supabase/provider-repository.js";
+import { SupabaseRefundRepository } from "./supabase/refund-repository.js";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 // Admin API Logic using Supabase and existing services
 import { DateTime } from "luxon";
-import { ProviderSku, ProviderMapping, Product, Game, ProductVariant } from "../types/core";
+import { ProviderSku, ProviderMapping, Product, Game, ProductVariant } from "../types/core.js";
 
 const discoveryService = new ProviderCatalogDiscoveryService();
 discoveryService.registerAdapter(new TokoVoucherDiscoveryAdapter());
@@ -160,17 +160,17 @@ export async function importFromCatalogDiscovery(req: AuthenticatedRequest, res:
     return res.status(500).json({ success: false, message: error.message });
   }
 }
-import { PaymentGatewayService } from "./payment-gateway-service";
-import { refundMidtransTransaction } from "./midtrans";
+import { PaymentGatewayService } from "./payment-gateway-service.js";
+import { refundMidtransTransaction } from "./midtrans.js";
 import * as crypto from "crypto";
-import { transitionOrderState } from "./state-machine";
-import { dispatchFulfillment } from "./fulfillment-dispatcher";
-import { safeRecordRefundExecuted, getOrderSettlementContext } from "./ledger-service";
-import { PromoService } from "./promo-service";
-import { FlashSaleService } from "./flash-sale-service";
-import { BusinessCalendarService } from "./business-calendar-service";
-import { JobService } from "./job-service";
-import { NotificationService } from "./notification-service";
+import { transitionOrderState } from "./state-machine.js";
+import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
+import { safeRecordRefundExecuted, getOrderSettlementContext } from "./ledger-service.js";
+import { PromoService } from "./promo-service.js";
+import { FlashSaleService } from "./flash-sale-service.js";
+import { BusinessCalendarService } from "./business-calendar-service.js";
+import { JobService } from "./job-service.js";
+import { NotificationService } from "./notification-service.js";
 
 const catalogService = CatalogService.getInstance();
 const providerService = ProviderService.getInstance();
@@ -602,7 +602,7 @@ export async function testApiGamesConnection(req: AuthenticatedRequest, res: Res
 // ===================
 // API GAMES CREDENTIALS (Secure)
 // ===================
-import { getApiGamesServerConfig } from "./providers";
+import { getApiGamesServerConfig } from "./providers.js";
 
 export async function getApiGamesCredentialStatus(req: AuthenticatedRequest, res: Response) {
   try {
@@ -928,9 +928,9 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
 // ===================
 // MIDTRANS INTEGRATION MANAGEMENT
 // ===================
-import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans";
-import { getTokoVoucherServerConfig, testTokoVoucherConnection } from "./providers";
-import { logCoreAudit } from "./core-service";
+import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans.js";
+import { getTokoVoucherServerConfig, testTokoVoucherConnection } from "./providers.js";
+import { logCoreAudit } from "./core-service.js";
 
 export async function getMidtransIntegration(req: AuthenticatedRequest, res: Response) {
   try {

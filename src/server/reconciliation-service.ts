@@ -1,10 +1,10 @@
-import { OrderRepository } from "./supabase/order-repository";
-import { ReconciliationRepository } from "./supabase/reconciliation-repository";
-import { checkMidtransStatus } from "./midtrans";
-import { transitionOrderState } from "./state-machine";
-import { dispatchFulfillment } from "./fulfillment-dispatcher";
-import { IncidentService } from "./incident-service";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { ReconciliationRepository } from "./supabase/reconciliation-repository.js";
+import { checkMidtransStatus } from "./midtrans.js";
+import { transitionOrderState } from "./state-machine.js";
+import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
+import { IncidentService } from "./incident-service.js";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import * as crypto from "crypto";
 
 export interface ReconcileResult {

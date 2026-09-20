@@ -1,4 +1,4 @@
-import { logCoreAudit } from "./core-service";
+import { logCoreAudit } from "./core-service.js";
 import { 
   CommissionConfig, 
   CommissionRecipient, 
@@ -9,13 +9,13 @@ import {
   PayoutBatchStatus,
   PayoutAllocationItem,
   PayoutRecipientSnapshot
-} from "../types/commission";
-import { supabaseAdmin } from "./supabase-admin";
-import * as repo from "./commission-repository";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
-import { OrderRepository } from "./supabase/order-repository";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { SupabaseRefundRepository } from "./supabase/refund-repository";
+} from "../types/commission.js";
+import { supabaseAdmin } from "./supabase-admin.js";
+import * as repo from "./commission-repository.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { SupabaseRefundRepository } from "./supabase/refund-repository.js";
 
 function getSupabase() {
   if (!supabaseAdmin) {

@@ -1,5 +1,5 @@
-import { SupabaseCMSRepository } from "./supabase/cms-repository";
-import { Popup } from "../types/cms";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { Popup } from "../types/cms.js";
 
 export class PopupService {
   private static instance: PopupService;
