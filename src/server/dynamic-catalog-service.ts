@@ -1,5 +1,5 @@
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
-import { supabaseAdmin } from "./supabase-admin";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { Game, Product, ProductVariant, CatalogStatus, AvailabilityStatus } from "../types/core";
 import slugify from "slugify";
 import { PricingService } from "./pricing-service";
