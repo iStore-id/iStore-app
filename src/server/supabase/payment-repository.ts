@@ -1,4 +1,4 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
 import { SystemConfigRepository } from "./system-config-repository";
 import * as crypto from "crypto";
 
