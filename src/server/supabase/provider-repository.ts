@@ -1,6 +1,6 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
 import { Provider, ProviderSku, ProviderMapping, RoutingDecision } from "../../types/core";
-import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity";
+import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity.js";
 
 export class SupabaseProviderRepository {
   private static instance: SupabaseProviderRepository;

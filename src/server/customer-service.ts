@@ -1,4 +1,4 @@
-import { CustomerRepository } from "./supabase/customer-repository";
+import { CustomerRepository } from "./supabase/customer-repository.js";
 import * as crypto from "crypto";
 
 export interface CustomerDirectoryQuery {

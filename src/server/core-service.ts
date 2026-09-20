@@ -1,6 +1,6 @@
 import { SystemConfiguration, StoreConfiguration, AuditLog } from "../types/core";
-import { AuditLogRepository } from "./supabase/audit-log-repository";
-import { SystemConfigRepository } from "./supabase/system-config-repository";
+import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import * as crypto from "crypto";
 
 export async function logCoreAudit(actor: {uid: string; email: string}, role: string, action: string, target: string, before: any, after: any, reason?: string) {

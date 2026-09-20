@@ -1,7 +1,7 @@
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { supabaseAdmin } from "./supabase-admin";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { Game, Category, Product, ProductVariant, ProviderMapping, CatalogStatus, AvailabilityStatus, PricingMethod } from "../types/core";
-import { PricingService } from "./pricing-service";
+import { PricingService } from "./pricing-service.js";
 import { v4 as uuidv4 } from "uuid";
 
 const pricingService = PricingService.getInstance();

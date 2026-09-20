@@ -1,5 +1,5 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
-import { ReviewItem } from "../review-service";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
+import { ReviewItem } from "../review-service.js";
 
 export class SupabaseReviewRepository {
   private static instance: SupabaseReviewRepository;

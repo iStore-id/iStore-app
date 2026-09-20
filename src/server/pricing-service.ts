@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./supabase-admin";
+import { supabaseAdmin } from "./supabase-admin.js";
 import { PricingMethod, ProductVariant, PricingRule, PriceHistory } from "../types/core";
 
 export class PricingService {
@@ -81,7 +81,7 @@ export class PricingService {
     
     let memberPlanId: string | null = null;
     if (context.userId) {
-      const { MembershipService } = await import("./membership-service");
+      const { MembershipService } = await import("./membership-service.js");
       const membership = await MembershipService.getInstance().getCustomerMembership(context.userId);
       if (membership && membership.status === 'ACTIVE') {
         memberPlanId = membership.plan_id;

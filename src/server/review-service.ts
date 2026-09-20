@@ -1,5 +1,5 @@
-import { SupabaseReviewRepository } from "./supabase/review-repository";
-import { OrderRepository } from "./supabase/order-repository";
+import { SupabaseReviewRepository } from "./supabase/review-repository.js";
+import { OrderRepository } from "./supabase/order-repository.js";
 
 export interface ReviewItem {
   id: string;

@@ -1,4 +1,4 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
 import { CustomerUser, PointTransaction } from "../../types/customer";
 
 export class CustomerRepository {

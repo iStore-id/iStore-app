@@ -1,4 +1,4 @@
-import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
 import { Game, Category, Product, ProductVariant, CatalogStatus, AvailabilityStatus, PricingMethod } from "../../types/core";
 
 export class SupabaseCatalogRepository {
