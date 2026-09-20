@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { SupabaseCatalogRepository } from "./supabase/catalog-repository";
-import { DynamicCatalogService } from "./dynamic-catalog-service";
-import { FlashSaleService } from "./flash-sale-service";
+import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
+import { DynamicCatalogService } from "./dynamic-catalog-service.js";
+import { FlashSaleService } from "./flash-sale-service.js";
 
 const supabaseCatalogRepo = SupabaseCatalogRepository.getInstance();
 const dynamicCatalogService = DynamicCatalogService.getInstance();

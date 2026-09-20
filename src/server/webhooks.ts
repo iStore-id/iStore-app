@@ -1,10 +1,10 @@
-import { OrderRepository } from "./supabase/order-repository";
-import { verifySignatureKey } from "./midtrans";
-import { getTokoVoucherServerConfig } from "./providers";
-import { dispatchFulfillment } from "./fulfillment-dispatcher";
-import { transitionOrderState } from "./state-machine";
-import { safeRecordPaymentReceived } from "./ledger-service";
-import { logSystem } from "./system-log-service";
+import { OrderRepository } from "./supabase/order-repository.js";
+import { verifySignatureKey } from "./midtrans.js";
+import { getTokoVoucherServerConfig } from "./providers.js";
+import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
+import { transitionOrderState } from "./state-machine.js";
+import { safeRecordPaymentReceived } from "./ledger-service.js";
+import { logSystem } from "./system-log-service.js";
 import * as crypto from "crypto";
 
 export async function midtransWebhook(req: any, res: any) {
@@ -113,7 +113,7 @@ export async function midtransWebhook(req: any, res: any) {
                    res.status(200).json({ status: "ok", message: "Already paid, enqueued fulfillment" });
                    
                    try {
-                      const { JobService } = await import("./job-service");
+                      const { JobService } = await import("./job-service.js");
                       await JobService.getInstance().enqueue({
                          type: 'FULFILLMENT',
                          payload: { orderId: order_id },
