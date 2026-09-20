@@ -235,8 +235,11 @@ export class DynamicCatalogService {
           id: `virtual-variant-${v.sku.id}`,
           productId: `virtual-product-${gameSlug}`,
           name: v.sku.name,
+          displayName: v.sku.name,
           sku: v.sku.provider_sku,
           status: "active",
+          availability: "available",
+          sortOrder: 100,
           pricing: {
             baseCost: cost,
             sellingPrice: 0,
@@ -460,7 +463,7 @@ export class DynamicCatalogService {
       };
     });
 
-    const resolvedVirtualVariants = (await Promise.all(virtualVariantsPromises)).filter((v): v is ProductVariant => v !== null);
+    const resolvedVirtualVariants = (await Promise.all(virtualVariantsPromises)).filter(Boolean) as ProductVariant[];
 
     return [...realVariants, ...resolvedVirtualVariants];
   }
