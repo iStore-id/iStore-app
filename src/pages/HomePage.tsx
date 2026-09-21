@@ -99,28 +99,26 @@ export default function HomePage() {
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [homeFaqs, setHomeFaqs] = useState<PublicFAQItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [catalogErrorState, setCatalogErrorState] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    // 1. Fetch light data (categories, banners, campaigns, faq) immediately
+    const fetchLightData = async () => {
       try {
         setLoading(true);
-        const [gamesRes, categoriesRes, bannersRes, campaignsRes, faqsRes] = await Promise.all([
-          fetch("/api/public/catalog/games"),
+        const [categoriesRes, bannersRes, campaignsRes, faqsRes] = await Promise.all([
           fetch("/api/public/catalog/categories"),
           fetch("/api/public/banners?placement=homepage_hero"),
           fetch("/api/public/campaigns"),
           fetch("/api/public/faq")
         ]);
-        const gamesData = await gamesRes.json();
         const categoriesData = await categoriesRes.json();
         const bannersData = await bannersRes.json();
         const campaignsData = await campaignsRes.json();
         const faqsData = await faqsRes.json();
         
-        if (gamesData.success) {
-          setPopularGames(gamesData.data || []);
-        }
         if (categoriesData.success) {
           const sortedCategories = (categoriesData.data || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
           setActiveCategories(sortedCategories);
@@ -135,7 +133,7 @@ export default function HomePage() {
           setHomeFaqs(faqsData.data?.slice(0, 4) || []);
         }
       } catch (error) {
-        console.warn("Notice: Data could not be fetched:", error);
+        console.warn("Notice: Light data could not be fetched:", error);
         setErrorState("service_error");
       } finally {
         setLoading(false);
@@ -143,7 +141,27 @@ export default function HomePage() {
       }
     };
 
-    fetchData();
+    // 2. Fetch catalog games independently in parallel
+    const fetchCatalogGames = async () => {
+      try {
+        setCatalogLoading(true);
+        const gamesRes = await fetch("/api/public/catalog/games");
+        const gamesData = await gamesRes.json();
+        if (gamesData.success) {
+          setPopularGames(gamesData.data || []);
+        } else {
+          setCatalogErrorState("service_error");
+        }
+      } catch (error) {
+        console.warn("Notice: Catalog games could not be fetched:", error);
+        setCatalogErrorState("service_error");
+      } finally {
+        setCatalogLoading(false);
+      }
+    };
+
+    fetchLightData();
+    fetchCatalogGames();
   }, []);
 
   // Hash Scroll Handler for Async Data Load
@@ -326,7 +344,7 @@ export default function HomePage() {
           </div>
 
           {/* Catalog Grid State */}
-          {loading ? (
+          {catalogLoading ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
               {[...Array(12)].map((_, i) => (
                 <div key={i} className="animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl aspect-[1/1.15] overflow-hidden relative border" style={{ borderColor: 'var(--border-color)' }}>
@@ -335,7 +353,7 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : errorState === "configuration_error" ? (
+          ) : catalogErrorState === "configuration_error" ? (
             <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm max-w-xl mx-auto space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-500">
                 <AlertTriangle className="w-6 h-6" />
@@ -343,7 +361,7 @@ export default function HomePage() {
               <h3 className="text-lg font-bold text-slate-900">Konfigurasi Database Diperlukan</h3>
               <p className="text-slate-500 text-sm">Hubungkan basis data Firebase melalui konsol kontrol untuk memuat katalog dan produk Toko Kami.</p>
             </div>
-          ) : errorState === "service_error" ? (
+          ) : catalogErrorState === "service_error" ? (
             <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm max-w-xl mx-auto space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center mx-auto text-red-500">
                 <AlertTriangle className="w-6 h-6" />
