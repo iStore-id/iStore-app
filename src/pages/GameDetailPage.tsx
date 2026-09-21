@@ -263,7 +263,7 @@ export default function GameDetailPage() {
           return;
         }
 
-        const { game, products } = data.data;
+        const { game, products, initialVariants } = data.data;
         setGame(game);
         setProducts(products);
         setLoading(false);
@@ -272,10 +272,15 @@ export default function GameDetailPage() {
           const firstProd = products[0];
           setSelectedProduct(firstProd);
           
-          const vResp = await fetch(`/api/public/catalog/products/${firstProd.id}/variants`);
-          const vData = await vResp.json();
-          if (vData.success) {
-            setVariants(vData.data);
+          if (Array.isArray(initialVariants) && initialVariants.length > 0) {
+            setVariants(initialVariants);
+          } else {
+            // Fallback for safety if initialVariants is not provided
+            const vResp = await fetch(`/api/public/catalog/products/${firstProd.id}/variants`);
+            const vData = await vResp.json();
+            if (vData.success) {
+              setVariants(vData.data);
+            }
           }
         }
       } catch (err) {

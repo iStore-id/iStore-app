@@ -10,6 +10,7 @@ const pricingService = PricingService.getInstance();
 export class DynamicCatalogService {
   private static instance: DynamicCatalogService;
   private mergedGamesCache: { data: Game[]; timestamp: number } | null = null;
+  private mergedVariantsCache: Map<string, { data: ProductVariant[]; timestamp: number }> = new Map();
   private cacheTtlMs = 45000; // 45 seconds TTL
 
   private constructor() {}
@@ -23,6 +24,7 @@ export class DynamicCatalogService {
 
   public invalidateCache(): void {
     this.mergedGamesCache = null;
+    this.mergedVariantsCache.clear();
   }
 
   private categoryMap: Record<string, string> = {
@@ -364,6 +366,12 @@ export class DynamicCatalogService {
   }
 
   async getMergedVariants(productId: string): Promise<ProductVariant[]> {
+    const now = Date.now();
+    const cached = this.mergedVariantsCache.get(productId);
+    if (cached && (now - cached.timestamp < this.cacheTtlMs)) {
+      return cached.data;
+    }
+
     // 1. Get real variants
     const realVariants = await catalogRepo.listVariantsByProduct(productId, true);
     
@@ -382,7 +390,13 @@ export class DynamicCatalogService {
       }
     }
 
-    if (!gameSlug) return realVariants;
+    if (!gameSlug) {
+      this.mergedVariantsCache.set(productId, {
+        data: realVariants,
+        timestamp: Date.now()
+      });
+      return realVariants;
+    }
 
     // 3. Get virtual variants matching this game slug
     const { data: skus } = await supabaseAdmin!
@@ -390,7 +404,13 @@ export class DynamicCatalogService {
       .select("*")
       .eq("status", "active");
 
-    if (!skus) return realVariants;
+    if (!skus) {
+      this.mergedVariantsCache.set(productId, {
+        data: realVariants,
+        timestamp: Date.now()
+      });
+      return realVariants;
+    }
 
     const seenSkus = new Set<string>();
     const seenProviderSkuIds = new Set<string>();
@@ -483,6 +503,12 @@ export class DynamicCatalogService {
 
     const resolvedVirtualVariants = (await Promise.all(virtualVariantsPromises)).filter(Boolean) as ProductVariant[];
 
-    return [...realVariants, ...resolvedVirtualVariants];
+    const finalVariants = [...realVariants, ...resolvedVirtualVariants];
+    this.mergedVariantsCache.set(productId, {
+      data: finalVariants,
+      timestamp: Date.now()
+    });
+
+    return finalVariants;
   }
 }

@@ -32,6 +32,53 @@ export async function getPublicGames(req: Request, res: Response) {
   }
 }
 
+async function resolveEnrichedVariants(productId: string) {
+  const variants = await dynamicCatalogService.getMergedVariants(productId);
+  
+  const formattedVariants = variants.map((v) => ({
+    id: v.id,
+    productId: v.productId,
+    name: v.name,
+    displayName: v.displayName,
+    sku: v.sku,
+    status: v.status,
+    availability: v.availability,
+    sortOrder: v.sortOrder,
+    sellingPrice: v.pricing?.sellingPrice || 0
+  }));
+
+  // Fail-safe and optimized bulk flash sale fetching
+  let activeFlashSales: any[] = [];
+  try {
+    const variantIds = formattedVariants.map(v => v.id);
+    activeFlashSales = await flashSaleService.getActiveFlashSalesForVariants(variantIds);
+  } catch (fsError) {
+    console.error("[resolveEnrichedVariants] Flash Sale fetch failed, proceeding without flash sales:", fsError);
+    // We continue with empty flash sales instead of 500 error
+  }
+
+  const enriched = formattedVariants.map((v: any) => {
+    const activeFs = activeFlashSales.find(fs => fs.variantId === v.id);
+    if (activeFs) {
+      return {
+        ...v,
+        flashSale: {
+          id: activeFs.id,
+          name: activeFs.name,
+          salePrice: activeFs.salePrice,
+          endAt: activeFs.endAt,
+          remainingQuota: activeFs.remainingQuota,
+          totalQuota: activeFs.totalQuota
+        },
+        sellingPrice: activeFs.salePrice
+      };
+    }
+    return v;
+  });
+
+  return enriched;
+}
+
 export async function getPublicGameDetail(req: Request, res: Response) {
   try {
     const { slug } = req.params;
@@ -72,12 +119,23 @@ export async function getPublicGameDetail(req: Request, res: Response) {
       availability: p.availability,
       metadata: p.metadata || {}
     }));
+
+    let initialVariants: any[] = [];
+    if (products.length > 0) {
+      const firstProd = products[0];
+      try {
+        initialVariants = await resolveEnrichedVariants(firstProd.id);
+      } catch (err) {
+        console.error("[getPublicGameDetail] Failed to resolve initial variants:", err);
+      }
+    }
     
     return res.status(200).json({ 
       success: true, 
       data: { 
         game: sanitizedGame, 
-        products: sanitizedProducts 
+        products: sanitizedProducts,
+        initialVariants
       } 
     });
   } catch (error: any) {
@@ -88,49 +146,7 @@ export async function getPublicGameDetail(req: Request, res: Response) {
 export async function getPublicVariants(req: Request, res: Response) {
   try {
     const { productId } = req.params;
-    const variants = await dynamicCatalogService.getMergedVariants(productId);
-    
-    const formattedVariants = variants.map((v) => ({
-      id: v.id,
-      productId: v.productId,
-      name: v.name,
-      displayName: v.displayName,
-      sku: v.sku,
-      status: v.status,
-      availability: v.availability,
-      sortOrder: v.sortOrder,
-      sellingPrice: v.pricing?.sellingPrice || 0
-    }));
-
-    // Fail-safe and optimized bulk flash sale fetching
-    let activeFlashSales: any[] = [];
-    try {
-      const variantIds = formattedVariants.map(v => v.id);
-      activeFlashSales = await flashSaleService.getActiveFlashSalesForVariants(variantIds);
-    } catch (fsError) {
-      console.error("[getPublicVariants] Flash Sale fetch failed, proceeding without flash sales:", fsError);
-      // We continue with empty flash sales instead of 500 error
-    }
-
-    const enriched = formattedVariants.map((v: any) => {
-      const activeFs = activeFlashSales.find(fs => fs.variantId === v.id);
-      if (activeFs) {
-        return {
-          ...v,
-          flashSale: {
-            id: activeFs.id,
-            name: activeFs.name,
-            salePrice: activeFs.salePrice,
-            endAt: activeFs.endAt,
-            remainingQuota: activeFs.remainingQuota,
-            totalQuota: activeFs.totalQuota
-          },
-          sellingPrice: activeFs.salePrice
-        };
-      }
-      return v;
-    });
-
+    const enriched = await resolveEnrichedVariants(productId);
     return res.status(200).json({ success: true, data: enriched });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
