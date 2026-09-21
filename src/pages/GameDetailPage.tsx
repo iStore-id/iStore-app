@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatRupiah, loadMidtransSnap } from "../lib/utils";
@@ -160,6 +160,16 @@ export default function GameDetailPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkingInquiry, setCheckingInquiry] = useState(false);
   const [inquiryResult, setInquiryResult] = useState<{ isValid: boolean; username: string | null; message?: string } | null>(null);
+
+  const snapContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (snapContainerRef.current) {
+        snapContainerRef.current.innerHTML = "";
+      }
+    };
+  }, [checkoutStep]);
 
   useEffect(() => {
     loadMidtransSnap();
@@ -828,6 +838,7 @@ export default function GameDetailPage() {
 
             {/* Midtrans Snap Embed Container */}
             <div
+              ref={snapContainerRef}
               id="snap-container"
               className="w-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-100 bg-white"
             ></div>
