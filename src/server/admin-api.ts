@@ -1285,7 +1285,7 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
       const startIso = start.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       const endIso = end.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       
-      const { DualLedgerRepository } = await import("./ledger-dual-repository");
+      const { DualLedgerRepository } = await import("./ledger-dual-repository.js");
       const ledgerRepo = DualLedgerRepository.getInstance();
 
       // Order Stats
