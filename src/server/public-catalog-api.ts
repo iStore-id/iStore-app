@@ -9,6 +9,7 @@ const flashSaleService = FlashSaleService.getInstance();
 
 export async function getPublicGames(req: Request, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
     const games = await dynamicCatalogService.getMergedGames(true);
     const sanitizedGames = games.map((game) => ({
       id: game.id,
@@ -138,6 +139,7 @@ export async function getPublicVariants(req: Request, res: Response) {
 
 export async function getPublicCategories(req: Request, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     const categories = await supabaseCatalogRepo.listCategories(true);
     const sanitizedCategories = categories.map((cat) => ({
       id: cat.id,

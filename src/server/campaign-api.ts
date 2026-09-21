@@ -19,6 +19,7 @@ async function logAudit(req: AuthenticatedRequest, action: string, resourceId: s
 
 export async function getPublicCampaignsApi(req: Request, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     const campaigns = await campaignService.getPublicCampaigns();
     // Sanitize public response (exclude admin metadata, createdBy, updatedBy, internal notes)
     const sanitized = campaigns.map(c => ({

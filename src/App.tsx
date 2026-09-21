@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { useAuthStore } from "./store/auth-store";
@@ -8,7 +8,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import MainLayout from "./layouts/MainLayout";
 import AdminLayout from "./layouts/AdminLayout";
 
-// Pages
+// Public Pages (Static for instant First Paint)
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -27,68 +27,74 @@ import MembershipStatusPage from "./pages/MembershipStatusPage";
 import SupportPage from "./pages/SupportPage";
 import AccountPage from "./pages/AccountPage";
 
-// Admin Pages
-import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
-import AdminProductsPage from "./pages/admin/AdminProductsPage";
-import AdminGamesPage from "./pages/admin/AdminGamesPage";
-import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage";
-import AdminPricingRulesPage from "./pages/admin/AdminPricingRulesPage";
-import AdminProvidersPage from "./pages/admin/AdminProvidersPage";
-import AdminProviderMappingPage from "./pages/admin/AdminProviderMappingPage";
-import AdminPaymentGatewaysPage from "./pages/admin/AdminPaymentGatewaysPage";
-import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
-import AdminPromosPage from "./pages/admin/AdminPromosPage";
-import AdminFlashSalePage from "./pages/admin/AdminFlashSalePage";
-import AdminLoyaltyPage from "./pages/admin/AdminLoyaltyPage";
-import AdminRewardsPage from "./pages/admin/AdminRewardsPage";
-import AdminReviewsPage from "./pages/admin/AdminReviewsPage";
-import AdminPaymentsPage from "./pages/admin/AdminPaymentsPage";
-import AdminRefundsPage from "./pages/admin/AdminRefundsPage";
-import { AdminTaxesPage } from "./pages/admin/AdminTaxesPage";
-import { AdminReconciliationPage } from "./pages/admin/AdminReconciliationPage";
-import AdminSettlementPage from "./pages/admin/AdminSettlementPage";
-import AdminCommissionPage from "./pages/admin/AdminCommissionPage";
-import { AdminLedgerPage } from "./pages/admin/AdminLedgerPage";
-import AdminUsersPage from "./pages/admin/AdminUsersPage";
-import { AdminCustomerSegmentsPage } from "./pages/admin/AdminCustomerSegmentsPage";
-import AdminReferralPage from "./pages/admin/AdminReferralPage";
-import AdminMembershipPage from "./pages/admin/AdminMembershipPage";
-import AdminSupportPage from "./pages/admin/AdminSupportPage";
-import AdminStockPage from "./pages/admin/AdminStockPage";
-import AdminDeliveryPage from "./pages/admin/AdminDeliveryPage";
-import AdminQueuePage from "./pages/admin/AdminQueuePage";
-import SLAPage from "./pages/admin/SLA";
-import AdminCalendarPage from "./pages/admin/AdminCalendarPage";
-import AdminCampaignsPage from "./pages/admin/AdminCampaignsPage";
-import AdminBannersPage from "./pages/admin/AdminBannersPage";
-import AdminPopupsPage from "./pages/admin/AdminPopupsPage";
-import AdminLandingsPage from "./pages/admin/AdminLandingsPage";
-import AdminLandingPreviewPage from "./pages/admin/AdminLandingPreviewPage";
-import AdminBlogPage from "./pages/admin/AdminBlogPage";
-import AdminFaqPage from "./pages/admin/AdminFaqPage";
-import AdminMediaLibraryPage from "./pages/admin/AdminMediaLibraryPage";
-import AdminSeoPage from "./pages/admin/AdminSeoPage";
-import RoleManagementPage from "./pages/admin/RoleManagementPage";
-import SecurityPage from "./pages/admin/SecurityPage";
-import AuditLogsPage from "./pages/admin/AuditLogsPage";
-import SystemLogsPage from "./pages/admin/SystemLogsPage";
-import { AdminFeatureFlagsPage } from "./pages/admin/AdminFeatureFlagsPage";
-import { AdminSystemConfigPage } from "./pages/admin/AdminSystemConfigPage";
-import AdminIntegrationsHubPage from "./pages/admin/AdminIntegrationsHubPage";
-import AdminMidtransIntegrationPage from "./pages/admin/AdminMidtransIntegrationPage";
-import AdminApiGamesIntegrationPage from "./pages/admin/AdminApiGamesIntegrationPage";
-import AdminTokoVoucherIntegrationPage from "./pages/admin/AdminTokoVoucherIntegrationPage";
-import { AdminBackupPage } from "./pages/admin/AdminBackupPage";
-import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
-import AdminBrandingPage from "./pages/admin/AdminBrandingPage";
-import AdminDomainPage from "./pages/admin/AdminDomainPage";
-import AdminNotificationSettingsPage from "./pages/admin/AdminNotificationSettingsPage";
-import AdminCommunicationPage from "./pages/admin/AdminCommunicationPage";
-import AdminPrivacyPage from "./pages/admin/AdminPrivacyPage";
-import AdminRegionalPage from "./pages/admin/AdminRegionalPage";
-import AdminNotificationPage from "./pages/admin/AdminNotificationPage";
-import AdminHealthPage from "./pages/admin/AdminHealthPage";
-import AdminIncidentPage from "./pages/admin/AdminIncidentPage";
+// Lazy-loaded Admin Pages (Code Splitting for Optimal Homepage Payload)
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
+const AdminGamesPage = lazy(() => import("./pages/admin/AdminGamesPage"));
+const AdminCategoriesPage = lazy(() => import("./pages/admin/AdminCategoriesPage"));
+const AdminPricingRulesPage = lazy(() => import("./pages/admin/AdminPricingRulesPage"));
+const AdminProvidersPage = lazy(() => import("./pages/admin/AdminProvidersPage"));
+const AdminProviderMappingPage = lazy(() => import("./pages/admin/AdminProviderMappingPage"));
+const AdminPaymentGatewaysPage = lazy(() => import("./pages/admin/AdminPaymentGatewaysPage"));
+const AdminOrdersPage = lazy(() => import("./pages/admin/AdminOrdersPage"));
+const AdminPromosPage = lazy(() => import("./pages/admin/AdminPromosPage"));
+const AdminFlashSalePage = lazy(() => import("./pages/admin/AdminFlashSalePage"));
+const AdminLoyaltyPage = lazy(() => import("./pages/admin/AdminLoyaltyPage"));
+const AdminRewardsPage = lazy(() => import("./pages/admin/AdminRewardsPage"));
+const AdminReviewsPage = lazy(() => import("./pages/admin/AdminReviewsPage"));
+const AdminPaymentsPage = lazy(() => import("./pages/admin/AdminPaymentsPage"));
+const AdminRefundsPage = lazy(() => import("./pages/admin/AdminRefundsPage"));
+const AdminTaxesPage = lazy(() => import("./pages/admin/AdminTaxesPage").then(m => ({ default: m.AdminTaxesPage })));
+const AdminReconciliationPage = lazy(() => import("./pages/admin/AdminReconciliationPage").then(m => ({ default: m.AdminReconciliationPage })));
+const AdminSettlementPage = lazy(() => import("./pages/admin/AdminSettlementPage"));
+const AdminCommissionPage = lazy(() => import("./pages/admin/AdminCommissionPage"));
+const AdminLedgerPage = lazy(() => import("./pages/admin/AdminLedgerPage").then(m => ({ default: m.AdminLedgerPage })));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
+const AdminCustomerSegmentsPage = lazy(() => import("./pages/admin/AdminCustomerSegmentsPage").then(m => ({ default: m.AdminCustomerSegmentsPage })));
+const AdminReferralPage = lazy(() => import("./pages/admin/AdminReferralPage"));
+const AdminMembershipPage = lazy(() => import("./pages/admin/AdminMembershipPage"));
+const AdminSupportPage = lazy(() => import("./pages/admin/AdminSupportPage"));
+const AdminStockPage = lazy(() => import("./pages/admin/AdminStockPage"));
+const AdminDeliveryPage = lazy(() => import("./pages/admin/AdminDeliveryPage"));
+const AdminQueuePage = lazy(() => import("./pages/admin/AdminQueuePage"));
+const SLAPage = lazy(() => import("./pages/admin/SLA"));
+const AdminCalendarPage = lazy(() => import("./pages/admin/AdminCalendarPage"));
+const AdminCampaignsPage = lazy(() => import("./pages/admin/AdminCampaignsPage"));
+const AdminBannersPage = lazy(() => import("./pages/admin/AdminBannersPage"));
+const AdminPopupsPage = lazy(() => import("./pages/admin/AdminPopupsPage"));
+const AdminLandingsPage = lazy(() => import("./pages/admin/AdminLandingsPage"));
+const AdminLandingPreviewPage = lazy(() => import("./pages/admin/AdminLandingPreviewPage"));
+const AdminBlogPage = lazy(() => import("./pages/admin/AdminBlogPage"));
+const AdminFaqPage = lazy(() => import("./pages/admin/AdminFaqPage"));
+const AdminMediaLibraryPage = lazy(() => import("./pages/admin/AdminMediaLibraryPage"));
+const AdminSeoPage = lazy(() => import("./pages/admin/AdminSeoPage"));
+const RoleManagementPage = lazy(() => import("./pages/admin/RoleManagementPage"));
+const SecurityPage = lazy(() => import("./pages/admin/SecurityPage"));
+const AuditLogsPage = lazy(() => import("./pages/admin/AuditLogsPage"));
+const SystemLogsPage = lazy(() => import("./pages/admin/SystemLogsPage"));
+const AdminFeatureFlagsPage = lazy(() => import("./pages/admin/AdminFeatureFlagsPage").then(m => ({ default: m.AdminFeatureFlagsPage })));
+const AdminSystemConfigPage = lazy(() => import("./pages/admin/AdminSystemConfigPage").then(m => ({ default: m.AdminSystemConfigPage })));
+const AdminIntegrationsHubPage = lazy(() => import("./pages/admin/AdminIntegrationsHubPage"));
+const AdminMidtransIntegrationPage = lazy(() => import("./pages/admin/AdminMidtransIntegrationPage"));
+const AdminApiGamesIntegrationPage = lazy(() => import("./pages/admin/AdminApiGamesIntegrationPage"));
+const AdminTokoVoucherIntegrationPage = lazy(() => import("./pages/admin/AdminTokoVoucherIntegrationPage"));
+const AdminBackupPage = lazy(() => import("./pages/admin/AdminBackupPage").then(m => ({ default: m.AdminBackupPage })));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminBrandingPage = lazy(() => import("./pages/admin/AdminBrandingPage"));
+const AdminDomainPage = lazy(() => import("./pages/admin/AdminDomainPage"));
+const AdminNotificationSettingsPage = lazy(() => import("./pages/admin/AdminNotificationSettingsPage"));
+const AdminCommunicationPage = lazy(() => import("./pages/admin/AdminCommunicationPage"));
+const AdminPrivacyPage = lazy(() => import("./pages/admin/AdminPrivacyPage"));
+const AdminRegionalPage = lazy(() => import("./pages/admin/AdminRegionalPage"));
+const AdminNotificationPage = lazy(() => import("./pages/admin/AdminNotificationPage"));
+const AdminHealthPage = lazy(() => import("./pages/admin/AdminHealthPage"));
+const AdminIncidentPage = lazy(() => import("./pages/admin/AdminIncidentPage"));
+
+const AdminSuspenseFallback = () => (
+  <div className="flex items-center justify-center min-h-[50vh] p-8">
+    <div className="w-8 h-8 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin" />
+  </div>
+);
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore();
@@ -202,7 +208,14 @@ export default function App() {
             <Route path="/account" element={<AccountPage />} />
             <Route path="/profile" element={<AccountPage />} />
           </Route>
-          <Route path="/admin" element={<AdminLayout />}>
+          <Route
+            path="/admin"
+            element={
+              <Suspense fallback={<AdminSuspenseFallback />}>
+                <AdminLayout />
+              </Suspense>
+            }
+          >
             <Route index element={<AdminDashboardPage />} />
             <Route path="notifications" element={<AdminNotificationPage />} />
             <Route path="health" element={<AdminHealthPage />} />

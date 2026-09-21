@@ -13,6 +13,7 @@ import {
  */
 export async function getPublicPrivacyApi(req: any, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
     const settings = await getPrivacySettings();
     const publicData = getPublicPrivacySettings(settings);
     return res.json({

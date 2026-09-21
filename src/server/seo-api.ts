@@ -9,6 +9,7 @@ import { getUserRole } from "./auth-service.js";
  */
 export async function getPublicSEOSettings(req: Request, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
     const publicSettings = await seoService.getPublicSettings();
     return res.status(200).json({ success: true, data: publicSettings });
   } catch (error: any) {

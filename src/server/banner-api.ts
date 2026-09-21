@@ -24,6 +24,7 @@ export async function getPublicBannersApi(req: Request, res: Response) {
       return res.status(400).json({ success: false, message: "Parameter placement wajib diisi." });
     }
     const banners = await bannerService.getPublicBanners(placement);
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     // Sanitize public response (exclude audit info, createdBy, etc.)
     const sanitized = banners.map(b => ({
       id: b.id,

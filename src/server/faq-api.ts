@@ -32,6 +32,7 @@ async function logFaqAudit(
 
 export async function getPublicFaqsApi(req: Request, res: Response) {
   try {
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     const { category, search } = req.query;
     const result = await faqService.getPublicFaqs({
       category: category as string,
