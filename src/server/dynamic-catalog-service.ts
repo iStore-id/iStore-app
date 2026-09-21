@@ -9,6 +9,8 @@ const pricingService = PricingService.getInstance();
 
 export class DynamicCatalogService {
   private static instance: DynamicCatalogService;
+  private mergedGamesCache: { data: Game[]; timestamp: number } | null = null;
+  private cacheTtlMs = 45000; // 45 seconds TTL
 
   private constructor() {}
 
@@ -17,6 +19,10 @@ export class DynamicCatalogService {
       DynamicCatalogService.instance = new DynamicCatalogService();
     }
     return DynamicCatalogService.instance;
+  }
+
+  public invalidateCache(): void {
+    this.mergedGamesCache = null;
   }
 
   private categoryMap: Record<string, string> = {
@@ -195,6 +201,11 @@ export class DynamicCatalogService {
   }
 
   async getMergedGames(onlyActive = true): Promise<Game[]> {
+    const now = Date.now();
+    if (onlyActive && this.mergedGamesCache && (now - this.mergedGamesCache.timestamp < this.cacheTtlMs)) {
+      return this.mergedGamesCache.data;
+    }
+
     // 1. Get real games
     const realGames = await catalogRepo.listGames(onlyActive);
     
@@ -299,6 +310,13 @@ export class DynamicCatalogService {
           maxPrice: virtualMax
         });
       }
+    }
+
+    if (onlyActive) {
+      this.mergedGamesCache = {
+        data: finalGames,
+        timestamp: Date.now()
+      };
     }
 
     return finalGames;

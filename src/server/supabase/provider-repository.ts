@@ -1,6 +1,7 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "../supabase-admin.js";
 import { Provider, ProviderSku, ProviderMapping, RoutingDecision } from "../../types/core.js";
 import { generateDeterministicProviderSkuUuid } from "./provider-sku-identity.js";
+import { DynamicCatalogService } from "../dynamic-catalog-service.js";
 
 export class SupabaseProviderRepository {
   private static instance: SupabaseProviderRepository;
@@ -204,6 +205,7 @@ export class SupabaseProviderRepository {
     });
 
     if (error) throw new Error(`Supabase upsertProviderSku error: ${error.message}`);
+    DynamicCatalogService.getInstance().invalidateCache();
     return deterministicUuid;
   }
 
@@ -396,6 +398,7 @@ export class SupabaseProviderRepository {
     const client = this.ensureClient();
     const { error } = await client.from("provider_skus").delete().eq("id", id);
     if (error) throw new Error(`Supabase deleteProviderSku error: ${error.message}`);
+    DynamicCatalogService.getInstance().invalidateCache();
   }
 
   async deleteMapping(id: string): Promise<void> {
