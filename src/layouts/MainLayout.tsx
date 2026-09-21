@@ -26,6 +26,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { fetchStoreConfig } from "../lib/utils";
 import NotificationBell from "../components/NotificationBell";
 import { PaymentMethodLogos } from "../components/PaymentLogos";
 import ThemeToggle, { CustomerThemePreference } from "../components/ThemeToggle";
@@ -243,14 +244,11 @@ export default function MainLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
-    fetch("/api/public/store-config")
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          setBranding(data.data);
-        }
-      })
-      .catch(err => console.error("Gagal mengambil branding publik:", err));
+    fetchStoreConfig().then(config => {
+      if (config) {
+        setBranding(config);
+      }
+    });
   }, []);
 
   useEffect(() => {

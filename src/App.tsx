@@ -137,19 +137,23 @@ export default function App() {
         
         let role = "customer";
         try {
-          const permsRes = await fetch('/api/auth/permissions', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const permsData = await permsRes.json();
+          const [permsRes, profileRes] = await Promise.all([
+            fetch('/api/auth/permissions', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch(`/api/customer/profile/${sbUser.id}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+          ]);
+          const [permsData, profileData] = await Promise.all([
+            permsRes.json(),
+            profileRes.json()
+          ]);
           if (permsData.success) {
             useAuthStore.getState().setPermissions(permsData.data);
-            const profileRes = await fetch(`/api/customer/profile/${sbUser.id}`, {
-               headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const profileData = await profileRes.json();
-            if (profileData.success) {
-              role = profileData.data.role || "customer";
-            }
+          }
+          if (profileData.success) {
+            role = profileData.data.role || "customer";
           }
         } catch (e) {
           console.warn("Notice: permissions/profile fetch failed", e);

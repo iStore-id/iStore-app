@@ -81,3 +81,28 @@ export async function loadMidtransSnap(): Promise<boolean> {
 
   return snapLoadingPromise;
 }
+
+let storeConfigPromise: Promise<any> | null = null;
+let storeConfigCache: any = null;
+
+export async function fetchStoreConfig(): Promise<any> {
+  if (storeConfigCache) return storeConfigCache;
+  if (storeConfigPromise) return storeConfigPromise;
+
+  storeConfigPromise = (async () => {
+    try {
+      const res = await fetch("/api/public/store-config");
+      const data = await res.json();
+      if (data.success && data.data) {
+        storeConfigCache = data.data;
+        return storeConfigCache;
+      }
+    } catch (err) {
+      console.error("Gagal mengambil store config:", err);
+    }
+    return null;
+  })();
+
+  return storeConfigPromise;
+}
+

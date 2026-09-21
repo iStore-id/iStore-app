@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fetchStoreConfig } from "../lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 
@@ -25,28 +26,25 @@ export default function HomePage() {
   const location = useLocation();
 
   useEffect(() => {
-    fetch("/api/public/store-config")
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.data) {
-          if (data.data.name) {
-            setStoreName(data.data.name);
-          }
-          if (data.data.catalogMarqueeText && data.data.catalogMarqueeText.trim() !== "") {
-            setCatalogMarqueeText(data.data.catalogMarqueeText.trim());
-          }
-          if (data.data.homepageBackgroundColor) {
-            setHomepageBackgroundColor(data.data.homepageBackgroundColor);
-          }
-          if (data.data.homepageBackgroundImage) {
-            setHomepageBackgroundImage(data.data.homepageBackgroundImage);
-          }
-          if (data.data.homepageBackgroundMode) {
-            setHomepageBackgroundMode(data.data.homepageBackgroundMode);
-          }
+    fetchStoreConfig().then(config => {
+      if (config) {
+        if (config.name) {
+          setStoreName(config.name);
         }
-      })
-      .catch(() => {});
+        if (config.catalogMarqueeText && config.catalogMarqueeText.trim() !== "") {
+          setCatalogMarqueeText(config.catalogMarqueeText.trim());
+        }
+        if (config.homepageBackgroundColor) {
+          setHomepageBackgroundColor(config.homepageBackgroundColor);
+        }
+        if (config.homepageBackgroundImage) {
+          setHomepageBackgroundImage(config.homepageBackgroundImage);
+        }
+        if (config.homepageBackgroundMode) {
+          setHomepageBackgroundMode(config.homepageBackgroundMode);
+        }
+      }
+    });
   }, []);
 
   useSEO({
