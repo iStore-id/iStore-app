@@ -162,9 +162,27 @@ export default function GameDetailPage() {
   const [inquiryResult, setInquiryResult] = useState<{ isValid: boolean; username: string | null; message?: string } | null>(null);
 
   const snapContainerRef = useRef<HTMLDivElement>(null);
+  const isMountedRef = useRef(true);
+  const embedTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (embedTimerRef.current) {
+        clearTimeout(embedTimerRef.current);
+      }
+      if (snapContainerRef.current) {
+        snapContainerRef.current.innerHTML = "";
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
+      if (embedTimerRef.current) {
+        clearTimeout(embedTimerRef.current);
+      }
       if (snapContainerRef.current) {
         snapContainerRef.current.innerHTML = "";
       }
@@ -344,11 +362,17 @@ export default function GameDetailPage() {
       if (!response.ok) throw new Error(data.message || "Gagal membuat pesanan");
 
       setCheckoutStep(3);
-      setTimeout(async () => {
+      if (embedTimerRef.current) {
+        clearTimeout(embedTimerRef.current);
+      }
+      embedTimerRef.current = setTimeout(async () => {
+        if (!isMountedRef.current) return;
         let snapReady = !!window.snap;
         if (!snapReady) {
           snapReady = await loadMidtransSnap();
         }
+
+        if (!isMountedRef.current) return;
 
         if (snapReady && window.snap && data.snapToken) {
           window.snap.embed(data.snapToken, {
