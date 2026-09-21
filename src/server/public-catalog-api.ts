@@ -120,22 +120,11 @@ export async function getPublicGameDetail(req: Request, res: Response) {
       metadata: p.metadata || {}
     }));
 
-    let initialVariants: any[] = [];
-    if (products.length > 0) {
-      const firstProd = products[0];
-      try {
-        initialVariants = await resolveEnrichedVariants(firstProd.id);
-      } catch (err) {
-        console.error("[getPublicGameDetail] Failed to resolve initial variants:", err);
-      }
-    }
-    
     return res.status(200).json({ 
       success: true, 
       data: { 
         game: sanitizedGame, 
-        products: sanitizedProducts,
-        initialVariants
+        products: sanitizedProducts
       } 
     });
   } catch (error: any) {

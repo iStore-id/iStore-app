@@ -113,6 +113,9 @@ export default function GameDetailPage() {
   });
   
   const [loading, setLoading] = useState(true);
+  const [variantsLoading, setVariantsLoading] = useState(false);
+  const [variantsError, setVariantsError] = useState<string | null>(null);
+  const activeProductRequestIdRef = useRef<string | null>(null);
   const [error, setError] = useState("");
   const [errorState, setErrorState] = useState<string | null>(null);
   const [hasCustomBg, setHasCustomBg] = useState(false);
@@ -247,13 +250,48 @@ export default function GameDetailPage() {
     }
   }, [slug, game]);
 
+  const fetchVariantsForProduct = async (productId: string) => {
+    if (!productId) return;
+    activeProductRequestIdRef.current = productId;
+    setVariantsLoading(true);
+    setVariantsError(null);
+    try {
+      const vResp = await fetch(`/api/public/catalog/products/${productId}/variants`);
+      const vData = await vResp.json();
+      
+      // Guard against race condition if user rapidly switched products
+      if (activeProductRequestIdRef.current === productId) {
+        if (vData.success && Array.isArray(vData.data)) {
+          setVariants(vData.data);
+          setVariantsError(null);
+        } else {
+          setVariants([]);
+          setVariantsError(vData.message || "Gagal memuat nominal.");
+        }
+      }
+    } catch (err) {
+      if (activeProductRequestIdRef.current === productId) {
+        console.error("Error fetching variants:", err);
+        setVariants([]);
+        setVariantsError("Gagal memuat nominal. Silakan coba lagi.");
+      }
+    } finally {
+      if (activeProductRequestIdRef.current === productId) {
+        setVariantsLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     const fetchGameData = async () => {
       try {
         setLoading(true);
+        setError("");
+        setErrorState(null);
         setVariants([]);
         setSelectedProduct(null);
         setSelectedVariant(null);
+        setVariantsError(null);
         const response = await fetch(`/api/public/catalog/games/${slug}`);
         const data = await response.json();
         
@@ -263,25 +301,18 @@ export default function GameDetailPage() {
           return;
         }
 
-        const { game, products, initialVariants } = data.data;
+        const { game, products } = data.data;
         setGame(game);
-        setProducts(products);
-        setLoading(false);
+        setProducts(products || []);
+        setLoading(false); // Game detail shell appears immediately!
 
-        if (products.length > 0) {
+        if (products && products.length > 0) {
           const firstProd = products[0];
           setSelectedProduct(firstProd);
-          
-          if (Array.isArray(initialVariants) && initialVariants.length > 0) {
-            setVariants(initialVariants);
-          } else {
-            // Fallback for safety if initialVariants is not provided
-            const vResp = await fetch(`/api/public/catalog/products/${firstProd.id}/variants`);
-            const vData = await vResp.json();
-            if (vData.success) {
-              setVariants(vData.data);
-            }
-          }
+          // Asynchronously fetch variants without blocking the game shell
+          fetchVariantsForProduct(firstProd.id);
+        } else {
+          setVariantsLoading(false);
         }
       } catch (err) {
         console.error("Error fetching game data:", err);
@@ -295,15 +326,7 @@ export default function GameDetailPage() {
   const handleProductChange = async (prod: Product) => {
     setSelectedProduct(prod);
     setSelectedVariant(null);
-    try {
-      const vResp = await fetch(`/api/public/catalog/products/${prod.id}/variants`);
-      const vData = await vResp.json();
-      if (vData.success) {
-        setVariants(vData.data);
-      }
-    } catch (err) {
-      console.error("Error fetching variants:", err);
-    }
+    fetchVariantsForProduct(prod.id);
   };
 
   const handleInputChange = (name: string, value: string) => {
@@ -610,34 +633,59 @@ export default function GameDetailPage() {
                 Pilih Nominal Top-Up
               </h2>
               <div className="grid grid-cols-3 gap-2 sm:gap-2">
-                {variants.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                      const activeFields = getAccountInputFields(game, selectedProduct);
-                      for (const field of activeFields) {
-                        const val = (customerInput[field.name] || "").trim();
-                        if (field.required && !val) {
-                          setCheckoutError(`Harap isi ${field.label} terlebih dahulu.`);
-                          return;
+                {variantsLoading ? (
+                  Array.from({ length: 6 }).map((_, idx) => (
+                    <div
+                      key={`var-skel-${idx}`}
+                      className="w-full h-20 rounded-xl bg-slate-200/60 animate-pulse p-3 flex flex-col justify-between"
+                    >
+                      <div className="h-3 bg-slate-300/70 rounded w-3/4"></div>
+                      <div className="h-4 bg-slate-300/70 rounded w-1/2"></div>
+                    </div>
+                  ))
+                ) : variantsError ? (
+                  <div className="col-span-full py-6 text-center text-slate-500 text-xs sm:text-sm bg-red-50/50 rounded-xl border border-red-100 p-4 space-y-2">
+                    <AlertCircle className="w-6 h-6 mx-auto text-red-500 opacity-80" />
+                    <p className="text-red-700 font-medium">{variantsError}</p>
+                    {selectedProduct && (
+                      <button
+                        type="button"
+                        onClick={() => fetchVariantsForProduct(selectedProduct.id)}
+                        className="px-3 py-1 bg-white border border-red-200 text-red-700 font-semibold rounded-lg text-xs hover:bg-red-50 transition-colors shadow-sm"
+                      >
+                        Coba Lagi
+                      </button>
+                    )}
+                  </div>
+                ) : variants.length > 0 ? (
+                  variants.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                        const activeFields = getAccountInputFields(game, selectedProduct);
+                        for (const field of activeFields) {
+                          const val = (customerInput[field.name] || "").trim();
+                          if (field.required && !val) {
+                            setCheckoutError(`Harap isi ${field.label} terlebih dahulu.`);
+                            return;
+                          }
                         }
-                      }
-                      setCheckoutError(null);
-                      setSelectedVariant(v);
-                      setCheckoutStep(2);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className={`w-full min-w-0 text-left p-2.5 sm:p-3 rounded-xl border ${
-                      selectedVariant?.id === v.id
-                        ? "border-brand-600 bg-brand-500/15"
-                        : "border-slate-200/80 hover:border-brand-500 bg-transparent hover:bg-brand-500/10"
-                    } transition-all relative overflow-hidden group flex flex-col justify-between`}
-                  >
-                    <div className="font-bold text-slate-900 text-xs sm:text-sm mb-1.5 line-clamp-2 leading-snug group-hover:text-brand-700">{v.displayName}</div>
-                    <div className="text-brand-600 font-extrabold text-xs shrink-0">{formatRupiah((v as any).sellingPrice || 0)}</div>
-                  </button>
-                ))}
-                {variants.length === 0 && (
+                        setCheckoutError(null);
+                        setSelectedVariant(v);
+                        setCheckoutStep(2);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={`w-full min-w-0 text-left p-2.5 sm:p-3 rounded-xl border ${
+                        selectedVariant?.id === v.id
+                          ? "border-brand-600 bg-brand-500/15"
+                          : "border-slate-200/80 hover:border-brand-500 bg-transparent hover:bg-brand-500/10"
+                      } transition-all relative overflow-hidden group flex flex-col justify-between`}
+                    >
+                      <div className="font-bold text-slate-900 text-xs sm:text-sm mb-1.5 line-clamp-2 leading-snug group-hover:text-brand-700">{v.displayName}</div>
+                      <div className="text-brand-600 font-extrabold text-xs shrink-0">{formatRupiah((v as any).sellingPrice || 0)}</div>
+                    </button>
+                  ))
+                ) : (
                   <div className="col-span-full py-6 text-center text-slate-400 text-sm">
                     <AlertCircle className="w-6 h-6 mx-auto mb-1 opacity-20" />
                     Belum ada nominal tersedia untuk layanan ini.
