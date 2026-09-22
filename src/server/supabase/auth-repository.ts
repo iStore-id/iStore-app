@@ -132,6 +132,27 @@ export class AuthRepository {
       .eq("id", uid);
     if (error) throw new Error(error.message);
   }
+
+  async upsertProfile(profileData: {
+    id: string;
+    email: string;
+    display_name?: string;
+    phone?: string;
+    role_id: string;
+    status: string;
+    updated_at: string;
+  }): Promise<void> {
+    const { error } = await this.client.from("profiles").upsert({
+      id: profileData.id,
+      email: profileData.email,
+      display_name: profileData.display_name,
+      phone: profileData.phone,
+      role_id: profileData.role_id,
+      status: profileData.status,
+      updated_at: profileData.updated_at
+    });
+    if (error) throw new Error(error.message);
+  }
   
   async updateUserProfile(uid: string, name: string): Promise<void> {
     const { error } = await this.client

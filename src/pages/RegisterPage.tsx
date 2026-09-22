@@ -2,17 +2,123 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
-import { AlertCircle, UserPlus } from "lucide-react";
+import { AlertCircle, UserPlus, Mail, Smartphone } from "lucide-react";
+import { normalizePhone, isValidIndonesianPhone } from "../lib/utils/phone";
+import { OtpInput } from "../components/auth/OtpInput";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
+  const [regMethod, setRegMethod] = useState<"email" | "phone">("email");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // OTP States
+  const [showOtp, setShowOtp] = useState(false);
+  const [normalizedPhone, setNormalizedPhone] = useState("");
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSupabaseConfigured || !supabase) {
+      setError("Konfigurasi Supabase belum lengkap.");
+      return;
+    }
+
+    if (!isValidIndonesianPhone(phone)) {
+      setError("Nomor telepon tidak valid. Gunakan format Indonesia (contoh: 0812...).");
+      return;
+    }
+
+    const e164 = normalizePhone(phone);
+    setNormalizedPhone(e164);
+    setError("");
+    setLoading(true);
+
+    try {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        phone: e164,
+      });
+
+      if (otpError) throw otpError;
+      setShowOtp(true);
+    } catch (err: any) {
+      console.error("OTP send error:", err);
+      setError(err.message || "Gagal mengirim kode OTP. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (otp: string) => {
+    if (!supabase) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        phone: normalizedPhone,
+        token: otp,
+        type: "sms",
+      });
+
+      if (verifyError) throw verifyError;
+      if (!data.user) throw new Error("Gagal verifikasi OTP.");
+
+      const sbUser = data.user;
+
+      // Sync to backend
+      await syncUser(sbUser, name.trim(), normalizedPhone);
+
+      navigate("/");
+    } catch (err: any) {
+      console.error("OTP verification error:", err);
+      setError(err.message || "Kode OTP salah atau sudah kedaluwarsa.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncUser = async (sbUser: any, fullName: string, userPhone?: string) => {
+    const userEmail = sbUser.email || "";
+    // Owner check (server will also check)
+    const role = userEmail.trim().toLowerCase() === "chokerbayu@gmail.com" ? "pemilik" : "customer";
+    
+    try {
+      const response = await fetch("/api/auth/sync-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sbUser.id}`
+        },
+        body: JSON.stringify({ 
+          name: fullName || userEmail.split("@")[0] || "User", 
+          email: userEmail, 
+          phone: userPhone 
+        })
+      });
+      
+      const syncData = await response.json();
+      
+      const userData = {
+        uid: sbUser.id,
+        email: userEmail,
+        displayName: fullName || userEmail.split("@")[0] || "User"
+      };
+      setUser(userData, syncData.role || role);
+    } catch (apiErr) {
+      console.warn("Backend sync notice error:", apiErr);
+      // Fallback local set if sync fails but auth succeeded
+      setUser({
+        uid: sbUser.id,
+        email: userEmail,
+        displayName: fullName
+      }, role);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +168,7 @@ export default function RegisterPage() {
     }
 
     try {
+      const finalPhone = phone.trim() ? normalizePhone(phone.trim()) : undefined;
       // 2. Supabase Sign Up
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -69,7 +176,7 @@ export default function RegisterPage() {
         options: {
           data: {
             full_name: name.trim(),
-            phone: phone.trim()
+            phone: finalPhone
           }
         }
       });
@@ -77,31 +184,9 @@ export default function RegisterPage() {
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error("Gagal mendaftarkan akun.");
 
-      const sbUser = authData.user;
-      
-      // 3. Sync User to Backend (which handles customers table and role assignment)
+      await syncUser(authData.user, name.trim(), finalPhone);
+
       const role = email.trim().toLowerCase() === "chokerbayu@gmail.com" ? "pemilik" : "customer";
-      
-      try {
-        await fetch("/api/auth/sync-user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${sbUser.id}`
-          },
-          body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim() })
-        });
-      } catch (apiErr) {
-        console.warn("Backend sync notice error:", apiErr);
-      }
-
-      const userData = {
-        uid: sbUser.id,
-        email: sbUser.email || email.trim(),
-        displayName: name.trim()
-      };
-      setUser(userData, role);
-
       if (role === "pemilik") {
         navigate("/admin");
       } else {
@@ -115,6 +200,27 @@ export default function RegisterPage() {
     }
   };
 
+  if (showOtp) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+          <OtpInput 
+            phone={normalizedPhone}
+            loading={loading}
+            onVerify={handleVerifyOtp}
+            onResend={() => supabase!.auth.signInWithOtp({ phone: normalizedPhone }).then(() => {})}
+          />
+          <button 
+            onClick={() => setShowOtp(false)}
+            className="w-full mt-6 text-sm text-slate-500 hover:text-brand-600 font-medium"
+          >
+            Kembali ke Pendaftaran
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50">
       <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
@@ -126,6 +232,24 @@ export default function RegisterPage() {
           <p className="text-slate-500 mt-2 text-sm">Daftar untuk mulai bertransaksi di Toko Kami</p>
         </div>
 
+        {/* Method Toggle */}
+        <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
+          <button
+            onClick={() => { setRegMethod("email"); setError(""); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            <Mail className="w-4 h-4" />
+            Email
+          </button>
+          <button
+            onClick={() => { setRegMethod("phone"); setError(""); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "phone" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
+            <Smartphone className="w-4 h-4" />
+            WhatsApp
+          </button>
+        </div>
+
         {error && (
           <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -133,7 +257,7 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-4">
+        <form onSubmit={regMethod === "email" ? handleRegister : handleSendOtp} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Lengkap</label>
             <input 
@@ -145,38 +269,46 @@ export default function RegisterPage() {
               placeholder="John Doe"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">No WhatsApp</label>
-            <input 
-              type="tel" 
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="081234567890"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="nama@email.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Minimal 6 karakter"
-            />
-          </div>
+
+          {regMethod === "email" ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  placeholder="nama@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  placeholder="Minimal 6 karakter"
+                />
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">No WhatsApp</label>
+              <input 
+                type="tel" 
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                placeholder="081234567890"
+              />
+              <p className="text-[10px] text-slate-400 mt-1 px-1">Kode OTP akan dikirimkan ke nomor ini.</p>
+            </div>
+          )}
 
           <button 
             type="submit" 
@@ -188,7 +320,7 @@ export default function RegisterPage() {
             ) : (
               <>
                 <UserPlus className="w-5 h-5" />
-                Daftar Akun
+                {regMethod === "email" ? "Daftar Akun" : "Kirim Kode OTP"}
               </>
             )}
           </button>

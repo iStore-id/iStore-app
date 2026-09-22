@@ -5,33 +5,46 @@ import { supabaseAdmin } from './supabase-admin.js';
 
 // Auto-mocked adminDb for Supabase (backward compatibility during migration)
 const adminDb: any = {
-  collection: (name: string) => ({
-    doc: (id?: string) => ({
-      id: id || "mock-id",
+  collection: (name: string) => {
+    const tableName = name === "users" ? "profiles" : name;
+    return {
+      doc: (id?: string) => ({
+        id: id || "mock-id",
+        get: async () => {
+          const { data } = await supabaseAdmin!.from(tableName).select("*").eq("id", id).maybeSingle();
+          return { exists: !!data, data: () => data };
+        },
+        set: async (d: any) => {
+          const payload = { ...d, id };
+          if (name === "users") {
+            if (payload.name) { payload.display_name = payload.name; delete payload.name; }
+            if (payload.role) { payload.role_id = payload.role; delete payload.role; }
+          }
+          await supabaseAdmin!.from(tableName).upsert(payload);
+        },
+        update: async (d: any) => {
+          const payload = { ...d };
+          if (name === "users") {
+            if (payload.name) { payload.display_name = payload.name; delete payload.name; }
+            if (payload.role) { payload.role_id = payload.role; delete payload.role; }
+          }
+          await supabaseAdmin!.from(tableName).update(payload).eq("id", id);
+        },
+        collection: (n: string) => adminDb.collection(n)
+      }),
+      where: () => adminDb.collection(name),
+      orderBy: () => adminDb.collection(name),
+      limit: () => adminDb.collection(name),
       get: async () => {
-        const { data } = await supabaseAdmin!.from(name).select("*").eq("id", id).maybeSingle();
-        return { exists: !!data, data: () => data };
+        const { data } = await supabaseAdmin!.from(tableName).select("*");
+        return { docs: (data || []).map((d: any) => ({ data: () => d, exists: true, id: d.id })), empty: !(data && data.length), size: data?.length || 0 };
       },
-      set: async (d: any) => {
-        await supabaseAdmin!.from(name).upsert({ ...d, id });
-      },
-      update: async (d: any) => {
-        await supabaseAdmin!.from(name).update(d).eq("id", id);
-      },
-      collection: (n: string) => adminDb.collection(n)
-    }),
-    where: () => adminDb.collection(name),
-    orderBy: () => adminDb.collection(name),
-    limit: () => adminDb.collection(name),
-    get: async () => {
-      const { data } = await supabaseAdmin!.from(name).select("*");
-      return { docs: (data || []).map((d: any) => ({ data: () => d, exists: true, id: d.id })), empty: !(data && data.length), size: data?.length || 0 };
-    },
-    count: () => ({ get: async () => {
-      const { count } = await supabaseAdmin!.from(name).select("*", { count: 'exact', head: true });
-      return { data: () => ({ count: count || 0 }) };
-    } })
-  }),
+      count: () => ({ get: async () => {
+        const { count } = await supabaseAdmin!.from(tableName).select("*", { count: 'exact', head: true });
+        return { data: () => ({ count: count || 0 }) };
+      } })
+    };
+  },
   runTransaction: async (cb: any) => cb({
     get: async () => ({ exists: false, data: () => ({}), ref: {} }),
     set: () => {},

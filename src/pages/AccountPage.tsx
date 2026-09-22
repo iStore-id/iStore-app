@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
 import { User, Mail, Phone, ShieldCheck, KeyRound, CheckCircle2, AlertCircle, Eye, EyeOff, RefreshCw, Check, LogOut } from "lucide-react";
+import { normalizePhone, isValidIndonesianPhone } from "../lib/utils/phone";
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -66,9 +67,17 @@ export default function AccountPage() {
     setErrorMessage("");
 
     try {
+      let finalPhone = phone;
+      if (phone) {
+        if (!isValidIndonesianPhone(phone)) {
+          throw new Error("Nomor WhatsApp tidak valid. Gunakan format Indonesia (contoh: 0812...).");
+        }
+        finalPhone = normalizePhone(phone);
+      }
+
       // Update Supabase metadata
       const { error: sbError } = await supabase.auth.updateUser({
-        data: { full_name: name }
+        data: { full_name: name, phone: finalPhone }
       });
       if (sbError) throw sbError;
 
@@ -79,7 +88,7 @@ export default function AccountPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${user?.uid}`
         },
-        body: JSON.stringify({ name, phone })
+        body: JSON.stringify({ name, phone: finalPhone })
       });
       const data = await response.json();
       if (!data.success) throw new Error(data.message);

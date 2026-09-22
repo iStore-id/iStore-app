@@ -17,6 +17,7 @@ import type { User } from '@supabase/supabase-js';
 export interface VerifiedSupabaseIdentity {
   uid: string;
   email: string;
+  phone?: string;
   role?: string;
   user: User;
   source: 'supabase';
@@ -81,6 +82,7 @@ export async function verifySupabaseAccessToken(
     const identity: VerifiedSupabaseIdentity = {
       uid: user.id,
       email,
+      phone: user.phone || (user.user_metadata?.phone as string) || undefined,
       role: (user.user_metadata?.role as string) || (user.app_metadata?.role as string) || 'customer',
       user,
       source: 'supabase',

@@ -2,10 +2,25 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware.js";
 import { CustomerRepository } from "./supabase/customer-repository.js";
 import { OrderRepository } from "./supabase/order-repository.js";
+import { getUserRole } from "./auth-service.js";
 
 export async function getCustomerProfileApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { uid } = req.params;
+    const requesterUid = req.user?.uid;
+    const requesterEmail = req.user?.email;
+
+    if (!requesterUid) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const role = await getUserRole(requesterUid, requesterEmail);
+    const isPrivileged = role === "pemilik" || role === "admin";
+
+    if (requesterUid !== uid && !isPrivileged) {
+      return res.status(403).json({ success: false, message: "Forbidden: Access denied to other user profiles" });
+    }
+
     console.log("getCustomerProfileApi for uid:", uid);
     const data = await CustomerRepository.getInstance().getCustomer(uid);
     console.log("Customer profile data:", data);

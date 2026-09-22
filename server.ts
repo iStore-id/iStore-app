@@ -78,6 +78,7 @@ import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComp
 import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api.js";
 import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api.js";
 import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service.js";
+import { AuthRepository } from "./src/server/supabase/auth-repository.js";
 import { getQuotas, saveQuota, getVariantStock, adjustStock, getStockMovements, getReservations, getStocks } from "./src/server/inventory-api.js";
 import { getCustomerDelivery, getAdminDeliveries, getAdminDeliveryDetail } from "./src/server/delivery-api.js";
 import { getCustomerNotifications, getAdminNotifications, markNotificationRead, markAllNotificationsRead, getAdminNotificationSettings, updateAdminNotificationSettings } from "./src/server/notification-api.js";
@@ -138,33 +139,46 @@ dotenv.config();
 
 // Auto-mocked adminDb for Supabase (backward compatibility during migration)
 const adminDb: any = {
-  collection: (name: string) => ({
-    doc: (id?: string) => ({
-      id: id || "mock-id",
+  collection: (name: string) => {
+    const tableName = name === "users" ? "profiles" : name;
+    return {
+      doc: (id?: string) => ({
+        id: id || "mock-id",
+        get: async () => {
+          const { data } = await supabaseAdmin!.from(tableName).select("*").eq("id", id).maybeSingle();
+          return { exists: !!data, data: () => data };
+        },
+        set: async (d: any) => {
+          const payload = { ...d, id };
+          if (name === "users") {
+            if (payload.name) { payload.display_name = payload.name; delete payload.name; }
+            if (payload.role) { payload.role_id = payload.role; delete payload.role; }
+          }
+          await supabaseAdmin!.from(tableName).upsert(payload);
+        },
+        update: async (d: any) => {
+          const payload = { ...d };
+          if (name === "users") {
+            if (payload.name) { payload.display_name = payload.name; delete payload.name; }
+            if (payload.role) { payload.role_id = payload.role; delete payload.role; }
+          }
+          await supabaseAdmin!.from(tableName).update(payload).eq("id", id);
+        },
+        collection: (n: string) => adminDb.collection(n)
+      }),
+      where: () => adminDb.collection(name),
+      orderBy: () => adminDb.collection(name),
+      limit: () => adminDb.collection(name),
       get: async () => {
-        const { data } = await supabaseAdmin!.from(name).select("*").eq("id", id).maybeSingle();
-        return { exists: !!data, data: () => data };
+        const { data } = await supabaseAdmin!.from(tableName).select("*");
+        return { docs: (data || []).map((d: any) => ({ data: () => d, exists: true, id: d.id })), empty: !(data && data.length), size: data?.length || 0 };
       },
-      set: async (d: any) => {
-        await supabaseAdmin!.from(name).upsert({ ...d, id });
-      },
-      update: async (d: any) => {
-        await supabaseAdmin!.from(name).update(d).eq("id", id);
-      },
-      collection: (n: string) => adminDb.collection(n)
-    }),
-    where: () => adminDb.collection(name),
-    orderBy: () => adminDb.collection(name),
-    limit: () => adminDb.collection(name),
-    get: async () => {
-      const { data } = await supabaseAdmin!.from(name).select("*");
-      return { docs: (data || []).map((d: any) => ({ data: () => d, exists: true, id: d.id })), empty: !(data && data.length), size: data?.length || 0 };
-    },
-    count: () => ({ get: async () => {
-      const { count } = await supabaseAdmin!.from(name).select("*", { count: 'exact', head: true });
-      return { data: () => ({ count: count || 0 }) };
-    } })
-  }),
+      count: () => ({ get: async () => {
+        const { count } = await supabaseAdmin!.from(tableName).select("*", { count: 'exact', head: true });
+        return { data: () => ({ count: count || 0 }) };
+      } })
+    };
+  },
   runTransaction: async (cb: any) => cb({
     get: async () => ({ exists: false, data: () => ({}), ref: {} }),
     set: () => {},
@@ -245,28 +259,35 @@ export async function initServerLogic() {
     const isOwner = isOwnerIdentity(email);
 
     try {
-      const userDocRef = adminDb.collection("users").doc(uid);
-      const userDoc = await userDocRef.get();
-      let role = isOwner ? "pemilik" : "customer";
+      // Use AuthRepository for canonical profile sync
+      const authRepo = AuthRepository.getInstance();
+      const existingProfile = await authRepo.getUser(uid);
+      
+      let role_id = isOwner ? "pemilik" : "customer";
 
-      if (userDoc.exists) {
-        const existingRole = userDoc.data()?.role;
+      if (existingProfile) {
+        const existingRole = existingProfile.role_id;
         if (isOwner) {
-          role = "pemilik";
+          role_id = "pemilik";
         } else if (existingRole) {
-          role = existingRole;
+          role_id = existingRole;
         }
       }
 
-      const userData = {
-        uid,
+      const profileData = {
+        id: uid,
         email: req.user.email || email,
-        name: req.user.name || req.body?.name || email.split("@")[0],
-        role,
-        lastLogin: new Date().toISOString()
+        display_name: req.user.name || req.body?.name || email.split("@")[0],
+        phone: req.user.phone || req.body?.phone || undefined,
+        role_id,
+        status: "ACTIVE",
+        updated_at: new Date().toISOString()
       };
-      await userDocRef.set(userData, { merge: true });
-      res.json({ success: true, role, user: userData });
+
+      // Canonical Write to public.profiles
+      await authRepo.upsertProfile(profileData);
+      
+      res.json({ success: true, role: role_id, user: profileData });
     } catch (err: any) {
       console.error("User sync error:", err);
       res.status(500).json({ success: false, error: err.message });
