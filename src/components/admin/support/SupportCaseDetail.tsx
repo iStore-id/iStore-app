@@ -55,7 +55,7 @@ export default function SupportCaseDetail({ caseId, onClose, onUpdate }: Support
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [data?.case.messages]);
+  }, [data?.messages]);
 
   const handleSend = async () => {
     if (!replyText.trim() || submitting) return;

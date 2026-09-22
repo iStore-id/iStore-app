@@ -380,8 +380,40 @@ export default function HomePage() {
                 const isDefaultHome = navFilter.type === "all" && !searchQuery;
 
                 return categoriesToRender.map(category => {
-                  const gamesInCategory = filteredGames.filter(game => game.categoryIds?.includes(category.id));
+                  let gamesInCategory = filteredGames.filter(game => game.categoryIds?.includes(category.id));
                   if (gamesInCategory.length === 0) return null;
+
+                  const isTopUp = category.id === "15b131f7-ef27-4df4-a788-e8d87fa4a5e6" || category.slug === "pilih-nominal" || category.name?.toUpperCase() === "TOP UP";
+                  if (isTopUp) {
+                    const popularSlugs = [
+                      "mobile-legends",
+                      "free-fire-ffmax",
+                      "pubg-mobile",
+                      "valorant",
+                      "genshin-impact",
+                      "honor-of-kings",
+                      "call-of-duty-mobile",
+                      "arena-of-valor-aov",
+                      "point-blank",
+                      "garena-undawn",
+                      "clash-of-clans",
+                      "brawl-stars",
+                      "ragnarok-origin",
+                      "ragnarok-m-eternal-love",
+                      "ragnarok-x-next-generation",
+                      "honkai-star-rail",
+                      "zenless-zone-zero",
+                      "ea-sports-fc-mobile"
+                    ];
+                    gamesInCategory = [...gamesInCategory].sort((a, b) => {
+                      const idxA = popularSlugs.indexOf(a.slug);
+                      const idxB = popularSlugs.indexOf(b.slug);
+                      const rankA = idxA !== -1 ? idxA : 1000 + (a.sortOrder || 0);
+                      const rankB = idxB !== -1 ? idxB : 1000 + (b.sortOrder || 0);
+                      if (rankA !== rankB) return rankA - rankB;
+                      return a.name.localeCompare(b.name);
+                    });
+                  }
                   
                   const catSlug = category.slug;
                   const isUtility = ['pulsa', 'token-listrik', 'paket-data', 'voucher-data', 'telpon-sms'].includes(catSlug || '');

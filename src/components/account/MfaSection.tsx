@@ -58,7 +58,7 @@ export default function MfaSection() {
 
   // Determine if user has email/password provider
   const isPasswordUser = useMemo(() => {
-    return user?.provider !== "google";
+    return (user as any)?.provider !== "google";
   }, [user]);
 
   // Clean in-memory secrets on unmount

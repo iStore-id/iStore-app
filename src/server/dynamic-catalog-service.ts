@@ -7,6 +7,27 @@ import { PricingService } from "./pricing-service.js";
 const catalogRepo = SupabaseCatalogRepository.getInstance();
 const pricingService = PricingService.getInstance();
 
+export const POPULAR_TOPUP_GAME_SLUGS: string[] = [
+  "mobile-legends",
+  "free-fire-ffmax",
+  "pubg-mobile",
+  "valorant",
+  "genshin-impact",
+  "honor-of-kings",
+  "call-of-duty-mobile",
+  "arena-of-valor-aov",
+  "point-blank",
+  "garena-undawn",
+  "clash-of-clans",
+  "brawl-stars",
+  "ragnarok-origin",
+  "ragnarok-m-eternal-love",
+  "ragnarok-x-next-generation",
+  "honkai-star-rail",
+  "zenless-zone-zero",
+  "ea-sports-fc-mobile"
+];
+
 export class DynamicCatalogService {
   private static instance: DynamicCatalogService;
   private mergedGamesCache: { data: Game[]; timestamp: number } | null = null;
@@ -22,32 +43,203 @@ export class DynamicCatalogService {
     return DynamicCatalogService.instance;
   }
 
+  private slugToOperatorsMap: Map<string, Set<string>> = new Map();
+
+  private async getCandidateOperators(gameSlug: string, gameName?: string): Promise<string[]> {
+    const ops = new Set<string>();
+    
+    // 1. Check in-memory slug to operator map
+    const mappedOps = this.slugToOperatorsMap.get(gameSlug);
+    if (mappedOps && mappedOps.size > 0) {
+      mappedOps.forEach(op => ops.add(op));
+      return Array.from(ops);
+    }
+    
+    // 2. Check cached merged games
+    if (this.mergedGamesCache) {
+      const cachedGame = this.mergedGamesCache.data.find(
+        g => g.slug === gameSlug || this.generateSlug(g.name) === gameSlug
+      );
+      if (cachedGame) {
+        if (cachedGame.name) ops.add(cachedGame.name);
+        if (cachedGame.searchKeywords) {
+          cachedGame.searchKeywords.forEach(kw => ops.add(kw));
+        }
+      }
+    }
+    
+    // 3. Include gameName and slug variations
+    if (gameName) {
+      ops.add(gameName);
+      ops.add(gameName.trim());
+      const nameSlug = this.generateSlug(gameName);
+      const nameMappedOps = this.slugToOperatorsMap.get(nameSlug);
+      if (nameMappedOps && nameMappedOps.size > 0) {
+        nameMappedOps.forEach(op => ops.add(op));
+        return Array.from(ops);
+      }
+    }
+    
+    // 4. Structural permutations
+    const words = gameSlug.split('-').filter(Boolean);
+    const spaced = words.join(' ');
+    ops.add(spaced);
+    ops.add(spaced.toLowerCase());
+    ops.add(spaced.toUpperCase());
+
+    const titleCase = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    ops.add(titleCase);
+
+    const connectives = new Set(['of', 'and', 'for', 'the', 'by', 'in', 'to', 'pascabayar']);
+    const titleWithConnectives = words.map((w, idx) => {
+      if (idx > 0 && connectives.has(w.toLowerCase())) return w.toLowerCase();
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
+    ops.add(titleWithConnectives);
+
+    const knownAcronyms = new Set(['id', 'my', 'sg', 'th', 'ph', 'sr', 'sea', 'fps', 'cn', 'pc', 'ea', 'fc', 'go', 'tv', 'hd', 'mu', 'au', 'xl', 'cd', 'ai', 'pln', 'hbo', 'gpt', 'aov', 'ff', 'ffmax', 'mlbb', 'pubgm', 'imo', 'gol', 'nt', 'link', 'kvision', 'viu', 'mola', '3d', '2m', 'sms']);
+    const titleWithAcronyms = words.map((w, idx) => {
+      const low = w.toLowerCase();
+      if (knownAcronyms.has(low)) return low.toUpperCase();
+      if (idx > 0 && connectives.has(low)) return low;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
+    ops.add(titleWithAcronyms);
+
+    if (spaced.includes(' and ')) {
+      ops.add(titleCase.replace(' And ', ' & '));
+      ops.add(titleWithConnectives.replace(' and ', ' & '));
+      ops.add(titleWithAcronyms.replace(' and ', ' & '));
+    }
+
+    // Free Fire & FFMAX format (both direct and voucher)
+    if (gameSlug === "free-fire-ffmax" || gameSlug.includes("free-fire-ffmax") || gameSlug.includes("ffmax")) {
+      ops.add("Free Fire & FFMAX");
+      ops.add("Voucher Free Fire & FFMAX");
+    }
+
+    // Injek V.<Provider> format (dots stripped by slug generation)
+    if (gameSlug.startsWith("injek-v")) {
+      const prov = gameSlug.substring(7); // e.g. "byu", "telkomsel", "xl", etc.
+      ops.add(`Injek V.${prov.charAt(0).toUpperCase()}${prov.slice(1).toLowerCase()}`);
+      ops.add(`Injek V.${prov.toUpperCase()}`);
+      if (prov === "byu") {
+        ops.add("Injek V.By.U");
+      }
+    }
+
+    // 5. Fallback targeted DB lookup on cold start (using metadata->>'operator' ilike filter)
+    const searchTokens: string[] = [];
+    for (const w of words) {
+      if (['voucher', 'injek', 'top', 'up'].includes(w)) continue;
+      searchTokens.push(w);
+      if (w.startsWith('i') && w.length > 3) searchTokens.push(w.slice(1));
+      if (w.startsWith('v') && w.length > 3 && !['viu', 'valorant'].includes(w)) searchTokens.push(w.slice(1));
+      if (w.includes('apple')) searchTokens.push('apple', 'itunes');
+      if (w.includes('byu')) searchTokens.push('by');
+    }
+
+    const patterns: string[] = [];
+    if (searchTokens.length >= 2) {
+      patterns.push('%' + searchTokens.slice(0, 2).join('%') + '%');
+    }
+    for (const token of searchTokens.filter(t => t.length >= 3)) {
+      patterns.push('%' + token + '%');
+    }
+    if (words.length > 0) {
+      patterns.push('%' + words[0] + '%');
+    }
+
+    for (const pattern of patterns) {
+      const { data } = await supabaseAdmin!
+        .from('provider_skus')
+        .select('metadata')
+        .eq('status', 'active')
+        .ilike('metadata->>operator', pattern)
+        .limit(100);
+
+      if (data) {
+        for (const item of data) {
+          const op = item.metadata?.operator;
+          if (op && this.generateSlug(op) === gameSlug) {
+            ops.add(op);
+            if (!this.slugToOperatorsMap.has(gameSlug)) {
+              this.slugToOperatorsMap.set(gameSlug, new Set());
+            }
+            this.slugToOperatorsMap.get(gameSlug)!.add(op);
+          }
+        }
+      }
+      if (this.slugToOperatorsMap.has(gameSlug) && this.slugToOperatorsMap.get(gameSlug)!.size > 0) {
+        break;
+      }
+    }
+
+    return Array.from(ops);
+  }
+
   public invalidateCache(): void {
     this.mergedGamesCache = null;
     this.mergedVariantsCache.clear();
+    this.slugToOperatorsMap.clear();
   }
 
   private categoryMap: Record<string, string> = {
     "Topup Game": "15b131f7-ef27-4df4-a788-e8d87fa4a5e6", // TOP UP
     "GAMES": "15b131f7-ef27-4df4-a788-e8d87fa4a5e6",      // TOP UP
-    "PLN": "d458112f-9ec0-4508-8072-92f300ecf2bd",        // Token Listrik
-    "Token PLN": "d458112f-9ec0-4508-8072-92f300ecf2bd",  // Token Listrik
-    "E-Wallet": "934a2b92-2d94-478f-9477-e20c01382383",   // E-Money
-    "E-MONEY": "934a2b92-2d94-478f-9477-e20c01382383",    // E-Money
+    "GAME": "15b131f7-ef27-4df4-a788-e8d87fa4a5e6",       // TOP UP
+    "Voucher": "35d65b30-7c0c-40f0-9314-2362f3117419",    // VOUCHER
+    "VOUCHER": "35d65b30-7c0c-40f0-9314-2362f3117419",    // VOUCHER
+    "Voucher Game": "35d65b30-7c0c-40f0-9314-2362f3117419", // VOUCHER
     "Pulsa": "b51b89f8-5dfd-4411-a66c-e2cbaa55f401",      // PULSA
     "PULSA": "b51b89f8-5dfd-4411-a66c-e2cbaa55f401",      // PULSA
+    "Pulsa Transfer": "b51b89f8-5dfd-4411-a66c-e2cbaa55f401", // PULSA
+    "PLN": "d458112f-9ec0-4508-8072-92f300ecf2bd",        // Token Listrik
+    "Token PLN": "d458112f-9ec0-4508-8072-92f300ecf2bd",  // Token Listrik
     "Data": "dccd2fa4-51bc-49a4-9cba-5aef7ea51b92",       // Paket Data
     "PAKET DATA": "dccd2fa4-51bc-49a4-9cba-5aef7ea51b92", // Paket Data
     "Voucher Data": "800a75d1-6e35-4755-aeba-4f5f72dcdbfb", // Voucher Data
     "VOUCHER DATA": "800a75d1-6e35-4755-aeba-4f5f72dcdbfb", // Voucher Data
-    "Voucher": "35d65b30-7c0c-40f0-9314-2362f3117419",    // VOUCHER
-    "VOUCHER": "35d65b30-7c0c-40f0-9314-2362f3117419",    // VOUCHER
-    "Voucher Game": "35d65b30-7c0c-40f0-9314-2362f3117419", // VOUCHER
-    "GAME": "15b131f7-ef27-4df4-a788-e8d87fa4a5e6",       // TOP UP
+    "Telpon": "513dde75-1122-4689-9323-06fa815c4f89",     // Telpon & SMS
+    "SMS": "513dde75-1122-4689-9323-06fa815c4f89",        // Telpon & SMS
+    "Telpon & SMS": "513dde75-1122-4689-9323-06fa815c4f89", // Telpon & SMS
+    "TV": "109963d7-da7a-4534-84db-cfc8a239f326",         // TV
+    "TV Prabayar": "109963d7-da7a-4534-84db-cfc8a239f326", // TV
+    "E-Toll": "fe05e8c5-09ae-4c88-84e1-1a4e639f53b6",     // E-Toll
+    "Hiburan": "62683c87-75aa-4b50-afff-f261babfc46e",    // Hiburan
+    "Streaming": "62683c87-75aa-4b50-afff-f261babfc46e",  // Hiburan
+    "E-Wallet": "934a2b92-2d94-478f-9477-e20c01382383",   // E-Money
+    "E-MONEY": "934a2b92-2d94-478f-9477-e20c01382383",    // E-Money
   };
 
   private getCategoryId(providerCategory: string, meta?: any, skuName?: string): string | null {
-    const context = `${providerCategory || ""} ${meta?.operator || ""} ${meta?.type || ""} ${meta?.brand || ""} ${skuName || ""}`.toLowerCase();
+    // 0. Official Provider Category Guard
+    // TokoVoucher Category ID 1 = "Topup Game" (Valid for Homepage TOP UP)
+    // TokoVoucher Category ID 16 = "Thailand Topup" (Non-game international telco - MUST NOT map to TOP UP or domestic PULSA)
+    // TokoVoucher Category ID 17 = "Malaysia Topup" (Non-game international telco - MUST NOT map to TOP UP or domestic PULSA)
+    const officialCategoryId = meta?.category_id ?? meta?.categoryId ?? meta?.originalData?.category_id;
+    if (officialCategoryId === 16 || officialCategoryId === "16" || officialCategoryId === 17 || officialCategoryId === "17") {
+      return null;
+    }
+
+    const rawCategory = (providerCategory || meta?.category || "").toString().trim();
+    const upperCat = rawCategory.toUpperCase();
+
+    if (
+      upperCat === "THAILAND TOPUP" ||
+      upperCat === "MALAYSIA TOPUP" ||
+      upperCat.startsWith("THAILAND") ||
+      upperCat.startsWith("MALAYSIA")
+    ) {
+      return null;
+    }
+
+    const context = `${rawCategory} ${meta?.operator || ""} ${meta?.type || ""} ${meta?.brand || ""} ${skuName || ""}`.toLowerCase();
+    
+    // Explicit guard against international telco leaking into domestic categories
+    if (context.includes("thailand") || context.includes("malaysia")) {
+      return null;
+    }
     
     // Specific detection for Telpon & SMS
     if (context.includes("telpon") || context.includes("sms") || context.includes("telepon") || context.includes("voice")) {
@@ -61,9 +253,8 @@ export class DynamicCatalogService {
       return "d458112f-9ec0-4508-8072-92f300ecf2bd"; // Token Listrik
     }
 
-    if (!providerCategory) return null;
-    const cat = providerCategory.trim();
-    const upperCat = cat.toUpperCase();
+    if (!providerCategory && !meta?.category) return null;
+    const cat = rawCategory;
 
     // Specific check for generic supplier label "DIGITAL" to prevent misclassifying non-e-money
     if (upperCat === "DIGITAL") {
@@ -208,120 +399,79 @@ export class DynamicCatalogService {
       return this.mergedGamesCache.data;
     }
 
-    // 1. Get real games
+    // 1. Get real games from catalog repository
     const realGames = await catalogRepo.listGames(onlyActive);
-    
-    // 2. Get provider SKUs
-    const { data: skus } = await supabaseAdmin!
-      .from("provider_skus")
-      .select("*")
-      .eq("status", "active");
 
-    if (!skus) return realGames;
-
-    // 3. Group virtual variants by game slug
-    const virtualVariantsByGame = new Map<string, any[]>();
-    skus.forEach(sku => {
-      const meta = sku.metadata?.originalData?.metadata || sku.metadata;
-      const operator = meta?.operator || sku.name.split(" ")[0];
-      const providerCat = meta?.category;
-      const catId = this.getCategoryId(providerCat, meta, sku.name);
-
-      if (!catId) return;
-
-      const gameSlug = this.operatorToSlug(operator);
-      if (!virtualVariantsByGame.has(gameSlug)) {
-        virtualVariantsByGame.set(gameSlug, []);
+    // Populate candidate operators map for targeted variant lookups without global scanning
+    for (const game of realGames) {
+      if (!this.slugToOperatorsMap.has(game.slug)) {
+        this.slugToOperatorsMap.set(game.slug, new Set());
       }
-      virtualVariantsByGame.get(gameSlug)!.push({ sku, operator, catId });
-    });
-
-    // 4. Merge or Create Games
-    const finalGames: Game[] = [...realGames];
-    
-    for (const [gameSlug, variants] of virtualVariantsByGame.entries()) {
-      const existingGameIndex = finalGames.findIndex(g => g.slug === gameSlug || this.generateSlug(g.name) === gameSlug);
-      
-      const virtualPrices = await Promise.all(variants.map(async v => {
-        const cost = this.getCost(v.sku);
-        const skeleton: ProductVariant = {
-          id: `virtual-variant-${v.sku.id}`,
-          productId: `virtual-product-${gameSlug}`,
-          name: v.sku.name,
-          displayName: v.sku.name,
-          sku: v.sku.provider_sku,
-          status: "active",
-          availability: "available",
-          sortOrder: 100,
-          pricing: {
-            baseCost: cost,
-            sellingPrice: 0,
-            currency: "IDR",
-            margin: 0,
-            marginPercentage: 0,
-            pricingMethod: "markup_fixed",
-            status: "active"
-          },
-          createdAt: v.sku.created_at,
-          updatedAt: v.sku.updated_at,
-          createdBy: "system",
-          updatedBy: "system"
-        };
-        const { finalPrice } = await pricingService.resolveEffectivePrice(skeleton);
-        return finalPrice;
-      }));
-
-      const activePrices = virtualPrices.filter(p => p > 0);
-      const virtualMin = activePrices.length > 0 ? Math.min(...activePrices) : 0;
-      const virtualMax = activePrices.length > 0 ? Math.max(...activePrices) : 0;
-
-      if (existingGameIndex >= 0) {
-        // Add to existing
-        const game = finalGames[existingGameIndex];
-        game.variantCount = (game.variantCount || 0) + variants.length;
-        
-        // Update price range if virtual variants are cheaper/more expensive
-        if (virtualMin > 0 && (game.minPrice === 0 || virtualMin < (game.minPrice || 0))) {
-          game.minPrice = virtualMin;
-        }
-        if (virtualMax > (game.maxPrice || 0)) {
-          game.maxPrice = virtualMax;
-        }
-      } else {
-        // Create new virtual game
-        const first = variants[0];
-        finalGames.push({
-          id: `virtual-game-${gameSlug}`,
-          name: first.operator,
-          slug: gameSlug,
-          description: `Top up ${first.operator} murah dan cepat.`,
-          image: "", 
-          categoryIds: [first.catId],
-          labels: ["Otomatis"],
-          status: "active",
-          availability: "available",
-          sortOrder: 100,
-          searchKeywords: [first.operator],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          createdBy: "system",
-          updatedBy: "system",
-          variantCount: variants.length,
-          productCount: 1,
-          minPrice: virtualMin,
-          maxPrice: virtualMax
-        });
+      this.slugToOperatorsMap.get(game.slug)!.add(game.name);
+      if (game.searchKeywords) {
+        game.searchKeywords.forEach(kw => this.slugToOperatorsMap.get(game.slug)!.add(kw));
       }
     }
 
+    const TOP_UP_CAT_ID = "15b131f7-ef27-4df4-a788-e8d87fa4a5e6";
+
+    // Strictly ensure only TokoVoucher Category ID 1 (Topup Game) is included in Homepage TOP UP.
+    // Thailand/Malaysia non-game telco items must never have TOP_UP_CAT_ID.
+    const sanitizedGames = realGames.map(game => {
+      if (game.categoryIds?.includes(TOP_UP_CAT_ID)) {
+        const isExcluded = 
+          game.slug === "ais" || 
+          game.slug === "truemove-h" || 
+          game.slug === "dtac" || 
+          game.slug === "my-by-nt" ||
+          (game.metadata as any)?.category_id === 16 ||
+          (game.metadata as any)?.category_id === "16" ||
+          (game.metadata as any)?.category_id === 17 ||
+          (game.metadata as any)?.category_id === "17" ||
+          (game.metadata as any)?.category === "Thailand Topup" ||
+          (game.metadata as any)?.category === "Malaysia Topup";
+        if (isExcluded) {
+          return {
+            ...game,
+            categoryIds: game.categoryIds.filter(id => id !== TOP_UP_CAT_ID)
+          };
+        }
+      }
+      return game;
+    });
+
+    // 2. Sort games adhering to the business rules:
+    // For TOP UP: Popular games are placed at the very top, followed by all other Category 1 games.
+    const sortedGames = [...sanitizedGames].sort((a, b) => {
+      const aIsTopUp = a.categoryIds?.includes(TOP_UP_CAT_ID);
+      const bIsTopUp = b.categoryIds?.includes(TOP_UP_CAT_ID);
+
+      if (aIsTopUp && bIsTopUp) {
+        const idxA = POPULAR_TOPUP_GAME_SLUGS.indexOf(a.slug);
+        const idxB = POPULAR_TOPUP_GAME_SLUGS.indexOf(b.slug);
+        const rankA = idxA !== -1 ? idxA : 1000 + (a.sortOrder || 0);
+        const rankB = idxB !== -1 ? idxB : 1000 + (b.sortOrder || 0);
+        if (rankA !== rankB) return rankA - rankB;
+        return a.name.localeCompare(b.name);
+      }
+
+      if (aIsTopUp && !bIsTopUp) return -1;
+      if (!aIsTopUp && bIsTopUp) return 1;
+
+      const orderA = a.sortOrder || 0;
+      const orderB = b.sortOrder || 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
+
     if (onlyActive) {
       this.mergedGamesCache = {
-        data: finalGames,
+        data: sortedGames,
         timestamp: Date.now()
       };
     }
 
-    return finalGames;
+    return sortedGames;
   }
 
   async getMergedGameDetail(slug: string): Promise<{ game: Game; products: Product[] } | null> {
@@ -377,15 +527,18 @@ export class DynamicCatalogService {
     
     // 2. Identify the game slug to find virtual variants
     let gameSlug = "";
+    let gameName = "";
+    let productObj: Product | null = null;
     if (this.isVirtualProduct(productId)) {
       gameSlug = productId.replace("virtual-product-", "");
     } else {
       // Look up real product to get game slug
-      const product = await catalogRepo.getProduct(productId);
-      if (product) {
-        const game = await catalogRepo.getGame(product.gameId);
+      productObj = await catalogRepo.getProduct(productId);
+      if (productObj) {
+        const game = await catalogRepo.getGame(productObj.gameId);
         if (game) {
           gameSlug = game.slug;
+          gameName = game.name;
         }
       }
     }
@@ -398,13 +551,23 @@ export class DynamicCatalogService {
       return realVariants;
     }
 
-    // 3. Get virtual variants matching this game slug
+    // 3. Get virtual variants matching this game slug via targeted server-side filtering
+    const candidateOperators = await this.getCandidateOperators(gameSlug, gameName);
+    if (candidateOperators.length === 0) {
+      this.mergedVariantsCache.set(productId, {
+        data: realVariants,
+        timestamp: Date.now()
+      });
+      return realVariants;
+    }
+
     const { data: skus } = await supabaseAdmin!
       .from("provider_skus")
-      .select("*")
-      .eq("status", "active");
+      .select("id, provider_id, provider_sku, name, type, status, metadata, created_at, updated_at")
+      .eq("status", "active")
+      .in("metadata->>operator", candidateOperators);
 
-    if (!skus) {
+    if (!skus || skus.length === 0) {
       this.mergedVariantsCache.set(productId, {
         data: realVariants,
         timestamp: Date.now()
@@ -487,7 +650,7 @@ export class DynamicCatalogService {
         updatedBy: "system"
       };
 
-      const { finalPrice, ruleId } = await pricingService.resolveEffectivePrice(skeleton);
+      const { finalPrice, ruleId } = await pricingService.resolveEffectivePrice(skeleton, {}, productObj);
 
       return {
         ...skeleton,
