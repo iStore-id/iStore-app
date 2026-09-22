@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
@@ -16,10 +16,22 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [config, setConfig] = useState<any>(null);
   
   // OTP States
   const [showOtp, setShowOtp] = useState(false);
   const [normalizedPhone, setNormalizedPhone] = useState("");
+
+  useEffect(() => {
+    fetch("/api/public/store-config")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setConfig(data.data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch store config:", err));
+  }, []);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,10 +212,33 @@ export default function RegisterPage() {
     }
   };
 
+  const getAuthBackgroundStyle = () => {
+    if (!config) return {};
+    
+    if (config.authBackgroundMode === "image" && config.authBackgroundImage) {
+      return {
+        backgroundImage: `url("${config.authBackgroundImage}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed"
+      };
+    }
+    
+    if (config.authBackgroundColor) {
+      return { backgroundColor: config.authBackgroundColor };
+    }
+    
+    return {};
+  };
+
+  const primaryColor = config?.primaryColor || "#ff4400";
+  const storeName = config?.name || "iStore.id";
+  const storeLogo = config?.logo;
+
   if (showOtp) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
           <OtpInput 
             phone={normalizedPhone}
             loading={loading}
@@ -212,7 +247,8 @@ export default function RegisterPage() {
           />
           <button 
             onClick={() => setShowOtp(false)}
-            className="w-full mt-6 text-sm text-slate-500 hover:text-brand-600 font-medium"
+            className="w-full mt-6 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
+            style={{ color: primaryColor }}
           >
             Kembali ke Pendaftaran
           </button>
@@ -222,28 +258,42 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+      <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-md shadow-brand-600/20">
-            i
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Buat Akun</h1>
-          <p className="text-slate-500 mt-2 text-sm">Daftar untuk mulai bertransaksi di Toko Kami</p>
+          {storeLogo ? (
+            <img 
+              src={storeLogo} 
+              alt={storeName} 
+              className="h-16 max-w-[180px] object-contain mx-auto mb-4"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div 
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-md"
+              style={{ backgroundColor: primaryColor, boxShadow: `0 8px 12px -3px ${primaryColor}40` }}
+            >
+              {storeName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-slate-900">Buat Akun Baru</h1>
+          <p className="text-slate-500 mt-2 text-sm">Daftar untuk bertransaksi di {storeName}</p>
         </div>
 
         {/* Method Toggle */}
         <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
           <button
             onClick={() => { setRegMethod("email"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            style={regMethod === "email" ? { color: primaryColor } : {}}
           >
             <Mail className="w-4 h-4" />
             Email
           </button>
           <button
             onClick={() => { setRegMethod("phone"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "phone" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "phone" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            style={regMethod === "phone" ? { color: primaryColor } : {}}
           >
             <Smartphone className="w-4 h-4" />
             WhatsApp
@@ -265,7 +315,8 @@ export default function RegisterPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": primaryColor } as any}
               placeholder="John Doe"
             />
           </div>
@@ -279,7 +330,8 @@ export default function RegisterPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                  style={{ "--tw-ring-color": primaryColor } as any}
                   placeholder="nama@email.com"
                 />
               </div>
@@ -290,7 +342,8 @@ export default function RegisterPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                  style={{ "--tw-ring-color": primaryColor } as any}
                   placeholder="Minimal 6 karakter"
                 />
               </div>
@@ -303,7 +356,8 @@ export default function RegisterPage() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                style={{ "--tw-ring-color": primaryColor } as any}
                 placeholder="081234567890"
               />
               <p className="text-[10px] text-slate-400 mt-1 px-1">Kode OTP akan dikirimkan ke nomor ini.</p>
@@ -313,7 +367,8 @@ export default function RegisterPage() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg shadow-brand-600/20"
+            className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg active:scale-[0.98]"
+            style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -327,7 +382,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="text-center text-sm text-slate-600 mt-8">
-          Sudah punya akun? <Link to="/login" className="font-semibold text-brand-600 hover:text-brand-700">Masuk di sini</Link>
+          Sudah punya akun? <Link to="/login" className="font-semibold hover:opacity-80 transition-colors" style={{ color: primaryColor }}>Masuk di sini</Link>
         </p>
       </div>
     </div>

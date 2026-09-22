@@ -185,6 +185,11 @@ export default function AdminBrandingPage() {
   const [footerBackgroundColor, setFooterBackgroundColor] = useState("");
   const [footerBackgroundImage, setFooterBackgroundImage] = useState("");
   const [footerBackgroundMode, setFooterBackgroundMode] = useState<"color" | "image">("color");
+
+  // Latar Belakang Khusus Auth (Login/Register)
+  const [authBackgroundColor, setAuthBackgroundColor] = useState("");
+  const [authBackgroundImage, setAuthBackgroundImage] = useState("");
+  const [authBackgroundMode, setAuthBackgroundMode] = useState<"color" | "image">("color");
   
   const [transactionCardColor, setTransactionCardColor] = useState<string>("#ffffff");
   const [transactionCardOpacity, setTransactionCardOpacity] = useState<number>(85);
@@ -198,7 +203,7 @@ export default function AdminBrandingPage() {
 
   // Media Library Picker Modal
   const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
-  const [activeMediaTarget, setActiveMediaTarget] = useState<"logo" | "favicon" | "homepageBg" | "footerBg" | null>(null);
+  const [activeMediaTarget, setActiveMediaTarget] = useState<"logo" | "favicon" | "homepageBg" | "footerBg" | "authBg" | null>(null);
   const [mediaList, setMediaList] = useState<MediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaSearch, setMediaSearch] = useState("");
@@ -249,6 +254,9 @@ export default function AdminBrandingPage() {
         setFooterBackgroundColor(cfg.footerBackgroundColor || "");
         setFooterBackgroundImage(cfg.footerBackgroundImage || "");
         setFooterBackgroundMode(cfg.footerBackgroundMode || "color");
+        setAuthBackgroundColor(cfg.authBackgroundColor || "");
+        setAuthBackgroundImage(cfg.authBackgroundImage || "");
+        setAuthBackgroundMode(cfg.authBackgroundMode || "color");
         setTransactionCardColor(cfg.transactionCardColor || "#ffffff");
         setTransactionCardOpacity(typeof cfg.transactionCardOpacity === "number" ? cfg.transactionCardOpacity : 85);
         setTransactionCardBlur(cfg.transactionCardBlur || "md");
@@ -283,7 +291,7 @@ export default function AdminBrandingPage() {
     }
   };
 
-  const openMediaPicker = (target: "logo" | "favicon" | "homepageBg" | "footerBg") => {
+  const openMediaPicker = (target: "logo" | "favicon" | "homepageBg" | "footerBg" | "authBg") => {
     setActiveMediaTarget(target);
     setIsMediaPickerOpen(true);
     fetchMediaLibrary();
@@ -364,6 +372,9 @@ export default function AdminBrandingPage() {
       footerBackgroundColor: footerBackgroundColor.trim() ? sanitizeHex(footerBackgroundColor, "") : "",
       footerBackgroundImage: footerBackgroundImage.trim(),
       footerBackgroundMode,
+      authBackgroundColor: authBackgroundColor.trim() ? sanitizeHex(authBackgroundColor, "") : "",
+      authBackgroundImage: authBackgroundImage.trim(),
+      authBackgroundMode,
       headerScrollEffect,
       logoHoverEffect,
       navIndicator,
@@ -919,6 +930,139 @@ export default function AdminBrandingPage() {
                     <p className="text-[11px] text-slate-500">Atur warna khusus atau gambar wallpaper khusus untuk halaman utama toko.</p>
                   </div>
                 </div>
+              </div>
+
+              {/* 3.1 Latar Belakang Khusus Auth (Login & Daftar) */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs">
+                      A
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Latar Belakang Login & Daftar</h2>
+                      <p className="text-[11px] text-slate-500">Atur tampilan latar belakang untuk halaman Login dan Pendaftaran Akun.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mode Selector */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Mode Latar Belakang Auth
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAuthBackgroundMode("color")}
+                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        authBackgroundMode === "color"
+                          ? "border-orange-600 bg-orange-50 text-orange-700 shadow-xs"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                    >
+                      <Palette className="w-3.5 h-3.5" />
+                      <span>Warna (Color)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthBackgroundMode("image")}
+                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                        authBackgroundMode === "image"
+                          ? "border-orange-600 bg-orange-50 text-orange-700 shadow-xs"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                      }`}
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>Wallpaper (Gambar)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Konten Mode: Warna */}
+                {authBackgroundMode === "color" && (
+                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">Kustom Warna Latar Auth</h4>
+                        <p className="text-[11px] text-slate-500">Pilih warna latar khusus untuk halaman Login/Daftar.</p>
+                      </div>
+                      {authBackgroundColor && (
+                        <button
+                          type="button"
+                          onClick={() => setAuthBackgroundColor("")}
+                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                        >
+                          <Trash2 className="w-3 h-3" /> Reset ke Default
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-300 shrink-0 shadow-2xs">
+                        <input
+                          type="color"
+                          value={authBackgroundColor || "#f8fafc"}
+                          onChange={(e) => setAuthBackgroundColor(e.target.value)}
+                          className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={authBackgroundColor}
+                        onChange={(e) => setAuthBackgroundColor(e.target.value)}
+                        placeholder="#F8FAFC (Default)"
+                        className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 uppercase font-mono font-bold bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Konten Mode: Wallpaper */}
+                {authBackgroundMode === "image" && (
+                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">Wallpaper Gambar Auth</h4>
+                        <p className="text-[11px] text-slate-500">Pilih gambar wallpaper untuk latar belakang Login/Daftar.</p>
+                      </div>
+                      {authBackgroundImage && (
+                        <button
+                          type="button"
+                          onClick={() => setAuthBackgroundImage("")}
+                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" /> Hapus
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative h-24 w-full rounded-xl border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                      {authBackgroundImage ? (
+                        <img 
+                          src={authBackgroundImage} 
+                          alt="Auth Wallpaper" 
+                          className="max-h-full max-w-full object-contain" 
+                          referrerPolicy="no-referrer" 
+                        />
+                      ) : (
+                        <div className="text-center text-slate-400">
+                          <ImageIcon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                          <span className="text-[10px]">Belum ada wallpaper dipilih</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => openMediaPicker("authBg")}
+                      className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      Ganti Wallpaper Auth
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Mode Selector */}
@@ -2069,7 +2213,7 @@ export default function AdminBrandingPage() {
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">
-                  Pilih Aset untuk {activeMediaTarget === "logo" ? "Logo Toko" : activeMediaTarget === "favicon" ? "Favicon Toko" : activeMediaTarget === "homepageBg" ? "Wallpaper Beranda" : "Background Footer"}
+                  Pilih Aset untuk {activeMediaTarget === "logo" ? "Logo Toko" : activeMediaTarget === "favicon" ? "Favicon Toko" : activeMediaTarget === "homepageBg" ? "Wallpaper Beranda" : activeMediaTarget === "authBg" ? "Wallpaper Auth" : "Background Footer"}
                 </h3>
                 <p className="text-[11px] text-slate-500">Pilih dari aset yang sudah diunggah di Media Library Anda.</p>
               </div>
@@ -2116,6 +2260,8 @@ export default function AdminBrandingPage() {
                         setFavicon(m.url);
                       } else if (activeMediaTarget === "homepageBg") {
                         setHomepageBackgroundImage(m.url);
+                      } else if (activeMediaTarget === "authBg") {
+                        setAuthBackgroundImage(m.url);
                       } else if (activeMediaTarget === "footerBg") {
                         setFooterBackgroundImage(m.url);
                       }

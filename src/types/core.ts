@@ -73,6 +73,11 @@ export interface StoreConfiguration {
   footerBackgroundColor?: string;
   footerBackgroundImage?: string;
   footerBackgroundMode?: 'color' | 'image';
+
+  // Custom Auth Background Settings (Login/Register)
+  authBackgroundColor?: string;
+  authBackgroundImage?: string;
+  authBackgroundMode?: 'color' | 'image';
   
   // Custom Transaction Card Transparency & Blur Settings
   transactionCardColor?: string;

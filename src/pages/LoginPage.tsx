@@ -17,10 +17,22 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  const [config, setConfig] = useState<any>(null);
 
   // OTP States
   const [showOtp, setShowOtp] = useState(false);
   const [normalizedPhone, setNormalizedPhone] = useState("");
+
+  useEffect(() => {
+    fetch("/api/public/store-config")
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setConfig(data.data);
+        }
+      })
+      .catch(err => console.error("Failed to fetch store config:", err));
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -183,10 +195,33 @@ export default function LoginPage() {
     }
   };
 
+  const getAuthBackgroundStyle = () => {
+    if (!config) return {};
+    
+    if (config.authBackgroundMode === "image" && config.authBackgroundImage) {
+      return {
+        backgroundImage: `url("${config.authBackgroundImage}")`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed"
+      };
+    }
+    
+    if (config.authBackgroundColor) {
+      return { backgroundColor: config.authBackgroundColor };
+    }
+    
+    return {};
+  };
+
+  const primaryColor = config?.primaryColor || "#ff4400";
+  const storeName = config?.name || "iStore.id";
+  const storeLogo = config?.logo;
+
   if (showOtp) {
     return (
-      <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+      <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
           <OtpInput 
             phone={normalizedPhone}
             loading={loading}
@@ -195,7 +230,8 @@ export default function LoginPage() {
           />
           <button 
             onClick={() => setShowOtp(false)}
-            className="w-full mt-6 text-sm text-slate-500 hover:text-brand-600 font-medium"
+            className="w-full mt-6 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
+            style={{ color: primaryColor }}
           >
             Kembali ke Login
           </button>
@@ -205,28 +241,42 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
-      <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+      <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg shadow-brand-600/20">
-            i
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Masuk ke Toko Kami</h1>
-          <p className="text-slate-500 mt-2 text-sm">Pilih metode masuk yang Anda inginkan</p>
+          {storeLogo ? (
+            <img 
+              src={storeLogo} 
+              alt={storeName} 
+              className="h-16 max-w-[180px] object-contain mx-auto mb-4"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div 
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg"
+              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
+            >
+              {storeName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-slate-900">Masuk ke {storeName}</h1>
+          <p className="text-slate-500 mt-2 text-sm">Silakan pilih metode masuk Anda</p>
         </div>
 
         {/* Method Toggle */}
         <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
           <button
             onClick={() => { setLoginMethod("email"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "email" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            style={loginMethod === "email" ? { color: primaryColor } : {}}
           >
             <Mail className="w-4 h-4" />
             Email
           </button>
           <button
             onClick={() => { setLoginMethod("phone"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "phone" ? "bg-white text-brand-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "phone" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            style={loginMethod === "phone" ? { color: primaryColor } : {}}
           >
             <Smartphone className="w-4 h-4" />
             WhatsApp
@@ -258,7 +308,8 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                style={{ "--tw-ring-color": primaryColor } as any}
                 placeholder="nama@email.com"
               />
             </div>
@@ -268,7 +319,8 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-xs font-medium text-brand-600 hover:text-brand-700"
+                  className="text-xs font-medium hover:opacity-80"
+                  style={{ color: primaryColor }}
                 >
                   Lupa Password?
                 </button>
@@ -278,7 +330,8 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                style={{ "--tw-ring-color": primaryColor } as any}
                 placeholder="••••••••"
               />
             </div>
@@ -286,14 +339,15 @@ export default function LoginPage() {
             <button 
               type="submit" 
               disabled={loading || googleLoading}
-              className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-brand-600/20"
+              className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98]"
+              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
-                  Login
+                  Masuk Sekarang
                 </>
               )}
             </button>
@@ -307,7 +361,8 @@ export default function LoginPage() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+                style={{ "--tw-ring-color": primaryColor } as any}
                 placeholder="081234567890"
               />
               <p className="text-xs text-slate-400 mt-2">Kode verifikasi akan dikirim via WhatsApp/SMS.</p>
@@ -316,7 +371,8 @@ export default function LoginPage() {
             <button 
               type="submit" 
               disabled={loading || googleLoading}
-              className="w-full bg-brand-600 text-white font-semibold py-3 rounded-xl hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg shadow-brand-600/20"
+              className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98]"
+              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -335,7 +391,7 @@ export default function LoginPage() {
             <div className="w-full border-t border-slate-200"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-3 text-slate-400 font-medium">Atau lanjutkan dengan</span>
+            <span className="bg-white px-3 text-slate-400 font-medium">Atau</span>
           </div>
         </div>
 
@@ -355,13 +411,13 @@ export default function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
               </svg>
-              <span className="group-hover:text-slate-900 transition-colors">Login dengan Google</span>
+              <span className="group-hover:text-slate-900 transition-colors">Masuk dengan Google</span>
             </>
           )}
         </button>
 
         <p className="text-center text-sm text-slate-600 mt-8">
-          Belum punya akun? <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">Daftar sekarang</Link>
+          Belum punya akun? <Link to="/register" className="font-semibold hover:opacity-80 transition-colors" style={{ color: primaryColor }}>Daftar sekarang</Link>
         </p>
       </div>
     </div>
