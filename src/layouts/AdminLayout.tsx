@@ -113,7 +113,7 @@ const NavSection = ({ group, pathname, search = '', can, expandedGroups, toggleG
             className="overflow-hidden space-y-1 mt-1"
           >
             {group.items.map((item) => (
-              <NavLink key={item.href} item={item} pathname={pathname} search={search} can={can} />
+              <NavLink key={`${item.href}-${item.title}`} item={item} pathname={pathname} search={search} can={can} />
             ))}
           </motion.div>
         )}

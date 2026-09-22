@@ -7,6 +7,7 @@ import { ShieldCheck, Zap, AlertCircle, AlertTriangle, ChevronRight } from "luci
 import { Game, Product, ProductVariant } from "../types/core";
 import { useSEO } from "../lib/seo";
 import { defaultProducts } from "../lib/seed-data";
+import { ProductReviewsSection } from "../components/game/ProductReviewsSection";
 
 function hexToRgba(hex: string, opacity: number) {
   let c = (hex || "#ffffff").replace('#', '');
@@ -922,6 +923,18 @@ export default function GameDetailPage() {
           </>
         )}
       </div>
+
+      {/* Section Review Pelanggan */}
+      {selectedProduct?.id && (
+        <ProductReviewsSection
+          productId={selectedProduct.id}
+          productName={game?.name || selectedProduct.name}
+          variantId={selectedVariant?.id}
+          cardColor={cardColor}
+          cardOpacity={cardOpacity}
+          cardBlur={cardBlur}
+        />
+      )}
     </div>
   );
 }

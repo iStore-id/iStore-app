@@ -26,6 +26,12 @@ export default function AdminFlashSalePage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Selector data
+  const [products, setProducts] = useState<any[]>([]);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFs, setEditingFs] = useState<FlashSale | null>(null);
@@ -44,6 +50,7 @@ export default function AdminFlashSalePage() {
 
   useEffect(() => {
     fetchFlashSales();
+    fetchProducts();
   }, []);
 
   const fetchFlashSales = async () => {
@@ -65,11 +72,53 @@ export default function AdminFlashSalePage() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch("/api/admin/catalog/products", {
+        headers: { Authorization: token ? `Bearer ${token}` : "" }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setProducts(json.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const fetchVariants = async (prodId: string) => {
+    if (!prodId) {
+      setVariants([]);
+      return;
+    }
+    try {
+      setLoadingVariants(true);
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch(`/api/admin/catalog/variants?productId=${prodId}`, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setVariants(json.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching variants:", err);
+      setVariants([]);
+    } finally {
+      setLoadingVariants(false);
+    }
+  };
+
   const handleOpenCreate = () => {
     setEditingFs(null);
     setName("");
     setProductId("");
     setVariantId("");
+    setVariants([]);
     setSalePrice(0);
     const now = new Date();
     const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -78,6 +127,7 @@ export default function AdminFlashSalePage() {
     setStatus("active");
     setTotalQuota("");
     setPerCustomerLimit("1");
+    fetchProducts();
     setIsModalOpen(true);
   };
 
@@ -92,7 +142,19 @@ export default function AdminFlashSalePage() {
     setStatus(fs.status);
     setTotalQuota(fs.totalQuota !== null && fs.totalQuota !== undefined ? fs.totalQuota.toString() : "");
     setPerCustomerLimit(fs.perCustomerLimit !== null && fs.perCustomerLimit !== undefined ? fs.perCustomerLimit.toString() : "1");
+    fetchProducts();
+    fetchVariants(fs.productId);
     setIsModalOpen(true);
+  };
+
+  const handleProductChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newProdId = e.target.value;
+    setProductId(newProdId);
+    setVariantId("");
+    setVariants([]);
+    if (newProdId) {
+      fetchVariants(newProdId);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -312,28 +374,47 @@ export default function AdminFlashSalePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product ID</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Pilih Produk</label>
+                  <select
                     required
-                    placeholder="ID Produk"
                     value={productId}
-                    onChange={(e) => setProductId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
+                    onChange={handleProductChange}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="">{loadingProducts ? "Memuat produk..." : "-- Pilih Produk --"}</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name || p.displayName}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Variant ID</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Pilih Variant</label>
+                  <select
                     required
-                    placeholder="ID Variant"
+                    disabled={!productId || loadingVariants}
                     value={variantId}
                     onChange={(e) => setVariantId(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {!productId 
+                        ? "-- Pilih produk terlebih dahulu --" 
+                        : loadingVariants 
+                        ? "Memuat variant..." 
+                        : variants.length === 0 
+                        ? "Tidak ada variant" 
+                        : "-- Pilih Variant --"}
+                    </option>
+                    {variants.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name || v.displayName || v.sku} {v.pricing?.sellingPrice ? `(Rp ${v.pricing.sellingPrice.toLocaleString("id-ID")})` : ""}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

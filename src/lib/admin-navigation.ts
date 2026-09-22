@@ -169,7 +169,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         title: "Poin & Loyalty", 
         href: "/admin/loyalty", 
         icon: Heart, 
-        resource: "loyalty", 
+        resource: "marketing", 
         action: "view",
         status: "ACTIVE",
         description: "Sistem reward poin per transaksi dan level loyalitas pengguna.",
@@ -179,20 +179,20 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         title: "Reward", 
         href: "/admin/rewards", 
         icon: Star, 
-        resource: "loyalty", 
+        resource: "marketing", 
         action: "view",
         status: "ACTIVE",
         description: "Penukaran poin dengan item fisik atau voucher digital.",
         dependencies: ["Inventory", "Redemption Logic"]
       },
       { 
-        title: "Wishlist & Review", 
+        title: "Review Management", 
         href: "/admin/reviews", 
         icon: BookOpen, 
         resource: "reviews", 
         action: "view",
         status: "ACTIVE",
-        description: "Moderasi ulasan pelanggan dan analisis wishlist populer.",
+        description: "Moderasi ulasan produk dan pantau rating kepuasan pelanggan.",
         dependencies: ["Review Service", "Notification Engine"]
       },
     ]

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Category } from "../../types/core";
 import { supabase } from "../../lib/supabase";
 import { 
-  Plus, Search, Edit2, CheckCircle2, XCircle, 
+  Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, 
   Layers, Filter, Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -65,10 +65,11 @@ export default function AdminCategoriesPage() {
     };
 
     try {
-      // For now we use the same endpoint as games but for categories
-      // We should probably create a specific category endpoint or handle it in catalog-service
-      const res = await fetch("/api/admin/categories", {
-        method: "POST",
+      const url = editingCategory ? `/api/admin/categories/${editingCategory.id}` : "/api/admin/categories";
+      const method = editingCategory ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${idToken}`
@@ -82,10 +83,37 @@ export default function AdminCategoriesPage() {
         setEditingCategory(null);
         fetchCategories();
       } else {
-        alert(result.message);
+        alert(result.message || "Gagal menyimpan kategori");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving category:", err);
+      alert(err.message || "Terjadi kesalahan saat menyimpan kategori");
+    }
+  };
+
+  const handleDeleteCategory = async (category: Category) => {
+    if (!category.id) return;
+    const isConfirmed = window.confirm(`Apakah Anda yakin ingin menghapus kategori "${category.name}"?`);
+    if (!isConfirmed) return;
+
+    try {
+      const idToken = await user?.getIdToken();
+      const res = await fetch(`/api/admin/categories/${category.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${idToken}`
+        }
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        fetchCategories();
+      } else {
+        alert(result.message || "Gagal menghapus kategori");
+      }
+    } catch (err: any) {
+      console.error("Error deleting category:", err);
+      alert(err.message || "Terjadi kesalahan saat menghapus kategori");
     }
   };
 
@@ -172,12 +200,22 @@ export default function AdminCategoriesPage() {
                     {cat.sortOrder}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={() => { setEditingCategory(cat); setIsModalOpen(true); }}
-                      className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button 
+                        onClick={() => { setEditingCategory(cat); setIsModalOpen(true); }}
+                        className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                        title="Edit Kategori"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteCategory(cat)}
+                        className="p-2 hover:bg-white hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                        title="Hapus Kategori"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
