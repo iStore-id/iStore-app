@@ -160,11 +160,38 @@ export default function GameDetailPage() {
       .catch(() => {});
   }, []);
   const [promoCode, setPromoCode] = useState("");
+  const [pointsToUse, setPointsToUse] = useState(0);
+  const [loyaltyData, setLoyaltyData] = useState<{ balance: number, config: { redeemRateIdr: number, minRedeemPoints: number, maxRedeemPercent: number } } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      const fetchLoyalty = async () => {
+        try {
+          const token = await (user as any).getIdToken();
+          const response = await fetch("/api/customer/loyalty/info", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setLoyaltyData(data.data);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch loyalty info:", err);
+        }
+      };
+      fetchLoyalty();
+    }
+  }, [user]);
   const [processing, setProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkingInquiry, setCheckingInquiry] = useState(false);
   const [inquiryResult, setInquiryResult] = useState<{ isValid: boolean; username: string | null; message?: string } | null>(null);
 
+  const [snapToken, setSnapToken] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const hasEmbeddedRef = useRef(false);
   const snapContainerRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
   const embedTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -179,6 +206,7 @@ export default function GameDetailPage() {
       if (snapContainerRef.current) {
         snapContainerRef.current.innerHTML = "";
       }
+      hasEmbeddedRef.current = false;
     };
   }, []);
 
@@ -190,8 +218,50 @@ export default function GameDetailPage() {
       if (snapContainerRef.current) {
         snapContainerRef.current.innerHTML = "";
       }
+      if (checkoutStep !== 3) {
+        hasEmbeddedRef.current = false;
+      }
     };
   }, [checkoutStep]);
+
+  useEffect(() => {
+    const initSnap = async () => {
+      if (checkoutStep === 3 && snapToken && snapContainerRef.current && !hasEmbeddedRef.current) {
+        let snapReady = !!window.snap;
+        if (!snapReady) {
+          snapReady = await loadMidtransSnap();
+        }
+
+        if (!isMountedRef.current) return;
+
+        if (snapReady && window.snap) {
+          try {
+            hasEmbeddedRef.current = true;
+            window.snap.embed(snapToken, {
+              embedId: "snap-container",
+              onSuccess: () => navigate(`/transactions/${orderId}`),
+              onPending: () => navigate(`/transactions/${orderId}`),
+              onError: () => {
+                setCheckoutError("Pembayaran gagal. Silakan coba lagi.");
+                hasEmbeddedRef.current = false;
+              },
+              onClose: () => {
+                hasEmbeddedRef.current = false;
+              }
+            });
+          } catch (err) {
+            console.error("Snap embed error:", err);
+            setCheckoutError("Gagal memuat form pembayaran.");
+            hasEmbeddedRef.current = false;
+          }
+        } else {
+          setCheckoutError("SDK Pembayaran gagal dimuat. Silakan muat ulang halaman.");
+        }
+      }
+    };
+
+    initSnap();
+  }, [checkoutStep, snapToken, orderId]);
 
   useEffect(() => {
     loadMidtransSnap();
@@ -383,40 +453,23 @@ export default function GameDetailPage() {
           variantId: selectedVariant.id,
           customerInput: payloadCustomerInput,
           promoCode: promoCode.trim() || undefined,
-          paymentMethod: selectedPaymentMethod
+          paymentMethod: selectedPaymentMethod,
+          pointsToUse: pointsToUse
         }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Gagal membuat pesanan");
 
+      setOrderId(data.orderId);
+      setSnapToken(data.snapToken);
       setCheckoutStep(3);
-      if (embedTimerRef.current) {
-        clearTimeout(embedTimerRef.current);
+      hasEmbeddedRef.current = false;
+
+      // Fallback if snapToken is missing but paymentUrl exists
+      if (!data.snapToken && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
       }
-      embedTimerRef.current = setTimeout(async () => {
-        if (!isMountedRef.current) return;
-        let snapReady = !!window.snap;
-        if (!snapReady) {
-          snapReady = await loadMidtransSnap();
-        }
-
-        if (!isMountedRef.current) return;
-
-        if (snapReady && window.snap && data.snapToken) {
-          window.snap.embed(data.snapToken, {
-            embedId: "snap-container",
-            onSuccess: () => navigate(`/transactions/${data.orderId}`),
-            onPending: () => navigate(`/transactions/${data.orderId}`),
-            onError: () => setCheckoutError("Pembayaran gagal. Silakan coba lagi."),
-            onClose: () => navigate(`/transactions/${data.orderId}`)
-          });
-        } else if (data.paymentUrl) {
-          window.location.href = data.paymentUrl;
-        } else {
-          setCheckoutError("Pembayaran belum dapat dibuka. Silakan coba lagi.");
-        }
-      }, 150);
     } catch (err: any) {
       console.error(err);
       setCheckoutError(err.message || "Terjadi kesalahan saat checkout");
@@ -803,6 +856,32 @@ export default function GameDetailPage() {
               </div>
             </div>
 
+            {/* Loyalty Points */}
+            {loyaltyData && (
+              <div className="space-y-4">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
+                  Poin Loyalty
+                </h2>
+                <div className="space-y-3 p-4 rounded-xl border" style={{ borderColor: "var(--border-color)", backgroundColor: hexToRgba(cardColor, Math.min(100, cardOpacity + 5)) }}>
+                  <p className="text-xs text-slate-600">Saldo: <span className="font-bold text-brand-700">{loyaltyData.balance} poin</span></p>
+                  <input
+                    type="number"
+                    placeholder="Masukkan jumlah poin"
+                    value={pointsToUse || ""}
+                    onChange={(e) => setPointsToUse(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg"
+                  />
+                  {pointsToUse > 0 && (
+                    <div className="text-xs space-y-1">
+                      <p>Nilai diskon: Rp {(pointsToUse * loyaltyData.config.redeemRateIdr).toLocaleString()}</p>
+                      <p className="font-bold">Total setelah poin: Rp {((selectedVariant as any).sellingPrice - (pointsToUse * loyaltyData.config.redeemRateIdr)).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 3. Metode Pembayaran */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -906,21 +985,45 @@ export default function GameDetailPage() {
         )}
 
         {checkoutStep === 3 && (
-          <>
-            {checkoutError && (
-              <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 mb-4">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                <span className="font-medium">{checkoutError}</span>
+          <div className="space-y-4">
+            {checkoutError ? (
+              <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-4">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Pembayaran Terkendala</h3>
+                <p className="text-slate-500 text-sm mb-6 max-w-xs">
+                  {checkoutError}
+                </p>
+                <div className="flex flex-col w-full gap-3">
+                  <button
+                    onClick={() => {
+                      setCheckoutError(null);
+                      hasEmbeddedRef.current = false;
+                      // Trigger re-render to re-run effect
+                      setSnapToken(prev => prev ? `${prev} ` : null);
+                      setTimeout(() => setSnapToken(prev => prev?.trim() || null), 10);
+                    }}
+                    className="w-full bg-brand-600 text-white font-bold py-3 rounded-xl hover:bg-brand-700 transition-all"
+                  >
+                    Coba Muat Ulang Snap
+                  </button>
+                  <button
+                    onClick={() => setCheckoutStep(2)}
+                    className="w-full bg-slate-100 text-slate-600 font-bold py-3 rounded-xl hover:bg-slate-200 transition-all"
+                  >
+                    Kembali ke Metode Pembayaran
+                  </button>
+                </div>
               </div>
+            ) : (
+              <div
+                ref={snapContainerRef}
+                id="snap-container"
+                className="w-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-100 bg-white"
+              ></div>
             )}
-
-            {/* Midtrans Snap Embed Container */}
-            <div
-              ref={snapContainerRef}
-              id="snap-container"
-              className="w-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-100 bg-white"
-            ></div>
-          </>
+          </div>
         )}
       </div>
 

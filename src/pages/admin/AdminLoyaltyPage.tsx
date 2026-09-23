@@ -45,13 +45,16 @@ export default function AdminLoyaltyPage() {
   const [submittingAdj, setSubmittingAdj] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const fetchData = async () => {
+    if (!user) return;
     try {
-      const token = await (user as any)?.getIdToken?.();
-      const headers = { Authorization: token ? `Bearer ${token}` : "" };
+      const token = await (user as any).getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
 
       const [cfgRes, txRes] = await Promise.all([
         fetch("/api/admin/loyalty/config", { headers }),
@@ -72,17 +75,18 @@ export default function AdminLoyaltyPage() {
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSavingConfig(true);
     setError(null);
     setSuccessMsg(null);
 
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const res = await fetch("/api/admin/loyalty/config", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : ""
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(config)
       });
@@ -110,17 +114,18 @@ export default function AdminLoyaltyPage() {
 
   const handleAdjustmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSubmittingAdj(true);
     setError(null);
     setSuccessMsg(null);
 
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const res = await fetch("/api/admin/loyalty/adjust", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : ""
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           customerId: adjCustomerId,

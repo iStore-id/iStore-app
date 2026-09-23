@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { 
   Game, 
   Category, 
@@ -39,6 +39,7 @@ import { useAuthStore } from "../../store/auth-store";
 
 export default function AdminGamesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Navigation & View States
   const [activeTab, setActiveTab] = useState<"games" | "categories">("games");
@@ -74,9 +75,6 @@ export default function AdminGamesPage() {
   const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [selectedCategoryIdsInModal, setSelectedCategoryIdsInModal] = useState<string[]>([]);
-
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -454,67 +452,6 @@ export default function AdminGamesPage() {
       }
     } catch (err) {
       console.error("Error deleting game:", err);
-    }
-  };
-
-  // ==========================================
-  // CATEGORY CRUD HANDLERS (EXISTING)
-  // ==========================================
-
-  const handleSaveCategory = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const idToken = await user?.getIdToken();
-    
-    const catData = {
-      name: formData.get("name") as string,
-      slug: (formData.get("slug") as string).toLowerCase().replace(/\s+/g, '-'),
-      description: formData.get("description") as string,
-      icon: formData.get("icon") as string,
-      status: formData.get("status") as any,
-      sortOrder: parseInt(formData.get("sortOrder") as string) || 0,
-    };
-
-    try {
-      const url = editingCategory ? `/api/admin/categories/${editingCategory.id}` : "/api/admin/categories";
-      const method = editingCategory ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-        body: JSON.stringify(catData)
-      });
-
-      const result = await res.json();
-      if (result.success) {
-        setIsCategoryModalOpen(false);
-        setEditingCategory(null);
-        showToast(`Kategori "${catData.name}" berhasil disimpan.`);
-        fetchAllData();
-      } else {
-        alert(result.message);
-      }
-    } catch (err) {
-      console.error("Error saving category:", err);
-    }
-  };
-
-  const executeDeleteCategory = async (id: string) => {
-    try {
-      const idToken = await user?.getIdToken();
-      const res = await fetch(`/api/admin/categories/${id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${idToken}` }
-      });
-      const result = await res.json();
-      if (result.success) {
-        showToast("Kategori berhasil dihapus.");
-        fetchAllData();
-      } else {
-        alert(result.message);
-      }
-    } catch (err) {
-      console.error("Error deleting category:", err);
     }
   };
 
@@ -1680,21 +1617,13 @@ export default function AdminGamesPage() {
             <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
           </button>
 
-          {activeTab === "games" ? (
+          {activeTab === "games" && (
             <button 
               onClick={() => { setEditingGame(null); setIsGameModalOpen(true); }}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-sm font-medium text-sm"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Game</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => { setEditingCategory(null); setIsCategoryModalOpen(true); }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-sm font-medium text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Kategori</span>
             </button>
           )}
         </div>
@@ -2064,22 +1993,13 @@ export default function AdminGamesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => { setEditingCategory(cat); setIsCategoryModalOpen(true); }}
-                            className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
-                            title="Edit"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => setDeleteModal({ isOpen: true, type: "category", id: cat.id!, name: cat.name })}
-                            className="p-2 hover:bg-white hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        <button 
+                          onClick={() => navigate('/admin/categories')}
+                          className="text-blue-600 hover:text-blue-700 font-bold hover:underline transition-all flex items-center gap-1 justify-end ml-auto text-xs"
+                        >
+                          Kelola di Master Kategori
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -2267,106 +2187,6 @@ export default function AdminGamesPage() {
         )}
       </AnimatePresence>
 
-      {/* Category Modal (CRUD) */}
-      <AnimatePresence>
-        {isCategoryModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-              onClick={() => setIsCategoryModalOpen(false)}
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden relative z-10"
-            >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-slate-800">
-                  {editingCategory ? "Edit Kategori" : "Tambah Kategori Baru"}
-                </h2>
-                <button onClick={() => setIsCategoryModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <XCircle className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveCategory} className="p-6 overflow-y-auto max-h-[80vh]">
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700">Nama Kategori</label>
-                    <input 
-                      name="name" 
-                      defaultValue={editingCategory?.name} 
-                      required 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                      placeholder="Contoh: Mobile Games"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700">Slug</label>
-                    <input 
-                      name="slug" 
-                      defaultValue={editingCategory?.slug} 
-                      required 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-sm"
-                      placeholder="mobile-games"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700">Deskripsi</label>
-                    <textarea 
-                      name="description" 
-                      defaultValue={editingCategory?.description} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                      rows={2}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700">Status</label>
-                    <select 
-                      name="status" 
-                      defaultValue={editingCategory?.status || "active"} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-semibold text-slate-700">Urutan (Sort Order)</label>
-                    <input 
-                      type="number"
-                      name="sortOrder" 
-                      defaultValue={editingCategory?.sortOrder || 0} 
-                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-8 flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => setIsCategoryModalOpen(false)}
-                    className="flex-1 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors text-sm"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="flex-1 px-6 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-900/20 text-sm"
-                  >
-                    Simpan Kategori
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteModal.isOpen && (
@@ -2409,8 +2229,6 @@ export default function AdminGamesPage() {
                     setDeleteModal({ isOpen: false, type: "game", id: "", name: "" });
                     if (type === "game") {
                       await executeDeleteGame(id);
-                    } else {
-                      await executeDeleteCategory(id);
                     }
                   }}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 text-white font-semibold hover:bg-rose-700 transition-colors shadow-lg shadow-rose-900/20 text-sm"

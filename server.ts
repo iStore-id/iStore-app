@@ -574,6 +574,7 @@ export async function initServerLogic() {
 
   // Customer Loyalty API
   app.get("/api/customer/points", optionalAuth, getCustomerPointsInfo);
+  app.get("/api/customer/loyalty/info", requireAuth, getCustomerPointsInfo);
 
   // Public Reward API
   app.get("/api/rewards", getPublicRewards);

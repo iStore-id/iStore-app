@@ -2,7 +2,7 @@ import { Response } from "express";
 import { AuthenticatedRequest } from "./middleware.js";
 import { LedgerJournalEntry } from "../types/ledger.js";
 import { logLedgerAudit } from "./ledger-service.js";
-import { DualLedgerRepository } from "./ledger-dual-repository.js";
+import { DualLedgerRepository } from "./ledger-dual-repository";
 
 const ledgerRepo = DualLedgerRepository.getInstance();
 

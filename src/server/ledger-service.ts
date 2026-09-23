@@ -36,7 +36,7 @@ import {
   LedgerJournalEntry 
 } from "../types/ledger.js";
 import { SettlementAdjustmentType } from "../types/core.js";
-import { DualLedgerRepository } from "./ledger-dual-repository.js";
+import { DualLedgerRepository } from "./ledger-dual-repository";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
 // Audit logger helper for Ledger operations

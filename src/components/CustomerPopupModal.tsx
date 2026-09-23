@@ -91,8 +91,8 @@ export default function CustomerPopupModal({
         </button>
 
         {activePopup.mediaUrl && (
-          <div className="w-full h-48 bg-gray-100 overflow-hidden">
-            <img src={activePopup.mediaUrl} alt={activePopup.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          <div className="w-full max-h-64 bg-gray-100 flex items-center justify-center">
+            <img src={activePopup.mediaUrl} alt={activePopup.title} className="max-w-full max-h-64 object-contain" referrerPolicy="no-referrer" />
           </div>
         )}
 

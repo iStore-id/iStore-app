@@ -12,6 +12,7 @@ import { safeRecordPaymentReceived } from "./ledger-service.js";
 import { PromoService } from "./promo-service.js";
 import { FlashSaleService } from "./flash-sale-service.js";
 import { NotificationService } from "./notification-service.js";
+import { LoyaltyService } from "./loyalty-service.js";
 
 const providerService = ProviderService.getInstance();
 const dynamicCatalogService = DynamicCatalogService.getInstance();
@@ -19,9 +20,11 @@ const pricingService = PricingService.getInstance();
 const promoService = PromoService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
 const notificationService = NotificationService.getInstance();
+const loyaltyService = LoyaltyService.getInstance();
 
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
+  let loyaltyRedeemed = false;
   try {
     // 0. Operational Gate
     const storeConfig = await getStoreConfiguration();
@@ -36,7 +39,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       });
     }
 
-    const { productId, variantId, customerInput, promoCode, referralCode, paymentMethod } = req.body;
+    const { productId, variantId, customerInput, promoCode, referralCode, paymentMethod, pointsToUse } = req.body;
     
     // STRICT SECURITY: Trust token UID, do not trust req.body.userId
     const userId = req.user ? (req.user.uid || req.user.id) : null;
@@ -146,7 +149,40 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    const finalAmount = Math.max(0, baseAmount - discount);
+    // 2.0.5 LOYALTY REDEMPTION
+    let loyaltyDiscount = 0;
+    let pointsToRedeem = Math.max(0, Number(pointsToUse) || 0);
+
+    if (pointsToRedeem > 0 && userId) {
+      const loyaltyConfig = await loyaltyService.getConfig();
+      if (!loyaltyConfig.enabled) {
+        return res.status(400).json({ success: false, message: "Sistem loyalty sedang tidak aktif." });
+      }
+      const balance = await loyaltyService.getCustomerBalance(userId);
+      if (pointsToRedeem > balance) {
+        return res.status(400).json({ success: false, message: `Poin tidak cukup. Saldo: ${balance}` });
+      }
+      if (pointsToRedeem < loyaltyConfig.minRedeemPoints) {
+        return res.status(400).json({ success: false, message: `Minimal penukaran poin adalah ${loyaltyConfig.minRedeemPoints}.` });
+      }
+
+      loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
+      const maxDiscount = (baseAmount * loyaltyConfig.maxRedeemPercent) / 100;
+      if (loyaltyDiscount > maxDiscount) {
+        loyaltyDiscount = maxDiscount;
+        pointsToRedeem = Math.floor(loyaltyDiscount / loyaltyConfig.redeemRateIdr);
+      }
+    }
+
+    // Create Order ID
+    orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    if (pointsToRedeem > 0 && userId) {
+      await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
+      loyaltyRedeemed = true;
+    }
+
+    const finalAmount = Math.max(0, baseAmount - discount - loyaltyDiscount);
 
     // 2.1 ROUTING ENGINE: Get best provider for this variant
     const routingDecision = await providerService.getRoutingDecision(variantId, { userId });
@@ -197,6 +233,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       promoId: promoId || null,
       promoSnapshot: promoSnapshot || null,
       flashSaleSnapshot: flashSaleSnapshot || null,
+      loyaltyPointsUsed: pointsToRedeem,
+      loyaltyDiscountAmount: loyaltyDiscount,
       referralCode: referralCode || null,
       totalAmount: finalAmount,
       paymentStatus: "pending",
@@ -273,6 +311,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     
     // Attempt recovery if orderId exists
     if (orderId) {
+      if (loyaltyRedeemed && userId) {
+        await loyaltyService.reverseOrderPoints(orderId, userId);
+      }
       try {
         const status = await checkMidtransStatus(orderId);
         if (status && (status.transaction_status === 'settlement' || status.transaction_status === 'capture')) {

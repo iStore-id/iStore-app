@@ -18,8 +18,10 @@ import {
   ReferralConfig, 
   ReferralRelationship 
 } from "../../types/referral";
+import { useAuthStore } from "../../store/auth-store";
 
 export default function AdminReferralPage() {
+  const { user } = useAuthStore();
   const [config, setConfig] = useState<ReferralConfig | null>(null);
   const [relationships, setRelationships] = useState<ReferralRelationship[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,15 +30,21 @@ export default function AdminReferralPage() {
   const [filter, setFilter] = useState<string>("ALL");
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const fetchData = async () => {
+    if (!user) return;
     setLoading(true);
     try {
+      const token = await user.getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      
       const [configRes, relRes] = await Promise.all([
-        fetch("/api/admin/referral/config"),
-        fetch("/api/admin/referral/relationships")
+        fetch("/api/admin/referral/config", { headers }),
+        fetch("/api/admin/referral/relationships", { headers })
       ]);
       const configJson = await configRes.json();
       const relJson = await relRes.json();
@@ -51,10 +59,15 @@ export default function AdminReferralPage() {
   };
 
   const updateConfig = async (newConfig: ReferralConfig) => {
+    if (!user) return;
     try {
+      const token = await user.getIdToken();
       const res = await fetch("/api/admin/referral/config", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ config: newConfig })
       });
       const json = await res.json();
@@ -97,7 +110,7 @@ export default function AdminReferralPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-hide">
         {[
           { id: 'OVERVIEW', label: 'Ringkasan', icon: TrendingUp },
           { id: 'RELATIONSHIPS', label: 'Hubungan & Atribusi', icon: Users },
@@ -106,7 +119,7 @@ export default function AdminReferralPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors shrink-0 ${
               activeTab === tab.id 
                 ? "border-blue-600 text-blue-600" 
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -126,7 +139,7 @@ export default function AdminReferralPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+              className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
             >
               <StatCard title="Total Atribusi" value={stats.total} icon={UserPlus} color="blue" />
               <StatCard title="Berhasil Konversi" value={stats.converted} icon={CheckCircle2} color="green" />
@@ -169,44 +182,46 @@ export default function AdminReferralPage() {
               </div>
 
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Referrer</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Referred Customer</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Reward</th>
-                      <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tanggal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {relationships
-                      .filter(r => filter === 'ALL' || r.status === filter)
-                      .filter(r => !search || r.referrerUid.includes(search) || r.referredUid.includes(search) || r.referralCode.includes(search))
-                      .map((rel) => (
-                      <tr key={rel.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">{rel.referrerUid.substring(0, 8)}...</span>
-                            <span className="text-xs text-gray-500 uppercase font-bold tracking-tight">{rel.referralCode}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-gray-700">{rel.referredUid.substring(0, 8)}...</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <StatusBadge status={rel.status} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <RewardBadge status={rel.rewardStatus} type={rel.rewardType} />
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(rel.createdAt).toLocaleDateString()}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Referrer</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Referred Customer</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Reward</th>
+                        <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Tanggal</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {relationships
+                        .filter(r => filter === 'ALL' || r.status === filter)
+                        .filter(r => !search || r.referrerUid.includes(search) || r.referredUid.includes(search) || r.referralCode.includes(search))
+                        .map((rel) => (
+                        <tr key={rel.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{rel.referrerUid.substring(0, 8)}...</span>
+                              <span className="text-xs text-gray-500 uppercase font-bold tracking-tight">{rel.referralCode}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-700">{rel.referredUid.substring(0, 8)}...</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <StatusBadge status={rel.status} />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <RewardBadge status={rel.rewardStatus} type={rel.rewardType} />
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                            {new Date(rel.createdAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </motion.div>
           )}
@@ -217,7 +232,7 @@ export default function AdminReferralPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="max-w-3xl space-y-8"
+              className="w-full lg:max-w-4xl space-y-8"
             >
               <div className="bg-white p-6 rounded-xl border border-gray-200 space-y-6">
                 <div className="flex items-center justify-between">
@@ -321,13 +336,13 @@ function StatCard({ title, value, icon: Icon, color }: { title: string, value: s
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl border border-gray-200 space-y-4">
-      <div className={`w-10 h-10 rounded-lg ${colors[color]} flex items-center justify-center`}>
-        <Icon className="w-5 h-5" />
+    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 flex flex-col justify-between h-full space-y-3 md:space-y-4">
+      <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg ${colors[color]} flex items-center justify-center shrink-0`}>
+        <Icon className="w-4 h-4 md:w-5 md:h-5" />
       </div>
-      <div>
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <div className="min-w-0">
+        <p className="text-[10px] md:text-sm font-semibold text-gray-500 uppercase tracking-wider truncate">{title}</p>
+        <p className="text-lg md:text-2xl font-bold text-gray-900 truncate" title={String(value)}>{value}</p>
       </div>
     </div>
   );
@@ -340,17 +355,17 @@ function StatusBadge({ status }: { status: string }) {
     EXPIRED: { label: 'Expired', classes: 'bg-gray-100 text-gray-700' },
   };
   const v = variants[status] || { label: status, classes: 'bg-gray-100 text-gray-700' };
-  return <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${v.classes}`}>{v.label}</span>;
+  return <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap ${v.classes}`}>{v.label}</span>;
 }
 
 function RewardBadge({ status, type }: { status: string, type: string }) {
-  if (status === 'PENDING') return <span className="text-xs text-gray-400 italic">Menunggu...</span>;
-  if (status === 'REVERSED') return <span className="text-xs text-red-600 font-medium">Dibatalkan</span>;
+  if (status === 'PENDING') return <span className="text-xs text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded border border-amber-100">Menunggu...</span>;
+  if (status === 'REVERSED') return <span className="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded border border-rose-100">Dibatalkan</span>;
   
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-green-600">Diberikan</span>
-      <span className="text-[10px] text-gray-500 font-medium">{type}</span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs font-bold text-emerald-600">Diberikan</span>
+      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">{type}</span>
     </div>
   );
 }

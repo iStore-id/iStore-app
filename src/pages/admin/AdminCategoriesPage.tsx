@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Category } from "../../types/core";
-import { supabase } from "../../lib/supabase";
 import { 
-  Plus, Search, Edit2, Trash2, CheckCircle2, XCircle, 
+  Plus, Search, Pencil, Trash2, CheckCircle2, XCircle, 
   Layers, Filter, Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -20,25 +19,19 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      if (!supabase) return;
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("sort_order", { ascending: true });
-        
-      if (error) throw error;
+      const idToken = await user?.getIdToken();
+      const res = await fetch("/api/admin/catalog/categories", {
+        headers: {
+          "Authorization": `Bearer ${idToken}`
+        }
+      });
+      const result = await res.json();
       
-      const list = (data || []).map(row => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        description: row.description || "",
-        icon: row.icon || "",
-        status: row.status,
-        sortOrder: row.sort_order
-      } as Category));
-      
-      setCategories(list);
+      if (result.success) {
+        setCategories(result.data || []);
+      } else {
+        console.error("Error fetching categories:", result.message);
+      }
     } catch (err) {
       console.error("Error fetching categories:", err);
     } finally {
@@ -200,20 +193,22 @@ export default function AdminCategoriesPage() {
                     {cat.sortOrder}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-end gap-2">
                       <button 
                         onClick={() => { setEditingCategory(cat); setIsModalOpen(true); }}
-                        className="p-2 hover:bg-white hover:text-blue-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-all text-xs font-bold border border-blue-100"
                         title="Edit Kategori"
                       >
-                        <Edit2 className="w-4 h-4" />
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span>Edit</span>
                       </button>
                       <button 
                         onClick={() => handleDeleteCategory(cat)}
-                        className="p-2 hover:bg-white hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-transparent hover:border-slate-200"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-lg transition-all text-xs font-bold border border-rose-100"
                         title="Hapus Kategori"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Hapus</span>
                       </button>
                     </div>
                   </td>

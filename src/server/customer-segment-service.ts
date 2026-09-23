@@ -34,17 +34,28 @@ export class CustomerSegmentService {
     if (filters?.type && filters.type !== "ALL") query = query.eq("type", filters.type);
     if (filters?.search) query = query.ilike("name", `%${filters.search}%`);
     const { data } = await query;
+    
     const items = (data || []).map(row => this.mapRowToSegment(row));
+    const total = items.length;
+    const page = filters?.page || 1;
+    const limit = filters?.limit || 20;
+    const totalPages = Math.ceil(total / limit) || 1;
+
     return {
       items,
-      total: items.length,
-      page: filters?.page || 1,
-      limit: filters?.limit || 20,
-      totalPages: 1,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages
+      },
       metrics: {
-        totalSegments: items.length,
-        activeSegments: items.length,
-        dynamicSegments: items.filter((i: any) => i.type === 'DYNAMIC').length
+        totalSegments: total,
+        activeCount: items.filter(i => i.status === 'ACTIVE').length,
+        inactiveCount: items.filter(i => i.status === 'INACTIVE').length,
+        staticCount: items.filter(i => i.type === 'STATIC').length,
+        dynamicCount: items.filter(i => i.type === 'DYNAMIC').length,
+        totalActiveMemberships: items.reduce((acc, i) => acc + (i.memberCount || 0), 0)
       }
     };
   }

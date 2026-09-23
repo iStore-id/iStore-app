@@ -48,14 +48,18 @@ export default function AdminPromosPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchPromos();
-  }, []);
+    if (user) {
+      fetchPromos();
+    }
+  }, [user]);
 
   const fetchPromos = async () => {
+    if (!user) return;
+    setLoading(true);
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const res = await fetch("/api/admin/promos", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       if (data.success) {
@@ -109,12 +113,13 @@ export default function AdminPromosPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSubmitting(true);
     setError(null);
     setSuccessMsg(null);
 
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const payload = {
         code,
         name,
@@ -137,7 +142,7 @@ export default function AdminPromosPage() {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : ""
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -159,12 +164,13 @@ export default function AdminPromosPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
     if (!confirm("Apakah Anda yakin ingin menonaktifkan promo ini?")) return;
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const res = await fetch(`/api/admin/promos/${id}`, {
         method: "DELETE",
-        headers: { Authorization: token ? `Bearer ${token}` : "" }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       if (data.success) {

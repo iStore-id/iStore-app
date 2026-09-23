@@ -54,13 +54,16 @@ export default function AdminRewardsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   const fetchData = async () => {
+    if (!user) return;
     try {
-      const token = await (user as any)?.getIdToken?.();
-      const headers = { Authorization: token ? `Bearer ${token}` : "" };
+      const token = await (user as any).getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
 
       const [rewRes, redRes] = await Promise.all([
         fetch("/api/admin/rewards", { headers }),
@@ -109,12 +112,13 @@ export default function AdminRewardsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSubmitting(true);
     setError(null);
     setSuccessMsg(null);
 
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const payload = {
         name,
         description,
@@ -134,7 +138,7 @@ export default function AdminRewardsPage() {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: token ? `Bearer ${token}` : ""
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -156,12 +160,13 @@ export default function AdminRewardsPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
     if (!confirm("Apakah Anda yakin ingin menonaktifkan reward ini?")) return;
     try {
-      const token = await (user as any)?.getIdToken?.();
+      const token = await (user as any).getIdToken();
       const res = await fetch(`/api/admin/rewards/${id}`, {
         method: "DELETE",
-        headers: { Authorization: token ? `Bearer ${token}` : "" }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       if (data.success) {
