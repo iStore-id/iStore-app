@@ -12,6 +12,7 @@ import { OrderRepository } from "./supabase/order-repository.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import { supabaseAdmin } from "./supabase-admin.js";
+import { DualLedgerRepository } from "./ledger-dual-repository";
 // Admin API Logic using Supabase and existing services
 import { DateTime } from "luxon";
 import { ProviderSku, ProviderMapping, Product, Game, ProductVariant } from "../types/core.js";
@@ -1285,7 +1286,6 @@ export async function getDashboardSummary(req: AuthenticatedRequest, res: Respon
       const startIso = start.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       const endIso = end.toFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       
-      const { DualLedgerRepository } = await import("./ledger-dual-repository");
       const ledgerRepo = DualLedgerRepository.getInstance();
 
       // Order Stats
