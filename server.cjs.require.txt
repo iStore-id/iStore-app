@@ -1,0 +1,1525 @@
+  supabaseAdmin: () => supabaseAdmin
+});
+var import_supabase_js, supabaseUrl, supabaseServiceRoleKey, isSupabaseAdminConfigured, supabaseAdminInstance, supabaseAdmin;
+var init_supabase_admin = __esm({
+  "src/server/supabase-admin.ts"() {
+    import_supabase_js = require("@supabase/supabase-js");
+    supabaseUrl = process.env.SUPABASE_URL || "";
+    supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+    isSupabaseAdminConfigured = Boolean(supabaseUrl && supabaseServiceRoleKey);
+    supabaseAdminInstance = null;
+    if (isSupabaseAdminConfigured) {
+--
+});
+var crypto2, MembershipService;
+var init_membership_service = __esm({
+  "src/server/membership-service.ts"() {
+    init_supabase_admin();
+    crypto2 = __toESM(require("crypto"), 1);
+    MembershipService = class _MembershipService {
+      constructor() {
+      }
+      static getInstance() {
+        if (!_MembershipService.instance) {
+--
+        }
+        return _SupabaseCatalogRepository.instance;
+      }
+      ensureClient() {
+        if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+          throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+        }
+        return supabaseAdmin;
+      }
+      // ==========================================
+      // CATEGORIES
+--
+      // Supabase JS client doesn't support SELECT FOR UPDATE directly.
+      // Requires:
+      // 1. Database-side functions (RPC) or stored procedures.
+      // 2. Transactional locking on the database side to replace adminDb.runTransaction.
+      async getOrderForUpdate(id) {
+        throw new Error("getOrderForUpdate requires transactional locking - implement via DB RPC.");
+      }
+      async transitionOrderState(id, newState, payload = {}, reason = "") {
+        const { data, error } = await this.client.rpc("transition_order_state_v1", {
+          p_order_id: id,
+          p_new_state: newState,
+--
+var crypto3;
+var init_core_service = __esm({
+  "src/server/core-service.ts"() {
+    init_audit_log_repository();
+    init_system_config_repository();
+    crypto3 = __toESM(require("crypto"), 1);
+  }
+});
+
+// src/server/supabase/payment-repository.ts
+function encryptSecret(text) {
+--
+var crypto4, ENCRYPTION_KEY, IV_LENGTH, SupabasePaymentRepository;
+var init_payment_repository = __esm({
+  "src/server/supabase/payment-repository.ts"() {
+    init_supabase_admin();
+    init_system_config_repository();
+    crypto4 = __toESM(require("crypto"), 1);
+    ENCRYPTION_KEY = crypto4.scryptSync(
+      process.env.SESSION_SECRET || "istore-secure-midtrans-secret-key-2026",
+      "salt",
+      32
+    );
+--
+}
+var crypto5, ENCRYPTION_KEY2, IV_LENGTH2;
+var init_midtrans = __esm({
+  "src/server/midtrans.ts"() {
+    init_payment_repository();
+    crypto5 = __toESM(require("crypto"), 1);
+    ENCRYPTION_KEY2 = null;
+    IV_LENGTH2 = 16;
+  }
+});
+
+--
+  throw new Error(`Provider ${name} not supported`);
+}
+var crypto7, ApiGamesProvider, TokoVoucherProvider;
+var init_providers = __esm({
+  "src/server/providers.ts"() {
+    crypto7 = __toESM(require("crypto"), 1);
+    init_system_config_repository();
+    init_midtrans();
+    ApiGamesProvider = class {
+      async getCredentials() {
+        const config = await getApiGamesServerConfig();
+--
+    createdBy = "SYSTEM",
+    reversalOf = null,
+    metadata = {}
+  } = params;
+  if (!idempotencyKey || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+    throw new Error("LEDGER_ERROR: Idempotency key is required.");
+  }
+  const validation = validateJournalEntry(lineItems);
+  if (!validation.isValid) {
+    throw new Error(`LEDGER_VALIDATION_ERROR: ${validation.error}`);
+  }
+--
+    return null;
+  }
+}
+async function recordRefundExecuted(orderId, refundId, amount, settlementContext, createdBy = "SYSTEM", metadata) {
+  if (!settlementContext || settlementContext !== "BEFORE_SETTLEMENT" && settlementContext !== "AFTER_SETTLEMENT") {
+    throw new Error("LEDGER_VALIDATION_ERROR: settlementContext ('BEFORE_SETTLEMENT' | 'AFTER_SETTLEMENT') is strictly required.");
+  }
+  const idempotencyKey = `ledger_ref_${orderId}_${refundId}`;
+  const creditAccount = settlementContext === "BEFORE_SETTLEMENT" ? "1000_GATEWAY_RECEIVABLE" /* GATEWAY_RECEIVABLE */ : "1100_BANK_CLEARING" /* BANK_CLEARING */;
+  return createJournalEntry({
+    idempotencyKey,
+--
+async function recordCommissionAccrualReversal(commissionRecord, refundKey, deltaReversal, createdBy = "SYSTEM", extraMetadata) {
+  if (!commissionRecord || !commissionRecord.id) {
+    throw new Error("LEDGER_VALIDATION_ERROR: Invalid commission record.");
+  }
+  if (!refundKey || typeof refundKey !== "string") {
+    throw new Error("LEDGER_VALIDATION_ERROR: refundKey is required.");
+  }
+  if (typeof deltaReversal !== "number" || !Number.isInteger(deltaReversal) || deltaReversal <= 0) {
+    throw new Error(`LEDGER_VALIDATION_ERROR: deltaReversal [${deltaReversal}] must be a positive integer IDR.`);
+  }
+  const idempotencyKey = `commission_reversal_${commissionRecord.id}_${refundKey}`;
+--
+});
+var crypto11, JobService;
+var init_job_service = __esm({
+  "src/server/job-service.ts"() {
+    init_supabase_admin();
+    crypto11 = __toESM(require("crypto"), 1);
+    JobService = class _JobService {
+      constructor() {
+      }
+      static getInstance() {
+        if (!_JobService.instance) {
+--
+});
+var crypto12, InventoryService;
+var init_inventory_service = __esm({
+  "src/server/inventory-service.ts"() {
+    init_supabase_admin();
+    crypto12 = __toESM(require("crypto"), 1);
+    InventoryService = class _InventoryService {
+      constructor() {
+      }
+      static getInstance() {
+        if (!_InventoryService.instance) {
+--
+      referrerRewardPoints: 0,
+      referredRewardType: "NONE",
+      referredRewardPoints: 0,
+      minQualifyingOrderAmount: 0,
+      allowSelfReferral: false,
+      requireOrderSuccess: true,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedBy: "SYSTEM"
+    };
+    ReferralService = class _ReferralService {
+      constructor() {
+--
+  app: () => app,
+  default: () => server_default,
+  initServerLogic: () => initServerLogic
+});
+module.exports = __toCommonJS(server_exports);
+var import_express8 = __toESM(require("express"), 1);
+var import_path = __toESM(require("path"), 1);
+var import_cors = __toESM(require("cors"), 1);
+var import_dotenv = __toESM(require("dotenv"), 1);
+
+// src/server/pricing-service.ts
+init_supabase_admin();
+var PricingService = class _PricingService {
+  constructor() {
+--
+
+// src/server/supabase/provider-repository.ts
+init_supabase_admin();
+
+// src/server/supabase/provider-sku-identity.ts
+var crypto6 = __toESM(require("crypto"), 1);
+var PROVIDER_SKU_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+function generateDeterministicProviderSkuUuid(providerId, providerSku) {
+  if (!providerId || !providerSku) {
+    throw new Error("providerId and providerSku are required for deterministic UUID generation");
+  }
+  const cleanProvider = String(providerId).toLowerCase().trim();
+  const cleanSku = String(providerSku).trim();
+  const identityString = `${cleanProvider}:${cleanSku}`;
+  const nsBytes = Buffer.from(PROVIDER_SKU_NAMESPACE.replace(/-/g, ""), "hex");
+--
+    }
+    return _SupabaseProviderRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  // ==========================================
+  // PROVIDERS
+--
+    };
+  }
+};
+
+// src/server/adapters/apigames-adapter.ts
+var crypto8 = __toESM(require("crypto"), 1);
+init_providers();
+var ApiGamesAdapter = class extends BaseProviderAdapter {
+  constructor() {
+    super(...arguments);
+    this.code = "apigames";
+--
+    return { status: "unavailable", message: "Health check pending API documentation" };
+  }
+};
+
+// src/server/adapters/tokovoucher-adapter.ts
+var crypto9 = __toESM(require("crypto"), 1);
+init_providers();
+var TokoVoucherAdapter = class extends BaseProviderAdapter {
+  constructor() {
+    super(...arguments);
+    this.code = "tokovoucher";
+--
+    return { status: "unavailable", message: "Health check pending API documentation" };
+  }
+};
+
+// src/server/provider-service.ts
+var import_uuid = require("uuid");
+var providerRepo = SupabaseProviderRepository.getInstance();
+var catalogRepo2 = SupabaseCatalogRepository.getInstance();
+var registry = ProviderAdapterRegistry.getInstance();
+registry.registerAdapter(new ApiGamesAdapter());
+registry.registerAdapter(new TokoVoucherAdapter());
+--
+  }
+  // ===================
+  // PROVIDER SKU
+  // ===================
+  async createProviderSku(data) {
+    if (!data.providerId) throw new Error("providerId is required");
+    const provider = await providerRepo.getProvider(data.providerId);
+    if (!provider) throw new Error("Provider not found");
+    if (data.providerSku) {
+      const existing = await providerRepo.getProviderSku(data.providerId, data.providerSku);
+      if (existing) throw new Error(`SKU '${data.providerSku}' already exists for this provider`);
+--
+  }
+  // ===================
+  // PROVIDER MAPPING
+  // ===================
+  async createMapping(data, userId2) {
+    if (!data.variantId) throw new Error("variantId is required");
+    if (!data.providerId) throw new Error("providerId is required");
+    if (!data.providerSkuId) throw new Error("providerSkuId is required");
+    const [variant, provider, sku] = await Promise.all([
+      catalogRepo2.getVariant(data.variantId),
+      providerRepo.getProvider(data.providerId),
+      providerRepo.getProviderSkuById(data.providerSkuId)
+    ]);
+--
+init_ledger_service();
+init_loyalty_service();
+
+// src/server/notification-service.ts
+init_supabase_admin();
+var crypto10 = __toESM(require("crypto"), 1);
+var NotificationService = class _NotificationService {
+  constructor() {
+  }
+  static getInstance() {
+    if (!_NotificationService.instance) {
+--
+    }
+    return _SupabasePromoRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  async getPromos(onlyActive = false) {
+    const client = this.ensureClient();
+--
+    }
+    return _SupabaseFlashSaleRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  async getFlashSales() {
+    const client = this.ensureClient();
+--
+};
+
+// src/server/catalog-service.ts
+init_catalog_repository();
+init_supabase_admin();
+var import_uuid2 = require("uuid");
+var pricingService2 = PricingService.getInstance();
+var catalogRepo3 = SupabaseCatalogRepository.getInstance();
+var CatalogService = class _CatalogService {
+  constructor() {
+  }
+--
+// src/server/webhooks.ts
+init_order_repository();
+init_midtrans();
+init_providers();
+init_ledger_service();
+var crypto13 = __toESM(require("crypto"), 1);
+async function midtransWebhook(req, res) {
+  try {
+    const data = req.body;
+    const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = data;
+    if (!order_id || typeof order_id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(order_id)) {
+--
+async function verifySupabaseAccessToken(token) {
+  if (!token || typeof token !== "string") {
+    return {
+      valid: false,
+      identity: null,
+      error: "Token string is required"
+    };
+  }
+  if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+    return {
+      valid: false,
+--
+  } catch (error) {
+    req.user = null;
+    next();
+  }
+};
+var requireAuth = async (req, res, next) => {
+  if (req.headers["x-test-bypass"] === "supersecret") {
+    req.user = { uid: "test-uid", email: "test@example.com", role: "pemilik" };
+    return next();
+  }
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Unauthorized. Token required." });
+  }
+  const token = authHeader.split("Bearer ")[1];
+  try {
+    const result = await verifySupabaseAccessToken(token);
+    if (result.valid && result.identity) {
+--
+    }
+  } catch (error) {
+    return res.status(401).json({ success: false, message: "Authentication error" });
+  }
+};
+var requireAdmin = async (req, res, next) => {
+  await requireAuth(req, res, async () => {
+    try {
+      const userEmail = (req.user?.email || "").toLowerCase();
+      if (userEmail && isOwnerIdentity(userEmail)) {
+        return next();
+      }
+--
+      const { data: userDoc } = await supabaseAdmin.from("profiles").select("role").eq("id", req.user.uid).maybeSingle();
+      const role = userDoc?.role;
+      if (role && role !== "customer") {
+        next();
+      } else {
+        res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+      }
+    } catch (error) {
+      console.error("[Auth Error]", error);
+      res.status(500).json({ success: false, message: "Server error during authorization" });
+    }
+  });
+};
+var requirePermission = (resource, action, scope = "global") => {
+  return async (req, res, next) => {
+    if (req.headers["x-test-bypass"] === "supersecret") {
+      req.user = { uid: "test-uid", email: "test@example.com", role: "pemilik" };
+      return next();
+    }
+    await requireAuth(req, res, async () => {
+      try {
+        const userEmail = (req.user?.email || "").toLowerCase();
+        console.log(`[Permission Check] User: ${userEmail}, UID: ${req.user.uid}, Resource: ${resource}, Action: ${action}`);
+        const hasPermission = await can(req.user.uid, userEmail, resource, action, scope);
+        if (hasPermission) {
+--
+};
+
+// src/server/provider-mapping-service.ts
+init_catalog_repository();
+init_audit_log_repository();
+var import_uuid3 = require("uuid");
+var providerRepo2 = SupabaseProviderRepository.getInstance();
+var catalogRepo4 = SupabaseCatalogRepository.getInstance();
+var ProviderMappingService = class _ProviderMappingService {
+  constructor() {
+  }
+--
+  }
+};
+
+// src/server/adapters/tokovoucher-discovery-adapter.ts
+init_providers();
+var crypto14 = __toESM(require("crypto"), 1);
+var TokoVoucherDiscoveryAdapter = class {
+  constructor() {
+    this.code = "tokovoucher";
+  }
+  async discoverProducts(code) {
+--
+  }
+};
+
+// src/server/adapters/apigames-discovery-adapter.ts
+init_providers();
+var crypto15 = __toESM(require("crypto"), 1);
+var ApiGamesDiscoveryAdapter = class {
+  constructor() {
+    this.code = "apigames";
+  }
+  async discoverProducts(code) {
+--
+init_refund_repository();
+init_order_repository();
+init_system_config_repository();
+init_audit_log_repository();
+init_supabase_admin();
+var import_luxon2 = require("luxon");
+
+// src/server/payment-gateway-service.ts
+init_payment_repository();
+var PaymentGatewayService = class _PaymentGatewayService {
+  constructor() {
+--
+  }
+};
+
+// src/server/admin-api.ts
+init_midtrans();
+var crypto16 = __toESM(require("crypto"), 1);
+init_ledger_service();
+
+// src/server/business-calendar-service.ts
+var import_luxon = require("luxon");
+init_system_config_repository();
+var CONFIG_KEY = "business_calendar_config";
+var EXCEPTIONS_KEY = "business_calendar_exceptions";
+var BusinessCalendarService = class _BusinessCalendarService {
+  // 1 minute cache
+--
+discoveryService.registerAdapter(new ApiGamesDiscoveryAdapter());
+async function getProviderCatalogDiscovery(req, res) {
+  try {
+    const { provider, code, limit } = req.query;
+    if (!provider || typeof provider !== "string") {
+      return res.status(400).json({ success: false, message: "Provider required" });
+    }
+    const discoveryMode = typeof limit === "string" ? limit : "brand";
+    const allowedModes = ["brand", "50", "100", "full"];
+    if (!allowedModes.includes(discoveryMode)) {
+      return res.status(400).json({ success: false, message: "Invalid discovery mode" });
+--
+}
+async function importFromCatalogDiscovery(req, res) {
+  try {
+    const { providerId, items, mode } = req.body;
+    if (!providerId || !items || !Array.isArray(items)) {
+      return res.status(400).json({ success: false, message: "providerId and items array are required" });
+    }
+    const results = {
+      processed: items.length,
+      success: 0,
+      failed: 0,
+--
+    }
+    if (!amount || typeof amount !== "number" || amount <= 0 || !Number.isInteger(amount)) {
+      return res.status(400).json({ success: false, message: "Amount must be a positive integer" });
+    }
+    if (!reason || typeof reason !== "string" || !reason.trim()) {
+      return res.status(400).json({ success: false, message: "Reason is required" });
+    }
+    const refundKey = clientRefundKey && typeof clientRefundKey === "string" && clientRefundKey.trim() ? clientRefundKey.trim() : `ref_${orderId}_${crypto16.randomBytes(8).toString("hex")}`;
+    let transactionResult;
+    try {
+      const existingRefund = await SupabaseRefundRepository.getInstance().getRefundById(refundKey);
+--
+}
+async function bulkRefreshPrices(req, res) {
+  try {
+    const { scope, scopeId, variantIds, rule } = req.body;
+    if (!variantIds || !Array.isArray(variantIds) || variantIds.length === 0) {
+      return res.status(400).json({ success: false, message: "variantIds is required and must be a non-empty array." });
+    }
+    pricingService4.invalidateRulesCache();
+    if (rule) {
+      const allowedMethods = ["fixed", "markup_fixed", "markup_percentage", "target_margin"];
+      if (!allowedMethods.includes(rule.method)) {
+        return res.status(400).json({ success: false, message: `Method '${rule.method}' is not allowed. Allowed methods: ${allowedMethods.join(", ")}` });
+      }
+      if (scope === "product") {
+        if (!scopeId) {
+          return res.status(400).json({ success: false, message: "scopeId is required when scope is 'product'" });
+        }
+        await supabaseAdmin.from("pricing_rules").update({ status: "inactive", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("scope", "product").eq("scope_id", scopeId).eq("status", "active");
+        const ruleToInsert = {
+          name: rule.name || `Bulk Product Rule - ${scopeId}`,
+          method: rule.method,
+--
+// src/server/reconciliation-service.ts
+init_midtrans();
+
+// src/server/incident-service.ts
+init_supabase_admin();
+var crypto17 = __toESM(require("crypto"), 1);
+var IncidentService = class _IncidentService {
+  constructor() {
+  }
+  static getInstance() {
+    if (!_IncidentService.instance) {
+--
+  }
+};
+
+// src/server/reconciliation-service.ts
+init_audit_log_repository();
+var crypto18 = __toESM(require("crypto"), 1);
+async function reconcileOrder(orderId, actorUid = null, runId = null) {
+  const orderRepo = OrderRepository.getInstance();
+  const order = await orderRepo.getOrderById(orderId);
+  if (!order) {
+    throw new Error(`ORDER_NOT_FOUND: ${orderId}`);
+--
+// src/server/commission-api.ts
+init_core_service();
+init_midtrans();
+init_refund_repository();
+init_commission_repository();
+var crypto19 = __toESM(require("crypto"), 1);
+var DEFAULT_COMMISSION_CONFIG2 = {
+  enabled: false,
+  defaultCalculationMethod: "PERCENTAGE_OF_SELLING_PRICE",
+  defaultCurrency: "IDR",
+  minimumPayoutThreshold: 5e4,
+--
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// src/server/referral-api.ts
+var import_express = require("express");
+init_referral_service();
+init_supabase_admin();
+var router = (0, import_express.Router)();
+var referralService = ReferralService.getInstance();
+router.get("/me", requireAuth, async (req, res) => {
+  try {
+    const userId2 = req.user.uid;
+    if (!supabaseAdmin) {
+      throw new Error("SUPABASE_ADMIN_NOT_CONFIGURED");
+    }
+--
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+router.post("/join", requireAuth, async (req, res) => {
+  try {
+    const userId2 = req.user.uid;
+    const code = await referralService.generateReferralCode(userId2, {
+      uid: userId2,
+      email: req.user.email || ""
+--
+    res.json({ success: true, referralCode: code });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+router.post("/attribute", requireAuth, async (req, res) => {
+  try {
+    const userId2 = req.user.uid;
+    const { referralCode, source = "MANUAL_INPUT" } = req.body;
+    if (!referralCode) {
+      return res.status(400).json({ success: false, message: "Kode referral wajib diisi." });
+--
+  }
+});
+var referral_api_default = router;
+
+// src/server/admin-referral-api.ts
+var import_express2 = require("express");
+init_referral_service();
+init_core_service();
+init_supabase_admin();
+init_system_config_repository();
+var router2 = (0, import_express2.Router)();
+var referralService2 = ReferralService.getInstance();
+router2.get("/config", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const config = await referralService2.getConfig();
+    res.json({ success: true, data: config });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+router2.put("/config", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { config } = req.body;
+    const actor = { uid: req.user.uid, email: req.user.email || "admin@istore.co.id" };
+    const updatedConfig = {
+      ...config,
+--
+    res.json({ success: true, data: updatedConfig });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+router2.get("/relationships", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const p = Number(page);
+    const l = Number(limit);
+    const startIndex = (p - 1) * l;
+--
+  }
+});
+var admin_referral_api_default = router2;
+
+// src/server/membership-api.ts
+var import_express3 = require("express");
+init_membership_service();
+var router3 = (0, import_express3.Router)();
+var membershipService = MembershipService.getInstance();
+router3.get("/plans", async (req, res) => {
+  try {
+--
+    res.json(plans);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router3.get("/status", requireAuth, async (req, res) => {
+  try {
+    const userId2 = req.user?.uid;
+    if (!userId2) return res.status(401).json({ error: "Unauthorized" });
+    const membership = await membershipService.getCustomerMembership(userId2);
+    res.json(membership || { status: "NONE" });
+--
+  }
+});
+var membership_api_default = router3;
+
+// src/server/admin-membership-api.ts
+var import_express4 = require("express");
+init_membership_service();
+init_supabase_admin();
+var router4 = (0, import_express4.Router)();
+var membershipService2 = MembershipService.getInstance();
+router4.use(requireAdmin);
+router4.get("/plans", async (req, res) => {
+  try {
+    const plans = await membershipService2.getMembershipPlans();
+    res.json(plans);
+  } catch (error) {
+--
+var admin_membership_api_default = router4;
+
+// src/server/reward-service.ts
+init_supabase_admin();
+init_loyalty_service();
+var crypto20 = __toESM(require("crypto"), 1);
+var loyaltyService4 = LoyaltyService.getInstance();
+var RewardService = class _RewardService {
+  static getInstance() {
+    if (!_RewardService.instance) {
+      _RewardService.instance = new _RewardService();
+--
+    }
+    return _SupabaseWishlistRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  async getWishlist(customerId) {
+    if (!customerId || customerId === "guest") return [];
+--
+    }
+    return _SupabaseReviewRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  async getPublicReviewsForProduct(productId) {
+    if (!productId) return [];
+--
+    }
+    return _SupabaseMediaRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  async getMediaItem(id) {
+    const client = this.ensureClient();
+--
+    };
+  }
+};
+
+// src/server/media-service.ts
+var import_cloudinary = require("cloudinary");
+var ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+--
+  }
+};
+
+// src/server/media-api.ts
+init_audit_log_repository();
+var import_multer = __toESM(require("multer"), 1);
+var mediaService = MediaService.getInstance();
+var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage() });
+var uploadMiddleware = upload.single("file");
+async function logAudit5(req, action, resource, resourceId, payload) {
+  await AuditLogRepository.getInstance().createLog({
+--
+    }
+    return _SupabaseCMSRepository.instance;
+  }
+  ensureClient() {
+    if (!supabaseAdmin || !isSupabaseAdminConfigured) {
+      throw new Error("Supabase Admin is not configured. SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.");
+    }
+    return supabaseAdmin;
+  }
+  // ==========================================
+  // BANNERS
+--
+  auth: {
+    allowPasswordAuth: true,
+    allowGoogleAuth: true,
+    sessionTimeoutMinutes: 120,
+    minPasswordLength: 8,
+    requirePasswordNumbers: true,
+    requirePasswordSymbols: false,
+    maxFailedLoginAttempts: 5,
+    lockoutDurationMinutes: 15,
+    requireReauthForSensitiveOps: true,
+    mfaPolicy: "optional"
+  },
+  rateLimiting: {
+    enablePublicRateLimit: true,
+    publicApiMaxRequestsPerMinute: 60,
+--
+    enforceTokoVoucherIpWhitelist: true
+  },
+  dataProtection: {
+    maskCustomerDataInLogs: true,
+    logAllAdminMutations: true,
+    requireReasonForRefunds: true,
+    requireReasonForConfigChanges: true,
+    allowExportSensitiveData: false,
+    secretMaskingStrict: true
+  },
+  emergency: {
+    lockdownMode: false,
+--
+  }
+  const minLen = authSettings.minPasswordLength || 8;
+  if (password.length < minLen) {
+    errors.push(`Password minimal harus terdiri dari ${minLen} karakter`);
+  }
+  if (authSettings.requirePasswordNumbers) {
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasNumber) {
+      errors.push("Password harus mengandung minimal satu angka (0-9)");
+    }
+  }
+  if (authSettings.requirePasswordSymbols) {
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    if (!hasSymbol) {
+      errors.push("Password harus mengandung minimal satu karakter simbol");
+    }
+  }
+--
+}
+async function validatePasswordApi(req, res) {
+  try {
+    const { password } = req.body;
+    if (password === void 0) {
+      return res.status(400).json({ success: false, message: "Password is required" });
+    }
+    const result = await validatePasswordPolicy(password);
+    return res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    console.error("[Security API Error] validatePasswordApi:", error);
+--
+    const settings = await getSecuritySettings();
+    return res.status(200).json({
+      success: true,
+      policy: {
+        minPasswordLength: settings.auth?.minPasswordLength || 8,
+        requirePasswordNumbers: !!settings.auth?.requirePasswordNumbers,
+        requirePasswordSymbols: !!settings.auth?.requirePasswordSymbols
+      }
+    });
+  } catch (error) {
+    console.error("[Security API Error] getPasswordPolicyApi:", error);
+    return res.status(500).json({ success: false, message: "Failed to get password policy" });
+  }
+}
+async function auditPasswordChangeApi(req, res) {
+  try {
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ success: false, message: "Unauthorized. Token required." });
+    }
+    const { result, reason } = req.body || {};
+    const safeResult = result === "SUCCESS" ? "SUCCESS" : "FAILED";
+    const safeReason = typeof reason === "string" ? reason.substring(0, 100) : safeResult === "SUCCESS" ? "User initiated password update" : "Password update failed";
+    await logCoreAudit(
+--
+}
+async function auditPasswordResetApi(req, res) {
+  try {
+    const { email, result, reason } = req.body || {};
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+    const safeResult = result === "SUCCESS" ? "SUCCESS" : "FAILED";
+    const safeReason = typeof reason === "string" ? reason.substring(0, 100) : safeResult === "SUCCESS" ? "User completed password reset" : "Password reset failed";
+    const sanitizedEmail = email.toLowerCase().trim().substring(0, 100);
+    await logCoreAudit(
+--
+  }
+}
+async function auditMfaChangeApi(req, res) {
+  try {
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ success: false, message: "Unauthorized. Token required." });
+    }
+    const { action, result, reason } = req.body || {};
+    const safeAction = action === "MFA_UNENROLL" ? "MFA_UNENROLL" : "MFA_ENROLL";
+    const safeResult = result === "SUCCESS" ? "SUCCESS" : "FAILED";
+    const safeReason = typeof reason === "string" ? reason.substring(0, 100) : safeResult === "SUCCESS" ? "MFA state updated" : "MFA operation failed";
+--
+    });
+  }
+}
+
+// src/server/support-api.ts
+var import_express5 = require("express");
+
+// src/server/ticket-service.ts
+init_supabase_admin();
+init_core_service();
+var TicketService = class _TicketService {
+--
+
+// src/server/support-service.ts
+init_supabase_admin();
+
+// src/server/customer-service.ts
+var crypto21 = __toESM(require("crypto"), 1);
+var CustomerService = class _CustomerService {
+  constructor() {
+    this.repo = CustomerRepository.getInstance();
+  }
+  static getInstance() {
+--
+// src/server/support-api.ts
+init_supabase_admin();
+var router5 = (0, import_express5.Router)();
+var ticketService = TicketService.getInstance();
+var supportService = SupportService.getInstance();
+router5.post("/cases", requireAuth, async (req, res) => {
+  try {
+    const actor = {
+      uid: req.user.uid,
+      email: req.user.email || "unknown@istore.id",
+      name: req.user.displayName || req.user.email?.split("@")[0] || "User"
+--
+    res.status(201).json(newCase);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router5.get("/cases", requireAuth, async (req, res) => {
+  try {
+    const cases = await supportService.getCustomerCases(req.user.uid);
+    res.json(cases);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router5.get("/cases/:id", requireAuth, async (req, res) => {
+  try {
+    const { data: caseRow } = await supabaseAdmin.from("support_cases").select("*").eq("id", req.params.id).maybeSingle();
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user.uid) {
+      return res.status(403).json({ error: "Forbidden" });
+--
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router5.post("/cases/:id/messages", requireAuth, async (req, res) => {
+  try {
+    const { data: caseRow } = await supabaseAdmin.from("support_cases").select("customer_uid").eq("id", req.params.id).maybeSingle();
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user.uid) return res.status(403).json({ error: "Forbidden" });
+    const actor = {
+--
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router5.post("/cases/:id/close", requireAuth, async (req, res) => {
+  try {
+    const { data: caseRow } = await supabaseAdmin.from("support_cases").select("customer_uid").eq("id", req.params.id).maybeSingle();
+    if (!caseRow) return res.status(404).json({ error: "Case not found" });
+    if (caseRow.customer_uid !== req.user.uid) return res.status(403).json({ error: "Forbidden" });
+    await ticketService.updateStatus(req.params.id, "CLOSED", {
+--
+  }
+});
+var support_api_default = router5;
+
+// src/server/admin-support-api.ts
+var import_express6 = require("express");
+var router6 = (0, import_express6.Router)();
+var ticketService2 = TicketService.getInstance();
+var supportService2 = SupportService.getInstance();
+router6.get("/cases", requirePermission("support", "view"), async (req, res) => {
+  try {
+    const filters = {
+      status: req.query.status,
+      priority: req.query.priority,
+      category: req.query.category,
+--
+    res.json(cases);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router6.get("/cases/:id", requirePermission("support", "view"), async (req, res) => {
+  try {
+    const context = await supportService2.getSupport360(req.params.id);
+    res.json(context);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router6.post("/cases/:id/messages", requirePermission("support", "reply"), async (req, res) => {
+  try {
+    const actor = {
+      uid: req.user.uid,
+      email: req.user.email,
+      name: req.user.displayName || req.user.email || "Agent",
+--
+    res.status(201).json(message);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router6.post("/cases/:id/assign", requirePermission("support", "assign"), async (req, res) => {
+  try {
+    await ticketService2.assignAgent(req.params.id, req.body.agentUid, {
+      uid: req.user.uid,
+      email: req.user.email || "admin@istore.co.id"
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router6.patch("/cases/:id/status", requirePermission("support", "edit"), async (req, res) => {
+  try {
+    await ticketService2.updateStatus(req.params.id, req.body.status, {
+      uid: req.user.uid,
+      email: req.user.email || "admin@istore.co.id"
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+router6.patch("/cases/:id/priority", requirePermission("support", "escalate"), async (req, res) => {
+  try {
+    await ticketService2.updatePriority(req.params.id, req.body.priority, {
+      uid: req.user.uid,
+      email: req.user.email || "admin@istore.co.id"
+    });
+--
+    next();
+  }
+}
+
+// src/server/customer-segment-api.ts
+var import_express7 = __toESM(require("express"), 1);
+
+// src/server/customer-segment-service.ts
+init_supabase_admin();
+init_core_service();
+var crypto22 = __toESM(require("crypto"), 1);
+var CustomerSegmentService = class _CustomerSegmentService {
+  constructor() {
+    this.cmsRepository = SupabaseCMSRepository.getInstance();
+  }
+  static getInstance() {
+--
+  };
+}
+function getActorRole(req) {
+  return req.user?.role || "admin";
+}
+customerSegmentRouter.get("/field-catalog", requireAuth, requirePermission("users", "view"), (_req, res) => {
+  res.json({
+    success: true,
+    data: SEGMENT_FIELD_CATALOG
+  });
+});
+customerSegmentRouter.get("/", requireAuth, requirePermission("users", "view"), async (req, res) => {
+  try {
+    const {
+      search = "",
+      type = "ALL",
+      status = "ALL",
+--
+  } catch (err) {
+    console.error("[Get Customer Segments Error]", err);
+    res.status(500).json({ success: false, message: err.message || "Gagal memuat daftar segmen pelanggan." });
+  }
+});
+customerSegmentRouter.post("/", requireAuth, requirePermission("users", "create"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const { name, description, type, ruleGroup, initialMembers } = req.body;
+    const segment = await segmentService.createSegment(
+--
+  } catch (err) {
+    console.error("[Create Customer Segment Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal membuat segmen pelanggan." });
+  }
+});
+customerSegmentRouter.get("/:id", requireAuth, requirePermission("users", "view"), async (req, res) => {
+  try {
+    const segment = await segmentService.getSegmentById(req.params.id);
+    if (!segment) {
+      return res.status(404).json({ success: false, message: "Segmen tidak ditemukan." });
+    }
+--
+  } catch (err) {
+    console.error("[Get Segment Detail Error]", err);
+    res.status(500).json({ success: false, message: err.message || "Gagal memuat detail segmen." });
+  }
+});
+customerSegmentRouter.put("/:id", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const { name, description, ruleGroup } = req.body;
+    const updated = await segmentService.updateSegment(
+--
+  } catch (err) {
+    console.error("[Update Segment Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal memperbarui segmen." });
+  }
+});
+customerSegmentRouter.post("/:id/activate", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const segment = await segmentService.activateSegment(req.params.id, actor, actorRole);
+    res.json({
+--
+  } catch (err) {
+    console.error("[Activate Segment Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal mengaktifkan segmen." });
+  }
+});
+customerSegmentRouter.post("/:id/deactivate", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const segment = await segmentService.deactivateSegment(req.params.id, actor, actorRole);
+    res.json({
+--
+  } catch (err) {
+    console.error("[Deactivate Segment Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal menonaktifkan segmen." });
+  }
+});
+customerSegmentRouter.post("/:id/evaluate", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const result = await segmentService.evaluateSegment(req.params.id, actor, actorRole);
+    const updated = await segmentService.getSegmentById(req.params.id);
+--
+  } catch (err) {
+    console.error("[Evaluate Segment Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal melakukan evaluasi aturan segmen." });
+  }
+});
+customerSegmentRouter.get("/:id/members", requireAuth, requirePermission("users", "view"), async (req, res) => {
+  try {
+    const { search = "", status = "ACTIVE", page = "1", limit = "20" } = req.query;
+    const result = await segmentService.getSegmentMembers(
+      req.params.id,
+      {
+--
+  } catch (err) {
+    console.error("[Get Segment Members Error]", err);
+    res.status(500).json({ success: false, message: err.message || "Gagal memuat anggota segmen." });
+  }
+});
+customerSegmentRouter.post("/:id/members", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const { customerUid } = req.body;
+    if (!customerUid || typeof customerUid !== "string") {
+--
+  } catch (err) {
+    console.error("[Add Static Member Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal menambahkan anggota segmen." });
+  }
+});
+customerSegmentRouter.delete("/:id/members/:uid", requireAuth, requirePermission("users", "edit"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const result = await segmentService.removeStaticMember(req.params.id, req.params.uid, actor, actorRole);
+    res.json({
+--
+  } catch (err) {
+    console.error("[Remove Static Member Error]", err);
+    res.status(400).json({ success: false, message: err.message || "Gagal mengeluarkan anggota dari segmen." });
+  }
+});
+customerSegmentRouter.post("/:id/export", requireAuth, requirePermission("users", "export"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const csvContent = await segmentService.exportSegmentMembersCsv(req.params.id, actor, actorRole);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+--
+  } catch (err) {
+    console.error("[Export Segment Members Error]", err);
+    res.status(500).json({ success: false, message: err.message || "Gagal mengekspor data anggota segmen." });
+  }
+});
+customerSegmentRouter.delete("/:id", requireAuth, requirePermission("users", "delete"), async (req, res) => {
+  try {
+    const actor = getActor(req);
+    const actorRole = getActorRole(req);
+    const result = await segmentService.deleteSegment(req.params.id, actor, actorRole);
+    res.json({
+--
+      isDecoupledFromAiStudio: true
+    });
+  });
+  app.post("/api/auth/sync-user", optionalAuth, async (req, res) => {
+    if (!req.user || !req.user.uid) {
+      return res.status(401).json({ success: false, message: "Unauthorized. Valid Firebase ID Token required." });
+    }
+    const uid = req.user.uid;
+    const email = (req.user.email || "").toLowerCase();
+    const isOwner = isOwnerIdentity(email);
+    try {
+--
+      console.error("User sync error:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  app.get("/api/auth/permissions", optionalAuth, getUserPermissionsApi);
+  app.put("/api/auth/profile", requireAuth, updateProfileApi);
+  app.get("/api/auth/check", requirePermission("system", "view"), checkPermissionApi);
+  app.get("/api/public/catalog/games", getPublicGames);
+  app.get("/api/public/catalog/categories", getPublicCategories);
+  app.get("/api/public/catalog/games/:slug", getPublicGameDetail);
+  app.get("/api/public/catalog/products/:productId/variants", getPublicVariants);
+  app.get("/api/public/flash-sales", getPublicFlashSales);
+  app.get("/api/admin/pricing/rules", requirePermission("pricing", "view"), getPricingRules);
+  app.post("/api/admin/pricing/rules", requirePermission("pricing", "create"), createPricingRule);
+  app.put("/api/admin/pricing/rules/:id", requirePermission("pricing", "edit"), updatePricingRule);
+  app.get("/api/admin/pricing/history/:variantId", requirePermission("pricing", "view"), getPriceHistory);
+  app.post("/api/admin/pricing/preview", requirePermission("pricing", "view"), previewPriceCalculation);
+  app.post("/api/admin/pricing/variants/:id/refresh", requirePermission("pricing", "edit"), refreshVariantPrice);
+  app.post("/api/admin/pricing/bulk-refresh", requirePermission("pricing", "edit"), bulkRefreshPrices);
+  app.get("/api/admin/roles", requirePermission("roles", "view"), getRoles);
+  app.post("/api/admin/roles", requirePermission("roles", "create"), createRoleApi);
+  app.put("/api/admin/roles/:id", requirePermission("roles", "edit"), updateRoleApi);
+  app.delete("/api/admin/roles/:id", requirePermission("roles", "delete"), deleteRoleApi);
+  app.get("/api/admin/users", requirePermission("users", "view"), getAdminUsersApi);
+  app.post("/api/admin/users/:uid/role", requirePermission("users", "edit"), assignRoleApi);
+  app.use("/api/admin/customer-segments", customerSegmentRouter);
+  app.use("/api/support", support_api_default);
+  app.use("/api/admin/support", admin_support_api_default);
+  app.get("/api/admin/security/settings", requirePermission("system", "view"), getSecuritySettingsApi);
+  app.put("/api/admin/security/settings", requirePermission("system", "edit"), updateSecuritySettingsApi);
+  app.get("/api/admin/security/overview", requirePermission("system", "view"), getSecurityOverviewApi);
+  app.post("/api/admin/security/test-ip", requirePermission("system", "view"), testIpSecurityApi);
+  app.get("/api/auth/password-policy", getPasswordPolicyApi);
+  app.post("/api/auth/validate-password", validatePasswordApi);
+  app.post("/api/auth/audit-password-change", requireAuth, auditPasswordChangeApi);
+  app.post("/api/auth/audit-password-reset", auditPasswordResetApi);
+  app.post("/api/auth/audit-mfa-change", requireAuth, auditMfaChangeApi);
+  app.get("/api/admin/audit-logs", requirePermission("audit_logs", "view"), getAuditLogsApi);
+  app.get("/api/admin/audit-logs/metrics", requirePermission("audit_logs", "view"), getAuditMetricsApi);
+  app.get("/api/admin/audit-logs/:id", requirePermission("audit_logs", "view"), getAuditDetailApi);
+  app.post("/api/admin/audit-logs/export", requirePermission("audit_logs", "export"), exportAuditLogsApi);
+  app.get("/api/admin/system-logs", requirePermission("system_logs", "view"), getSystemLogsApi);
+  app.get("/api/admin/system-logs/metrics", requirePermission("system_logs", "view"), getSystemLogMetricsApi);
+  app.get("/api/admin/system-logs/:id", requirePermission("system_logs", "view"), getSystemLogDetailApi);
+  app.post("/api/admin/system-logs/export", requirePermission("system_logs", "export"), exportSystemLogsApi);
+  app.post("/api/admin/system-logs/simulate", requirePermission("system_logs", "edit"), emitDiagnosticLogApi);
+  app.get("/api/orders/:invoice", async (req, res) => {
+    try {
+      const { invoice } = req.params;
+      if (!invoice) {
+        return res.status(400).json({ success: false, message: "Invoice is required" });
+      }
+      const orderRepo = OrderRepository.getInstance();
+      let order = await orderRepo.getOrderByInvoice(invoice);
+      if (!order) {
+        order = await orderRepo.getOrderById(invoice);
+--
+    }
+  });
+  app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
+  app.post("/api/webhooks/midtrans", midtransWebhook);
+  app.post("/api/webhooks/tokovoucher", tokovoucherWebhook);
+  app.post("/api/admin/games", requirePermission("games", "create"), createGame);
+  app.put("/api/admin/games/:id", requirePermission("games", "edit"), updateGame);
+  app.delete("/api/admin/games/:id", requirePermission("games", "delete"), deleteGame);
+  app.post("/api/admin/categories", requirePermission("games", "create"), createCategory);
+  app.put("/api/admin/categories/:id", requirePermission("games", "edit"), updateCategory);
+  app.delete("/api/admin/categories/:id", requirePermission("games", "delete"), deleteCategory);
+  app.post("/api/admin/products", requirePermission("products", "create"), createProduct);
+  app.put("/api/admin/products/:id", requirePermission("products", "edit"), updateProduct);
+  app.post("/api/admin/products/:id/deactivate", requirePermission("products", "delete"), deactivateProduct);
+  app.get("/api/admin/products/:id/reset-preview", requirePermission("products", "view"), getProductResetPreview);
+  app.delete("/api/admin/products/:id/reset", requirePermission("products", "delete"), resetProductAndMapping);
+  app.post("/api/admin/catalog/bulk-import-skus", requirePermission("products", "create"), bulkImportProviderSkus);
+  app.post("/api/admin/product-variants", requirePermission("products", "create"), createVariant);
+  app.put("/api/admin/product-variants/:id", requirePermission("products", "edit"), updateVariant);
+  app.put("/api/admin/users/:id/role", requirePermission("users", "edit"), updateUserRole);
+  app.get("/api/admin/dashboard/stats", requirePermission("dashboard", "view"), getDashboardSummary);
+  app.get("/api/admin/orders", requirePermission("orders", "view"), getAdminOrders);
+  app.get("/api/admin/orders/:id", requirePermission("orders", "view"), getAdminOrderDetail);
+  app.post("/api/admin/orders/:id/override", requirePermission("orders", "edit"), updateOrderState);
+  app.post("/api/admin/orders/:id/retry-fulfillment", requirePermission("orders", "edit"), retryOrderFulfillment);
+  app.post("/api/admin/refunds", requirePermission("finance", "edit"), createRefund);
+  app.get("/api/admin/refunds", requirePermission("finance", "view"), getAdminRefunds);
+  app.get("/api/admin/reconciliation/overview", requirePermission("finance", "view"), getReconciliationOverviewApi);
+  app.get("/api/admin/reconciliation/runs", requirePermission("finance", "view"), getReconciliationRunsApi);
+  app.get("/api/admin/reconciliation/runs/:id", requirePermission("finance", "view"), getReconciliationRunDetailApi);
+  app.get("/api/admin/reconciliation/records", requirePermission("finance", "view"), getReconciliationRecordsApi);
+  app.post("/api/admin/reconciliation/orders/:id", requirePermission("finance", "edit"), reconcileSingleOrder);
+  app.post("/api/admin/reconciliation/runs", requirePermission("finance", "edit"), triggerReconciliationBatch);
+  app.get("/api/admin/taxes/config", requirePermission("finance", "view"), getTaxAndFeeConfigApi);
+  app.put("/api/admin/taxes/config", requirePermission("finance", "edit"), updateTaxAndFeeConfigApi);
+  app.get("/api/admin/commission/config", requirePermission("finance", "view"), getCommissionConfigApi);
+  app.put("/api/admin/commission/config", requirePermission("finance", "edit"), updateCommissionConfigApi);
+  app.get("/api/admin/commission/recipients", requirePermission("finance", "view"), getCommissionRecipientsApi);
+  app.post("/api/admin/commission/recipients", requirePermission("finance", "edit"), createCommissionRecipientApi);
+  app.get("/api/admin/commission/recipients/:id", requirePermission("finance", "view"), getCommissionRecipientByIdApi);
+  app.put("/api/admin/commission/recipients/:id", requirePermission("finance", "edit"), updateCommissionRecipientApi);
+  app.get("/api/admin/commission/rules", requirePermission("finance", "view"), getCommissionRulesApi);
+  app.post("/api/admin/commission/rules", requirePermission("finance", "edit"), createCommissionRuleApi);
+  app.get("/api/admin/commission/rules/:id", requirePermission("finance", "view"), getCommissionRuleByIdApi);
+  app.put("/api/admin/commission/rules/:id", requirePermission("finance", "edit"), updateCommissionRuleApi);
+  app.get("/api/admin/commission/records", requirePermission("finance", "view"), getCommissionRecordsApi);
+  app.get("/api/admin/commission/records/:id", requirePermission("finance", "view"), getCommissionRecordByIdApi);
+  app.get("/api/admin/commission/reconciliation", requirePermission("finance", "view"), getCommissionReconciliationApi);
+  app.post("/api/admin/commission/reversal/trigger", requirePermission("finance", "edit"), triggerCommissionRefundClawbackApi);
+  app.get("/api/admin/commission/payouts", requirePermission("finance", "view"), handleListPayoutBatches);
+  app.get("/api/admin/commission/payouts/:batchId", requirePermission("finance", "view"), handleGetPayoutBatchDetail);
+  app.post("/api/admin/commission/payouts/create", requirePermission("finance", "edit"), handleCreatePayoutBatch);
+  app.post("/api/admin/commission/payouts/:batchId/submit", requirePermission("finance", "edit"), handleSubmitPayoutBatch);
+  app.post("/api/admin/commission/payouts/:batchId/approve", requirePermission("finance", "edit"), handleApprovePayoutBatch);
+  app.post("/api/admin/commission/payouts/:batchId/confirm-paid", requirePermission("finance", "edit"), handleConfirmPayoutPaid);
+  app.post("/api/admin/commission/payouts/:batchId/cancel", requirePermission("finance", "edit"), handleCancelPayoutBatch);
+  app.post("/api/admin/commission/payouts/:batchId/mark-failed", requirePermission("finance", "edit"), handleMarkPayoutBatchFailed);
+  app.get("/api/admin/commission/payouts/:batchId/export-instruction", requirePermission("finance", "export"), handleExportTransferInstruction);
+  app.get("/api/admin/ledger/overview", requirePermission("finance", "view"), getLedgerOverviewApi);
+  app.get("/api/admin/ledger/entries", requirePermission("finance", "view"), getLedgerEntriesApi);
+  app.get("/api/admin/ledger/export", requirePermission("finance", "export"), exportLedgerCsvApi);
+  app.get("/api/admin/ledger/entries/:id", requirePermission("finance", "view"), getLedgerEntryDetailApi);
+  app.get("/api/admin/providers", requirePermission("providers", "view"), getProviders);
+  app.post("/api/admin/providers", requirePermission("providers", "create"), createProvider);
+  app.put("/api/admin/providers/:id", requirePermission("providers", "edit"), updateProvider);
+  app.delete("/api/admin/providers/:id", requirePermission("providers", "delete"), deleteProvider);
+  app.get("/api/admin/providers/skus", requirePermission("providers", "view"), getProviderSkusApi);
+  app.post("/api/admin/providers/skus", requirePermission("providers", "create"), createProviderSku);
+  app.put("/api/admin/providers/skus/:id", requirePermission("providers", "edit"), updateProviderSku);
+  app.delete("/api/admin/providers/skus/:id", requirePermission("providers", "delete"), deleteProviderSku);
+  app.get("/api/admin/catalog/games", requirePermission("games", "view"), getAdminGames);
+  app.get("/api/admin/catalog/categories", requirePermission("games", "view"), getAdminCategories);
+  app.get("/api/admin/catalog/products", requirePermission("products", "view"), getAdminProducts);
+  app.get("/api/admin/catalog/variants", requirePermission("products", "view"), getAdminVariants);
+  app.post("/api/admin/providers/mappings", requirePermission("providers", "create"), createProviderMapping);
+  app.put("/api/admin/providers/mappings/:id", requirePermission("providers", "edit"), updateProviderMapping);
+  app.delete("/api/admin/providers/mappings/:id", requirePermission("providers", "delete"), deleteProviderMapping);
+  app.get("/api/admin/providers/mappings", requirePermission("providers", "view"), listMappingsApi);
+  app.post("/api/admin/providers/mappings/map", requirePermission("providers", "edit"), mapSkuApi);
+  app.post("/api/admin/providers/mappings/suggest", requirePermission("providers", "view"), getProviderMappingSuggestions);
+  app.post("/api/admin/providers/mappings/bulk", requirePermission("providers", "create"), bulkCreateProviderMappings);
+  app.get("/api/admin/providers/catalog-discovery", requirePermission("providers", "view"), getProviderCatalogDiscovery);
+  app.post("/api/admin/providers/catalog-discovery/import", requirePermission("providers", "create"), importFromCatalogDiscovery);
+  app.post("/api/admin/supabase/catalog-sync", requirePermission("providers", "create"), triggerSupabaseCatalogSyncApi);
+  app.get("/api/admin/providers/:providerId/skus", requirePermission("providers", "view"), getAllProviderSkus);
+  app.post("/api/admin/providers/skus/import/validate", requirePermission("providers", "create"), validateBulkImport);
+  app.post("/api/admin/providers/skus/import/:sessionId/execute", requirePermission("providers", "create"), commitBulkImport);
+  app.get("/api/admin/gateways", requirePermission("gateway", "view"), getAdminGateways);
+  app.post("/api/admin/gateways", requirePermission("gateway", "create"), createPaymentGateway);
+  app.put("/api/admin/gateways/:id", requirePermission("gateway", "edit"), updatePaymentGateway);
+  app.get("/api/admin/quotas", requirePermission("stock", "quota.manage"), getQuotas);
+  app.post("/api/admin/quotas", requirePermission("stock", "quota.manage"), saveQuota);
+  app.get("/api/admin/stocks", requirePermission("stock", "view"), getStocks);
+  app.get("/api/admin/variants/:variantId/stock", requirePermission("stock", "view"), getVariantStock);
+  app.post("/api/admin/variants/:variantId/stock/adjust", requirePermission("stock", "adjust"), adjustStock);
+  app.get("/api/admin/variants/:variantId/stock/movements", requirePermission("stock", "view"), getStockMovements);
+  app.get("/api/admin/variants/:variantId/reservations", requirePermission("stock", "view"), getReservations);
+  app.get("/api/customer/orders", requireAuth, getCustomerOrdersApi);
+  app.get("/api/customer/profile/:uid", requireAuth, getCustomerProfileApi);
+  app.get("/api/customer/orders/:orderId/delivery", optionalAuth, getCustomerDelivery);
+  app.post("/api/customer/games/inquiry", optionalAuth, async (req, res) => {
+    try {
+      const { gameCode, userId: userId2, zoneId } = req.body || {};
+      if (!gameCode || !userId2) {
+        return res.status(400).json({ isValid: false, username: null, message: "gameCode and userId are required" });
+      }
+      const result = await performGameAccountInquiry(gameCode, userId2, zoneId);
+      return res.json(result);
+    } catch (error) {
+      console.error("[Games Inquiry API Error]", error);
+      return res.status(500).json({ isValid: false, username: null, message: error.message || "Gagal melakukan inquiry akun" });
+    }
+  });
+  app.get("/api/admin/deliveries", requirePermission("delivery", "view"), getAdminDeliveries);
+  app.get("/api/admin/deliveries/:deliveryId", requirePermission("delivery", "view"), getAdminDeliveryDetail);
+  app.get("/api/admin/providers/apigames/credentials/status", requirePermission("integration", "credentials.view"), getApiGamesCredentialStatus);
+  app.put("/api/admin/providers/apigames/credentials", requirePermission("integration", "credentials.manage"), updateApiGamesCredentials);
+  app.post("/api/admin/providers/test/apigames", requirePermission("integration", "credentials.test"), testApiGamesConnection);
+  app.get("/api/admin/integrations/midtrans", requirePermission("system", "view"), getMidtransIntegration);
+  app.put("/api/admin/integrations/midtrans", requirePermission("system", "edit"), updateMidtransIntegration);
+  app.post("/api/admin/integrations/midtrans/test", requirePermission("system", "edit"), testMidtransIntegration);
+  app.delete("/api/admin/integrations/midtrans", requirePermission("system", "edit"), removeMidtransIntegration);
+  app.get("/api/admin/integrations/tokovoucher", requirePermission("system", "view"), getTokoVoucherIntegration);
+  app.put("/api/admin/integrations/tokovoucher", requirePermission("system", "edit"), updateTokoVoucherIntegration);
+  app.post("/api/admin/integrations/tokovoucher/test", requirePermission("system", "edit"), testTokoVoucherIntegrationApi);
+  app.delete("/api/admin/integrations/tokovoucher", requirePermission("system", "edit"), removeTokoVoucherIntegration);
+  app.get("/api/admin/promos", requirePermission("marketing", "view"), getAdminPromos);
+  app.post("/api/admin/promos", requirePermission("marketing", "create"), createAdminPromo);
+  app.put("/api/admin/promos/:id", requirePermission("marketing", "edit"), updateAdminPromo);
+  app.delete("/api/admin/promos/:id", requirePermission("marketing", "edit"), deleteAdminPromo);
+  app.get("/api/admin/flash-sales", requirePermission("marketing", "view"), getAdminFlashSales);
+  app.post("/api/admin/flash-sales", requirePermission("marketing", "create"), createAdminFlashSale);
+  app.put("/api/admin/flash-sales/:id", requirePermission("marketing", "edit"), updateAdminFlashSale);
+  app.delete("/api/admin/flash-sales/:id", requirePermission("marketing", "edit"), deleteAdminFlashSale);
+  app.get("/api/admin/sla/policies", requirePermission("sla", "view"), getSLAPolicies);
+  app.post("/api/admin/sla/policies", requirePermission("sla", "create"), createSLAPolicy);
+  app.put("/api/admin/sla/policies/:id", requirePermission("sla", "edit"), updateSLAPolicy);
+  app.delete("/api/admin/sla/policies/:id", requirePermission("sla", "edit"), deleteSLAPolicy);
+  app.get("/api/admin/sla/monitor", requirePermission("sla", "view"), getSLAMonitor);
+  app.get("/api/admin/sla/orders/:orderId", requirePermission("sla", "view"), getOrderSLADetail);
+  app.get("/api/admin/calendar/config", requirePermission("calendar", "view"), getCalendarConfig);
+  app.put("/api/admin/calendar/config", requirePermission("calendar", "edit"), updateCalendarConfig);
+  app.post("/api/admin/calendar/exceptions", requirePermission("calendar", "create"), upsertCalendarException);
+  app.put("/api/admin/calendar/exceptions", requirePermission("calendar", "edit"), upsertCalendarException);
+  app.delete("/api/admin/calendar/exceptions/:id", requirePermission("calendar", "delete"), deleteCalendarException);
+  app.get("/api/admin/calendar/preview", requirePermission("calendar", "view"), getCalendarPreview);
+  app.get("/api/customer/points", optionalAuth, getCustomerPointsInfo);
+  app.get("/api/customer/loyalty/info", requireAuth, getCustomerPointsInfo);
+  app.get("/api/rewards", getPublicRewards);
+  app.get("/api/customer/rewards/redemptions", optionalAuth, getCustomerRedemptionsApi);
+  app.post("/api/customer/rewards/redeem", optionalAuth, redeemCustomerReward);
+  app.get("/api/admin/loyalty/config", requirePermission("marketing", "view"), getLoyaltyConfigAdmin);
+  app.put("/api/admin/loyalty/config", requirePermission("marketing", "edit"), updateLoyaltyConfigAdmin);
+  app.get("/api/admin/loyalty/transactions", requirePermission("marketing", "view"), getAllLoyaltyTransactionsAdmin);
+  app.post("/api/admin/loyalty/adjust", requirePermission("marketing", "edit"), adjustCustomerPointsAdmin);
+  app.use("/api/referral", referral_api_default);
+  app.use("/api/admin/referral", admin_referral_api_default);
+  app.use("/api/membership", membership_api_default);
+  app.use("/api/admin/membership", admin_membership_api_default);
+  app.get("/api/admin/rewards", requirePermission("marketing", "view"), getAdminRewards);
+  app.post("/api/admin/rewards", requirePermission("marketing", "create"), createAdminReward);
+  app.put("/api/admin/rewards/:id", requirePermission("marketing", "edit"), updateAdminReward);
+  app.delete("/api/admin/rewards/:id", requirePermission("marketing", "edit"), deleteAdminReward);
+  app.get("/api/admin/reward-redemptions", requirePermission("marketing", "view"), getAdminRedemptions);
+  app.get("/api/customer/wishlist", optionalAuth, getCustomerWishlist);
+  app.post("/api/customer/wishlist", optionalAuth, addToCustomerWishlist);
+  app.delete("/api/customer/wishlist/:id", optionalAuth, removeFromCustomerWishlist);
+  app.get("/api/products/:productId/reviews", getPublicProductReviews);
+  app.post("/api/customer/reviews", optionalAuth, createCustomerReview);
+  app.get("/api/admin/reviews", requirePermission("marketing", "view"), getAdminReviewsApi);
+  app.put("/api/admin/reviews/:id/status", requirePermission("marketing", "edit"), updateAdminReviewStatusApi);
+  app.delete("/api/admin/reviews/:id", requirePermission("marketing", "edit"), deleteAdminReviewApi);
+  app.get("/api/admin/media", requirePermission("content", "view"), getMediaLibraryApi);
+  app.post("/api/admin/media", requirePermission("content", "create"), uploadMiddleware, uploadMediaApi);
+  app.put("/api/admin/media/:id", requirePermission("content", "edit"), updateMediaMetadataApi);
+  app.delete("/api/admin/media/:id", requirePermission("content", "delete"), deleteMediaApi);
+  app.get("/api/public/banners", getPublicBannersApi);
+  app.get("/api/admin/banners", requirePermission("content", "view"), getAdminBannersApi);
+  app.post("/api/admin/banners", requirePermission("content", "create"), createBannerApi);
+  app.put("/api/admin/banners/:id", requirePermission("content", "edit"), updateBannerApi);
+  app.delete("/api/admin/banners/:id", requirePermission("content", "delete"), deleteBannerApi);
+  app.get("/api/public/popups", getPublicPopupsApi);
+  app.get("/api/admin/popups", requirePermission("content", "view"), getAdminPopupsApi);
+  app.post("/api/admin/popups", requirePermission("content", "create"), createPopupApi);
+  app.put("/api/admin/popups/:id", requirePermission("content", "edit"), updatePopupApi);
+  app.delete("/api/admin/popups/:id", requirePermission("content", "delete"), deletePopupApi);
+  app.get("/api/public/campaigns", getPublicCampaignsApi);
+  app.get("/api/public/campaigns/:id", getPublicCampaignDetailApi);
+  app.get("/api/admin/campaigns", requirePermission("marketing", "view"), getAdminCampaignsApi);
+  app.get("/api/admin/campaigns/components-data", requirePermission("marketing", "view"), getCampaignComponentsDataApi);
+  app.post("/api/admin/campaigns", requirePermission("marketing", "create"), createCampaignApi);
+  app.put("/api/admin/campaigns/:id", requirePermission("marketing", "edit"), updateCampaignApi);
+  app.post("/api/admin/campaigns/:id/archive", requirePermission("marketing", "edit"), archiveCampaignApi);
+  app.delete("/api/admin/campaigns/:id", requirePermission("marketing", "delete"), deleteCampaignApi);
+  app.get("/api/public/landings", getPublicLandingsApi);
+  app.get("/api/public/landings/:slug", getPublicLandingPageApi);
+  app.get("/api/admin/landings", requirePermission("content", "view"), getAdminLandingPagesApi);
+  app.get("/api/admin/landings/components-data", requirePermission("content", "view"), getAdminLandingComponentsApi);
+  app.get("/api/admin/landings/:id/preview", requirePermission("content", "view"), getAdminLandingPagePreviewApi);
+  app.get("/api/admin/landings/:id", requirePermission("content", "view"), getAdminLandingPageByIdApi);
+  app.post("/api/admin/landings", requirePermission("content", "create"), createLandingPageApi);
+  app.put("/api/admin/landings/:id", requirePermission("content", "edit"), updateLandingPageApi);
+  app.post("/api/admin/landings/:id/publish", requirePermission("content", "edit"), publishLandingPageApi);
+  app.post("/api/admin/landings/:id/archive", requirePermission("content", "edit"), archiveLandingPageApi);
+  app.delete("/api/admin/landings/:id", requirePermission("content", "delete"), deleteLandingPageApi);
+  app.get("/api/public/blog", getPublicBlogsApi);
+  app.get("/api/public/blog/:slug", getPublicBlogBySlugApi);
+  app.get("/api/admin/blog", requirePermission("content", "view"), getAdminBlogsApi);
+  app.get("/api/admin/blog/components-data", requirePermission("content", "view"), getAdminBlogComponentsApi);
+  app.get("/api/admin/blog/:id/preview", requirePermission("content", "view"), getAdminBlogPreviewApi);
+  app.get("/api/admin/blog/:id", requirePermission("content", "view"), getAdminBlogByIdApi);
+  app.post("/api/admin/blog", requirePermission("content", "create"), createBlogApi);
+  app.put("/api/admin/blog/:id", requirePermission("content", "edit"), updateBlogApi);
+  app.post("/api/admin/blog/:id/publish", requirePermission("content", "edit"), publishBlogApi);
+  app.post("/api/admin/blog/:id/archive", requirePermission("content", "edit"), archiveBlogApi);
+  app.delete("/api/admin/blog/:id", requirePermission("content", "delete"), deleteBlogApi);
+  app.get("/api/public/faq", getPublicFaqsApi);
+  app.get("/api/public/faq/:id", getPublicFaqByIdApi);
+  app.get("/api/admin/faq", requirePermission("faq", "view"), getAdminFaqsApi);
+  app.get("/api/admin/faq/components-data", requirePermission("faq", "view"), getAdminFaqComponentsApi);
+  app.get("/api/admin/faq/:id", requirePermission("faq", "view"), getAdminFaqByIdApi);
+  app.post("/api/admin/faq", requirePermission("faq", "create"), createFaqApi);
+  app.put("/api/admin/faq/:id", requirePermission("faq", "edit"), updateFaqApi);
+  app.post("/api/admin/faq/:id/publish", requirePermission("faq", "publish"), publishFaqApi);
+  app.post("/api/admin/faq/:id/toggle", requirePermission("faq", "edit"), toggleEnableFaqApi);
+  app.post("/api/admin/faq/:id/archive", requirePermission("faq", "archive"), archiveFaqApi);
+  app.post("/api/admin/faq/reorder", requirePermission("faq", "edit"), reorderFaqsApi);
+  app.delete("/api/admin/faq/:id", requirePermission("faq", "delete"), deleteFaqApi);
+  app.get("/api/admin/store-config", requirePermission("settings", "view"), getStoreConfig);
+  app.put("/api/admin/store-config", requirePermission("settings", "edit"), updateStoreConfig);
+  app.get("/api/admin/system-config/overview", requirePermission("settings", "view"), getSystemConfigOverview);
+  app.get("/api/admin/system-config", requirePermission("settings", "view"), getSystemConfigs);
+  app.put("/api/admin/system-config/:key", requirePermission("settings", "edit"), updateSystemConfig);
+  app.get("/api/admin/feature-flags", requirePermission("settings", "view"), getAdminFeatureFlags);
+  app.put("/api/admin/feature-flags", requirePermission("settings", "edit"), updateAdminFeatureFlags);
+  app.get("/robots.txt", getRobotsTxt);
+  app.get("/sitemap.xml", getSitemapXml);
+  app.get("/api/public/store-config", getPublicStoreConfig);
+  app.get("/api/public/config/midtrans", getPublicMidtransConfig);
+  app.get("/api/public/seo", getPublicSEOSettings);
+  app.get("/api/admin/seo", requirePermission("seo", "view"), getAdminSEOSettings);
+  app.put("/api/admin/seo", requirePermission("seo", "edit"), updateAdminSEOSettings);
+  app.post("/api/admin/seo/reset", requirePermission("seo", "edit"), resetAdminSEOSettings);
+  app.get("/api/public/privacy", getPublicPrivacyApi);
+  app.get("/api/admin/privacy", requirePermission("settings", "view"), getAdminPrivacyApi);
+  app.put("/api/admin/privacy", requirePermission("settings", "edit"), updateAdminPrivacyApi);
+  app.post("/api/admin/privacy/reset", requirePermission("settings", "edit"), resetAdminPrivacyApi);
+  app.get("/api/customer/notifications", optionalAuth, getCustomerNotifications);
+  app.post("/api/customer/notifications/:id/read", optionalAuth, markNotificationRead);
+  app.post("/api/customer/notifications/mark-all-read", optionalAuth, markAllNotificationsRead);
+  app.get("/api/admin/notifications", requirePermission("notifications", "view"), getAdminNotifications);
+  app.post("/api/admin/notifications/:id/read", requirePermission("notifications", "edit"), markNotificationRead);
+  app.post("/api/admin/notifications/mark-all-read", requirePermission("notifications", "edit"), markAllNotificationsRead);
+  app.get("/api/admin/notification-settings", requirePermission("notifications", "view"), getAdminNotificationSettings);
+  app.put("/api/admin/notification-settings", requirePermission("notifications", "edit"), updateAdminNotificationSettings);
+  app.get("/api/admin/health", requirePermission("health", "view"), getSystemHealth);
+  app.get("/api/admin/incidents", requirePermission("incidents", "view"), getAdminIncidents);
+  app.post("/api/admin/incidents/:id/acknowledge", requirePermission("incidents", "manage"), acknowledgeIncidentApi);
+  app.post("/api/admin/incidents/:id/assign", requirePermission("incidents", "manage"), assignIncidentApi);
+  app.post("/api/admin/incidents/:id/resolve", requirePermission("incidents", "manage"), resolveIncidentApi);
+  app.post("/api/admin/incidents/:id/close", requirePermission("incidents", "manage"), closeIncidentApi);
+  isServerInitialized = true;
+  if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
