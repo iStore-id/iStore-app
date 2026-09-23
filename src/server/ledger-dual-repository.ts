@@ -3,8 +3,8 @@ import {
   LedgerJournalEntry, 
   LedgerListOptions, 
   LedgerOverview 
-} from "../types/ledger.js";
-import { SupabaseLedgerRepository } from "./supabase/ledger-repository.js";
+} from "../types/ledger";
+import { SupabaseLedgerRepository } from "./supabase/ledger-repository";
 
 export class DualLedgerRepository implements ILedgerRepository {
   private static instance: DualLedgerRepository;
