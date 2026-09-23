@@ -871,7 +871,7 @@ export async function getCommissionRecordByIdApi(req: AuthenticatedRequest, res:
 
 export async function getCommissionReconciliationApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const { reconcileCommissionLedger } = await import("./ledger-service");
+    const { reconcileCommissionLedger } = await import("./ledger-service.js");
     const report = await reconcileCommissionLedger();
 
     return res.status(200).json({

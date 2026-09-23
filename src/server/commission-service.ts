@@ -389,7 +389,7 @@ export class CommissionService {
         // Self-healing check: if commission is PAYABLE but ledger was not posted yet, attempt idempotent post
         if (existingRecord.status === "PAYABLE" && existingRecord.ledgerStatus !== "POSTED") {
           try {
-            const { recordCommissionAccrual } = await import("./ledger-service");
+            const { recordCommissionAccrual } = await import("./ledger-service.js");
             const ledgerResult = await recordCommissionAccrual(existingRecord, actor.uid || "SYSTEM");
             await repo.updateRecord(commissionId, {
               ledgerStatus: "POSTED",
@@ -528,7 +528,7 @@ export class CommissionService {
 
       // 12. Double-Entry Ledger Posting
       try {
-        const { recordCommissionAccrual } = await import("./ledger-service");
+        const { recordCommissionAccrual } = await import("./ledger-service.js");
         const ledgerResult = await recordCommissionAccrual(createdRecord, actor.uid || "SYSTEM");
 
         await repo.updateRecord(commissionId, {
@@ -702,7 +702,7 @@ export class CommissionService {
         if (delta > 0 && fullRecord && !resItem.alreadyProcessed) {
           // Double-Entry Ledger Posting
           try {
-            const { safeRecordCommissionAccrualReversal } = await import("./ledger-service");
+            const { safeRecordCommissionAccrualReversal } = await import("./ledger-service.js");
             const ledgerRes = await safeRecordCommissionAccrualReversal(
               fullRecord,
               cleanRefundKey,
@@ -1216,7 +1216,7 @@ export class CommissionService {
 
     let ledgerJournalId: string | null = null;
     try {
-      const { recordCommissionPayout } = await import("./ledger-service");
+      const { recordCommissionPayout } = await import("./ledger-service.js");
       const ledgerResult = await recordCommissionPayout(updatedBatch, actor.email);
       ledgerJournalId = ledgerResult.docId;
 

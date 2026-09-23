@@ -12,7 +12,7 @@ import { OrderRepository } from "./supabase/order-repository.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import { supabaseAdmin } from "./supabase-admin.js";
-import { DualLedgerRepository } from "./ledger-dual-repository";
+import { DualLedgerRepository } from "./ledger-dual-repository.js";
 // Admin API Logic using Supabase and existing services
 import { DateTime } from "luxon";
 import { ProviderSku, ProviderMapping, Product, Game, ProductVariant } from "../types/core.js";
