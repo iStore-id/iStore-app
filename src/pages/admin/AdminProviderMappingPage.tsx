@@ -6,7 +6,7 @@ export default function AdminProviderMappingPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Pemetaan Produk</h1>
+          <h1 className="ui-page-title text-slate-900">Pemetaan Produk</h1>
           <p className="text-slate-500 text-sm">
             Hubungkan varian produk iStore dengan produk dan kode supplier untuk pemenuhan pesanan otomatis.
           </p>

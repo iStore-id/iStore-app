@@ -284,7 +284,7 @@ export default function AuditLogsPage() {
             <span className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
               <History className="w-6 h-6" />
             </span>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="ui-page-title text-slate-900 dark:text-white">
               Audit Trail & System Logs
             </h1>
           </div>

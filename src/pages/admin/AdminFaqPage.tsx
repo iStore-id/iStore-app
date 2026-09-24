@@ -483,7 +483,7 @@ export default function AdminFaqPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900">Manajemen FAQ</h1>
+            <h1 className="ui-page-title text-slate-900">Manajemen FAQ</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
               {totalItems} Pertanyaan
             </span>

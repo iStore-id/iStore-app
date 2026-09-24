@@ -113,7 +113,7 @@ export default function AdminIncidentPage() {
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 className="ui-page-title text-gray-900 flex items-center gap-3">
             <AlertTriangle className="w-8 h-8 text-red-600" />
             Incident Management
           </h1>

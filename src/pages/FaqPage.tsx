@@ -106,7 +106,7 @@ export default function FaqPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-100 text-primary mb-1 shadow-xs">
             <HelpCircle className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="ui-page-title text-slate-900">
             Pusat Bantuan & Pertanyaan Umum
           </h1>
           <p className="text-slate-600 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">

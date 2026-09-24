@@ -346,7 +346,7 @@ export default function AdminSettlementPage() {
       {/* Header */}
       <div id="settlement-header" className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 id="settlement-page-title" className="text-3xl font-bold text-gray-900 tracking-tight">Penyelesaian Finansial</h1>
+          <h1 id="settlement-page-title" className="ui-page-title text-gray-900">Penyelesaian Finansial</h1>
           <p id="settlement-page-subtitle" className="text-sm text-gray-500 mt-1">Rekonsiliasi berkas harian Midtrans Merchant Portal, pelaporan MDR, dan audit dana bersih.</p>
         </div>
         <button

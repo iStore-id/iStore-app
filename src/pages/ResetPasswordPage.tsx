@@ -77,7 +77,7 @@ export default function ResetPasswordPage() {
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-3">Berhasil!</h1>
+          <h1 className="ui-page-title text-slate-900 mb-2">Berhasil!</h1>
           <p className="text-slate-600 mb-8 leading-relaxed">
             Kata sandi Anda telah berhasil diperbarui. Silakan gunakan kata sandi baru untuk masuk ke akun Anda.
           </p>
@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
           <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             <ShieldCheck className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Atur Ulang Kata Sandi</h1>
+          <h1 className="ui-page-title text-slate-900">Atur Ulang Kata Sandi</h1>
           <p className="text-slate-500 text-sm mt-1">
             Buat kata sandi baru yang memenuhi kebijakan keamanan Toko Kami
           </p>

@@ -65,7 +65,7 @@ export default function MembershipStatusPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <Crown className="w-16 h-16 text-gray-200 mx-auto mb-6" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Membership VIP Toko</h1>
+        <h1 className="ui-page-title text-gray-900 mb-2">Membership VIP Toko</h1>
         <p className="text-gray-500 mb-8 max-w-md mx-auto">Masuk untuk melihat status keanggotaan Anda dan menikmati berbagai keuntungan eksklusif.</p>
         <Link to="/login" className="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200">
           Login Sekarang
@@ -78,7 +78,7 @@ export default function MembershipStatusPage() {
     <div className="max-w-5xl mx-auto px-4 py-12 space-y-12">
       {/* Header & Hero */}
       <div className="text-center space-y-4">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">VIP Membership</h1>
+        <h1 className="ui-page-title text-gray-900">VIP Membership</h1>
         <p className="text-gray-500 max-w-2xl mx-auto">Nikmati harga khusus member, multiplier poin lebih tinggi, dan akses eksklusif ke berbagai produk digital.</p>
       </div>
 

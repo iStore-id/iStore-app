@@ -113,7 +113,7 @@ export function AdminFeatureFlagsPage() {
     <div className="space-y-6 max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Feature Flags</h1>
+          <h1 className="ui-page-title text-slate-900 dark:text-white">Feature Flags</h1>
           <p className="text-slate-500 dark:text-slate-400 mt-2">
             Manage experimental and optional features across the platform.
           </p>

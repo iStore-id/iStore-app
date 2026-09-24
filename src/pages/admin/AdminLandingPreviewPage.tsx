@@ -163,7 +163,7 @@ export default function AdminLandingPreviewPage() {
                           {block.data.badge}
                         </span>
                       )}
-                      <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
+                      <h1 className="ui-page-title sm: text-white mb-3">
                         {block.data?.title || landing.title}
                       </h1>
                       {block.data?.subtitle && (
@@ -377,7 +377,7 @@ export default function AdminLandingPreviewPage() {
           })
         ) : (
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-100">
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{landing.title}</h1>
+            <h1 className="ui-page-title text-slate-900 mb-2">{landing.title}</h1>
             <p className="text-slate-600 text-sm">{landing.description}</p>
           </div>
         )}

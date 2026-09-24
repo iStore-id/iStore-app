@@ -131,7 +131,8 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
             address: ""
           },
           socialMedia: {},
-          catalogMarqueeText: "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."
+          catalogMarqueeText: "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
+          showCatalogMarquee: true
         }
       });
     }
@@ -145,6 +146,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         description: config.description || "",
         tagline: config.basicInformation?.tagline || "",
         catalogMarqueeText: config.catalogMarqueeText?.trim() || "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
+        showCatalogMarquee: config.showCatalogMarquee ?? true,
         primaryColor: config.primaryColor || "#ff4400",
         secondaryColor: config.secondaryColor || "#0f172a",
         brandTextColor: config.brandTextColor || config.primaryColor || "#0f172a",

@@ -369,7 +369,7 @@ export default function SystemLogsPage() {
               <Terminal className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">System Logs</h1>
+              <h1 className="ui-page-title text-white">System Logs</h1>
               <p className="text-sm text-zinc-400">
                 Pemantauan telemetri runtime, eksekusi API, webhook, dispatch provider, dan keamanan server.
               </p>

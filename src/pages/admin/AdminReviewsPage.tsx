@@ -90,7 +90,7 @@ export default function AdminReviewsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Review Management</h1>
+          <h1 className="ui-page-title text-gray-900">Review Management</h1>
           <p className="text-sm text-gray-500">Moderasi ulasan produk dan pantau rating kepuasan pelanggan.</p>
         </div>
       </div>

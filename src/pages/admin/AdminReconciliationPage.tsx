@@ -195,7 +195,7 @@ export function AdminReconciliationPage() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="ui-page-title text-slate-900 flex items-center gap-2">
             <Scale className="w-7 h-7 text-indigo-600" />
             Reconciliation Control Center
           </h1>

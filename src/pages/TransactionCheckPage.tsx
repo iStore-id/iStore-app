@@ -19,7 +19,7 @@ export default function TransactionCheckPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 md:py-24">
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-slate-900 mb-4">Cek Status Transaksi</h1>
+        <h1 className="ui-page-title text-slate-900 mb-2">Cek Status Transaksi</h1>
         <p className="text-slate-600">Masukkan nomor invoice Anda untuk melacak status pesanan secara real-time.</p>
       </div>
 

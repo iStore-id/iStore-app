@@ -63,6 +63,7 @@ export interface StoreConfiguration {
   logoStyle?: 'natural' | 'circle' | 'rounded-box';
   logoShowName?: boolean;
   catalogMarqueeText?: string;
+  showCatalogMarquee?: boolean;
   
   // Custom Homepage Background Settings
   homepageBackgroundColor?: string;

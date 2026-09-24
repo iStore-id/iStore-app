@@ -79,7 +79,7 @@ export default function TransactionHistoryPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-      <h1 className="text-2xl font-bold text-slate-900 mb-8">Riwayat Transaksi</h1>
+      <h1 className="ui-page-title text-slate-900 mb-6">Riwayat Transaksi</h1>
       
       {orders.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">

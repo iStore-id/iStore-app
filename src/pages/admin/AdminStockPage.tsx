@@ -11,7 +11,7 @@ export default function AdminStockPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Stock & Quota</h1>
+          <h1 className="ui-page-title text-slate-900">Stock & Quota</h1>
           <p className="text-slate-500">Pusat pengelolaan operasional inventory (Stock) dan limits (Quota) iStore.</p>
         </div>
       </div>

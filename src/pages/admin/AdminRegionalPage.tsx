@@ -207,7 +207,7 @@ export default function AdminRegionalPage() {
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="ui-page-title text-slate-900 flex items-center gap-2">
             <Globe className="w-6 h-6 text-blue-600" />
             Regional, Bahasa & Mata Uang
           </h1>

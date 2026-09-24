@@ -85,7 +85,7 @@ export default function AdminCalendarPage() {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="ui-page-title text-gray-900 flex items-center gap-2">
             <CalendarIcon className="w-8 h-8 text-blue-600" />
             Business Calendar
           </h1>

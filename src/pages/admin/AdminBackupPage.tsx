@@ -76,7 +76,7 @@ export function AdminBackupPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Backup & Recovery</h1>
+          <h1 className="ui-page-title text-slate-900">Backup & Recovery</h1>
           <p className="text-sm text-slate-500 mt-1">Configure and monitor database backups and disaster recovery readiness.</p>
         </div>
         <button

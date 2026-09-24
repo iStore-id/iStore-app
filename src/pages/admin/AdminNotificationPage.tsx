@@ -120,7 +120,7 @@ export default function AdminNotificationPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="ui-page-title text-gray-900 flex items-center gap-2">
             <Bell className="w-6 h-6 text-indigo-600" />
             Notifikasi Sistem
             {unreadCount > 0 && (

@@ -273,7 +273,7 @@ export default function SecurityPage() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Pusat Keamanan & Kebijakan Akses (Security)</h1>
+              <h1 className="ui-page-title text-slate-900">Pusat Keamanan & Kebijakan Akses (Security)</h1>
               <p className="text-sm text-slate-500">
                 Kelola perlindungan otentikasi, rate limit anti-abuse, firewall IP, isolasi pelanggan, dan mode darurat.
               </p>

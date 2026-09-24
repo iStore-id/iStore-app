@@ -96,7 +96,7 @@ export default function AdminReferralPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Referral Engine</h1>
+          <h1 className="ui-page-title text-gray-900">Referral Engine</h1>
           <p className="text-gray-500">Manajemen program ajak teman dan reward atribusi.</p>
         </div>
         <div className="flex gap-2">

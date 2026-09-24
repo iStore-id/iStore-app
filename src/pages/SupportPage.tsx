@@ -144,7 +144,7 @@ export default function SupportPage() {
             </button>
           )}
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Bantuan & Dukungan</h1>
+            <h1 className="ui-page-title text-slate-900">Bantuan & Dukungan</h1>
             <p className="text-sm text-slate-500">Kami siap membantu kendala Anda.</p>
           </div>
         </div>

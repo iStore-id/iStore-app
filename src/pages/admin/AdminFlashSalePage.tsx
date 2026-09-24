@@ -235,7 +235,7 @@ export default function AdminFlashSalePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 whitespace-normal break-words">Flash Sale Management</h1>
+          <h1 className="ui-page-title text-gray-900 whitespace-normal break-words">Flash Sale Management</h1>
           <p className="text-sm text-gray-500">Kelola kampanye flash sale terbatas dan kuota khusus produk.</p>
         </div>
         <button

@@ -181,7 +181,7 @@ export default function AdminDomainPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+          <h1 className="ui-page-title text-gray-900 flex items-center gap-2">
             <Globe className="w-6 h-6 text-indigo-600" />
             Pengaturan Domain & SSL
           </h1>

@@ -150,6 +150,7 @@ export default function AdminBrandingPage() {
   const [tagline, setTagline] = useState("");
   const [description, setDescription] = useState("");
   const [catalogMarqueeText, setCatalogMarqueeText] = useState("");
+  const [showCatalogMarquee, setShowCatalogMarquee] = useState(true);
 
   // Aset Visual
   const [logo, setLogo] = useState("");
@@ -229,6 +230,7 @@ export default function AdminBrandingPage() {
         setTagline(cfg.basicInformation?.tagline || "");
         setDescription(cfg.description || "");
         setCatalogMarqueeText(cfg.catalogMarqueeText || "");
+        setShowCatalogMarquee(cfg.showCatalogMarquee ?? true);
         setLogo(cfg.logo || "");
         setFavicon(cfg.favicon || "");
         setPrimaryColor(cfg.primaryColor || "#ff4400");
@@ -352,6 +354,7 @@ export default function AdminBrandingPage() {
       favicon: favicon.trim(),
       description: description.trim(),
       catalogMarqueeText: catalogMarqueeText.trim(),
+      showCatalogMarquee,
       primaryColor: sanitizeHex(primaryColor, config.primaryColor || "#ff4400"),
       secondaryColor: sanitizeHex(secondaryColor, config.secondaryColor || "#0f172a"),
       brandTextColor: sanitizeHex(brandTextColor, config.brandTextColor || "#0f172a"),
@@ -584,7 +587,7 @@ export default function AdminBrandingPage() {
             <Palette className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="ui-page-title text-slate-900">
               Pengaturan Branding & Tema Toko
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -698,9 +701,30 @@ export default function AdminBrandingPage() {
                     placeholder="Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-slate-400 mt-1 mb-2">
                     Teks marquee berjalan (KANAN → KIRI) pada bagian atas katalog game di Homepage. Jika kosong, menggunakan teks default.
                   </p>
+                  
+                  {/* ON/OFF toggle settings for marquee display */}
+                  <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60 mt-2">
+                    <div>
+                      <h4 className="text-[11px] font-bold text-slate-900">Aktifkan Teks Berjalan</h4>
+                      <p className="text-[9px] text-slate-500">Tampilkan atau sembunyikan teks marquee berjalan pada katalog di Homepage.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCatalogMarquee(!showCatalogMarquee)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
+                        showCatalogMarquee ? 'bg-indigo-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          showCatalogMarquee ? 'translate-x-5' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">

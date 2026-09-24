@@ -255,7 +255,7 @@ export default function BlogDetailPage() {
 
       {/* Top Breadcrumb Bar */}
       <div className="bg-white border-b border-slate-200/80">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-2 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
             <Link to="/" className="hover:text-brand-600 transition-colors">
               Beranda
@@ -281,7 +281,7 @@ export default function BlogDetailPage() {
       {/* ========================================================================= */}
       {/* ARTIKEL AKTIF (FULL CONTENT ARTIKEL) */}
       {/* ========================================================================= */}
-      <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
+      <article className="max-w-[1600px] mx-auto px-2 sm:px-6 pt-8 sm:pt-12">
         {/* Article Meta & Header */}
         <header className="space-y-4 text-left">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -304,12 +304,12 @@ export default function BlogDetailPage() {
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          <h1 className="ui-page-title text-slate-900 mb-2">
             {blog.title}
           </h1>
 
           {blog.excerpt && (
-            <p className="text-base sm:text-xl text-slate-600 leading-relaxed font-normal pt-1">
+            <p className="ui-subheading text-slate-500 pt-1">
               {blog.excerpt}
             </p>
           )}
@@ -358,7 +358,7 @@ export default function BlogDetailPage() {
 
         {/* Cover Image from Media Library */}
         {blog.coverMediaUrl && (
-          <figure className="my-8 rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
+          <figure className="my-8 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
             <img
               src={blog.coverMediaUrl}
               alt={blog.title}
@@ -368,7 +368,7 @@ export default function BlogDetailPage() {
         )}
 
         {/* Article Body Content */}
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs my-8">
+        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-10 border border-slate-200/80 shadow-xs my-8">
           <BlogContentRenderer content={blog.content} />
 
           {/* Tags */}
@@ -398,7 +398,7 @@ export default function BlogDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Game Card */}
               {blog.relatedGame && (
-                <div className="p-5 rounded-3xl bg-gradient-to-br from-brand-900 to-brand-900 text-white flex items-center justify-between shadow-sm">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-brand-900 to-brand-900 text-white flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3.5">
                     <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md overflow-hidden border border-white/20 shrink-0 flex items-center justify-center">
                       {blog.relatedGame.image ? (
@@ -431,7 +431,7 @@ export default function BlogDetailPage() {
 
               {/* Promo Voucher Card */}
               {blog.relatedPromo && (
-                <div className="p-5 rounded-3xl bg-emerald-50 border border-emerald-200 flex items-center justify-between shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-emerald-50 border border-emerald-200 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
                       <Tag className="w-6 h-6" />
@@ -468,7 +468,7 @@ export default function BlogDetailPage() {
 
               {/* Landing Page Card */}
               {blog.relatedLanding && (
-                <div className="p-5 rounded-3xl bg-brand-50 border border-brand-200 flex items-center justify-between shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-brand-50 border border-brand-200 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center shrink-0">
                       <Layout className="w-6 h-6" />
@@ -493,7 +493,7 @@ export default function BlogDetailPage() {
 
               {/* Campaign Card */}
               {blog.relatedCampaign && (
-                <div className="p-5 rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-between shadow-xs">
+                <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-3.5">
                     <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0">
                       <Flame className="w-6 h-6" />

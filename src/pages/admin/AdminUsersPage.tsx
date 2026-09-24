@@ -446,7 +446,7 @@ export default function AdminUsersPage() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 className="ui-page-title text-slate-900 flex items-center gap-2">
             <Users className="w-7 h-7 text-indigo-600" />
             Manajemen Pengguna & Pelanggan
           </h1>

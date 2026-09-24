@@ -32,7 +32,7 @@ export default function AdminApiGamesIntegrationPage() {
               <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
                 <Gamepad2 className="w-5 h-5" />
               </span>
-              <h1 className="text-2xl font-bold text-slate-900">API Games Integration</h1>
+              <h1 className="ui-page-title text-slate-900">API Games Integration</h1>
             </div>
             <p className="text-sm text-slate-500 mt-1">Kelola kredensial merchant dan secret key untuk supplier top-up game API Games.</p>
           </div>

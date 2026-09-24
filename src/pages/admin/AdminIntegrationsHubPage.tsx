@@ -39,7 +39,7 @@ export default function AdminIntegrationsHubPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Integrations Hub</h1>
+        <h1 className="ui-page-title text-slate-900">Integrations Hub</h1>
         <p className="text-sm text-slate-500 mt-1">Pusat resmi untuk mengelola seluruh koneksi layanan pihak ketiga, payment gateway, dan supplier produk digital.</p>
       </div>
 

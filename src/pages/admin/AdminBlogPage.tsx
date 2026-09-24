@@ -539,7 +539,7 @@ export default function AdminBlogPage() {
               <FileText className="w-6 h-6" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight whitespace-normal break-words">Blog & Artikel</h1>
+              <h1 className="ui-page-title text-slate-900 whitespace-normal break-words">Blog & Artikel</h1>
               <p className="text-sm text-slate-500 mt-0.5 truncate">
                 Kelola artikel, berita promosi, tips game, dan tutorial untuk customer iStore.id
               </p>
@@ -1607,7 +1607,7 @@ export default function AdminBlogPage() {
                     </span>
                   </div>
 
-                  <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight mb-4">
+                  <h1 className="ui-page-title text-slate-900 mb-2">
                     {previewBlog.title}
                   </h1>
 

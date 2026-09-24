@@ -208,7 +208,7 @@ export default function AdminNotificationSettingsPage() {
             <Settings className="h-5 w-5 text-neutral-400" />
             <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Pengaturan</span>
           </div>
-          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Konfigurasi Notifikasi</h1>
+          <h1 className="ui-page-title text-neutral-900">Konfigurasi Notifikasi</h1>
           <p className="text-sm text-neutral-500 mt-1">
             Kelola saluran pengiriman dan pilih event sistem apa saja yang aktif mengirimkan notifikasi.
           </p>

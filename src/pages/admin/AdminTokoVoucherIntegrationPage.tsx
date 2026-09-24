@@ -195,7 +195,7 @@ export default function AdminTokoVoucherIntegrationPage() {
               <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
                 <Wallet className="w-5 h-5" />
               </span>
-              <h1 className="text-2xl font-bold text-slate-900">TokoVoucher Integration Management</h1>
+              <h1 className="ui-page-title text-slate-900">TokoVoucher Integration Management</h1>
             </div>
             <p className="text-sm text-slate-500 mt-1">Kelola kredensial, status, dan konektivitas official supplier TokoVoucher.</p>
           </div>

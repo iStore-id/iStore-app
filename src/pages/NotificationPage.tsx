@@ -102,7 +102,7 @@ export default function NotificationPage() {
           <ChevronLeft className="w-6 h-6 text-slate-600" />
         </button>
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+          <h1 className="ui-page-title text-slate-900 flex items-center gap-3">
             Notifikasi Saya
             {unreadCount > 0 && (
               <span className="px-2 py-0.5 text-xs font-bold bg-brand-600 text-white rounded-full">

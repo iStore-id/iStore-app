@@ -57,7 +57,7 @@ export default function AdminSupportPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <h1 className="ui-page-title text-slate-900 flex items-center gap-2">
             <Headset className="w-7 h-7 text-primary" />
             Support & Ticketing
           </h1>

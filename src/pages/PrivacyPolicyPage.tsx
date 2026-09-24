@@ -92,7 +92,7 @@ export default function PrivacyPolicyPage() {
                     <FileCheck className="w-3 h-3 text-brand-600" />
                     <span>Versi {privacyData.privacyPolicy.version || "1.0.0"}</span>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  <h1 className="ui-page-title text-slate-900">
                     {privacyData.privacyPolicy.title || "Kebijakan Privasi"}
                   </h1>
                 </div>

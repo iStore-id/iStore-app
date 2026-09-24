@@ -121,7 +121,7 @@ export default function AdminDashboardPage() {
       {/* Header & Range Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="min-w-0">
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight break-words">Dashboard</h2>
+          <h1 className="ui-page-title text-slate-900 break-words">Dashboard</h1>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <p className="text-slate-500 text-sm md:text-base">
               Pantau performa bisnis dan kesehatan operasional iStore.id.

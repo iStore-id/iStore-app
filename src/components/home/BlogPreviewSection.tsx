@@ -55,7 +55,7 @@ export default function BlogPreviewSection() {
         
         {/* Section Header */}
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h2 className="ui-section-title text-slate-900">
             Blog & Berita
           </h2>
 
@@ -88,7 +88,7 @@ export default function BlogPreviewSection() {
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="w-[230px] xs:w-[250px] sm:w-auto shrink-0 bg-white rounded-3xl p-3 border border-slate-200/70 shadow-2xs flex flex-col justify-between animate-pulse"
+                className="w-[190px] xs:w-[215px] sm:w-auto shrink-0 bg-white rounded-3xl p-3 border border-slate-200/70 shadow-2xs flex flex-col justify-between animate-pulse"
               >
                 <div className="aspect-[16/10] w-full rounded-2xl bg-slate-200 mb-3.5"></div>
                 <div className="space-y-2.5 flex-1">
@@ -107,7 +107,7 @@ export default function BlogPreviewSection() {
           <div className="relative">
             {/* 
               Responsive & Adaptive container:
-              - Mobile (< 640px): Flexible horizontal snap-carousel with compact proportional cards (w-[230px] to w-[250px]).
+              - Mobile (< 640px): Flexible horizontal snap-carousel with compact proportional cards (w-[190px] to w-[215px]).
                 Multiple cards peek in one viewport so user immediately notices it is scrollable.
                 Never a rigid 1-card-full-screen block!
               - Tablet & Desktop (>= 640px): CSS Auto-fill grid (minmax 260px, 1fr) adapting fluidly to container width.
@@ -120,7 +120,8 @@ export default function BlogPreviewSection() {
                 <BlogCard
                   key={blog.id}
                   blog={blog}
-                  className="w-[230px] xs:w-[250px] sm:w-auto shrink-0 snap-start"
+                  variant="compact"
+                  className="w-[190px] xs:w-[215px] sm:w-auto shrink-0 snap-start"
                   headingLevel="h3"
                 />
               ))}

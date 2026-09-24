@@ -286,7 +286,7 @@ export default function AdminRefundsPage() {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Manajemen Pengembalian Dana (Refund)</h1>
+          <h1 className="ui-page-title text-slate-900">Manajemen Pengembalian Dana (Refund)</h1>
           <p className="text-slate-500 mt-1">Kelola permohonan, riwayat pencatatan, dan mutasi saldo refund transaksi secara terpusat.</p>
         </div>
         <div className="flex items-center gap-3">

@@ -38,6 +38,36 @@
     --text-muted: var(--text-secondary-color, #64748b);
     --border-main: var(--border-color, #e2e8f0);
   }
+
+  /* Global typography reset & consistency enforcement */
+  h1, .ui-h1, .h1 {
+    @apply text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight;
+  }
+
+  h2, .ui-h2, .h2 {
+    @apply text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 leading-snug;
+  }
+
+  h3, .ui-h3, .h3 {
+    @apply text-sm sm:text-base font-bold text-slate-900 leading-snug;
+  }
+
+  /* Compact Semantic Components utility classes */
+  .ui-page-title {
+    @apply text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight;
+  }
+
+  .ui-section-title {
+    @apply text-lg sm:text-xl lg:text-2xl font-bold tracking-tight text-slate-900 leading-snug;
+  }
+
+  .ui-card-title {
+    @apply text-xs sm:text-sm lg:text-base font-bold text-slate-900 leading-snug;
+  }
+
+  .ui-subheading {
+    @apply text-[11px] sm:text-xs lg:text-sm text-slate-500 font-normal leading-relaxed;
+  }
 }
 
 @layer utilities {

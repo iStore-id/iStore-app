@@ -592,7 +592,7 @@ export const AdminCustomerSegmentsPage: React.FC = () => {
               <Users className="w-6 h-6 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">Customer Segments Engine</h1>
+              <h1 className="ui-page-title text-slate-900">Customer Segments Engine</h1>
               <p className="text-sm text-slate-500">
                 Segmentasi target audiens berbasis aturan dinamis dan kurasi statis (Phase C2).
               </p>

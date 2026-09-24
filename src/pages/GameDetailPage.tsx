@@ -516,7 +516,7 @@ export default function GameDetailPage() {
             <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover" />
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">{game.name}</h1>
+            <h1 className="ui-page-title text-slate-900 mb-1">{game.name}</h1>
             <p className="text-slate-500 text-sm mb-3 line-clamp-2">{game.description}</p>
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">

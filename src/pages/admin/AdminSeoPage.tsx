@@ -261,7 +261,7 @@ export default function AdminSeoPage() {
               <Search className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Marketing & Konten → SEO</h1>
+              <h1 className="ui-page-title text-slate-900">Marketing & Konten → SEO</h1>
               <p className="text-sm text-slate-500 mt-0.5">
                 Orkestrasi metadata terpusat, canonical URL, Open Graph, Sitemap XML, dan Robots.txt.
               </p>

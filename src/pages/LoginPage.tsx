@@ -259,7 +259,7 @@ export default function LoginPage() {
               {storeName.charAt(0).toUpperCase()}
             </div>
           )}
-          <h1 className="text-2xl font-bold text-slate-900">Masuk ke {storeName}</h1>
+          <h1 className="ui-page-title text-slate-900">Masuk ke {storeName}</h1>
           <p className="text-slate-500 mt-2 text-sm">Silakan pilih metode masuk Anda</p>
         </div>
 

@@ -154,7 +154,7 @@ export default function AdminLoyaltyPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Poin & Loyalty Management</h1>
+          <h1 className="ui-page-title text-gray-900">Poin & Loyalty Management</h1>
           <p className="text-sm text-gray-500">Kelola aturan earning, penukaran poin, dan riwayat transaksi poin pelanggan.</p>
         </div>
         <button

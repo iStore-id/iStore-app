@@ -251,7 +251,7 @@ export default function AdminPaymentsPage() {
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Log Pembayaran & Transaksi</h1>
+          <h1 className="ui-page-title text-slate-900">Log Pembayaran & Transaksi</h1>
           <p className="text-slate-500 mt-1">Pantau rincian rekonsiliasi, detail pesanan, dan siklus transaksi iStore secara *real-time*.</p>
         </div>
         <button 

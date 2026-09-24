@@ -501,7 +501,7 @@ export default function RoleManagementPage() {
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold text-slate-900">Roles & Permissions Engine</h1>
+                <h1 className="ui-page-title text-slate-900">Roles & Permissions Engine</h1>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <Shield className="w-3.5 h-3.5" />
                   RBAC Active

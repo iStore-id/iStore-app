@@ -144,7 +144,7 @@ export default function PublicLandingPage() {
                           {block.data.badge}
                         </span>
                       )}
-                      <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
+                      <h1 className="ui-page-title text-white mb-3">
                         {block.data?.title || landing.title}
                       </h1>
                       {block.data?.subtitle && (
@@ -174,7 +174,7 @@ export default function PublicLandingPage() {
                     }`}
                   >
                     {block.data?.heading && (
-                      <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4">
+                      <h2 className="ui-section-title text-slate-900 mb-4">
                         {block.data.heading}
                       </h2>
                     )}
@@ -333,7 +333,7 @@ export default function PublicLandingPage() {
                     className="bg-gradient-to-r from-slate-900 to-brand-950 text-white rounded-3xl p-8 sm:p-10 text-center shadow-sm"
                   >
                     {block.data?.title && (
-                      <h3 className="text-xl sm:text-2xl font-bold mb-2 text-white">
+                      <h3 className="ui-section-title mb-2 text-white">
                         {block.data.title}
                       </h3>
                     )}
@@ -358,7 +358,7 @@ export default function PublicLandingPage() {
           })
         ) : (
           <div className="bg-white rounded-3xl p-8 text-center border border-slate-100">
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{landing.title}</h1>
+            <h1 className="ui-page-title text-slate-900 mb-2">{landing.title}</h1>
             <p className="text-slate-600 text-sm">{landing.description}</p>
           </div>
         )}

@@ -130,7 +130,7 @@ export default function BlogListPage() {
             <Sparkles className="w-3.5 h-3.5" />
             Toko Editorial & Gaming News
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="ui-page-title text-white">
             Blog, Tips & Wawasan Gaming
           </h1>
           <p className="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
@@ -267,7 +267,7 @@ export default function BlogListPage() {
                         </span>
                       </div>
 
-                      <h2 className="text-xl sm:text-3xl font-extrabold text-slate-900 group-hover:text-brand-600 transition-colors leading-tight">
+                      <h2 className="ui-section-title text-slate-900 group-hover:text-brand-600 transition-colors">
                         {featuredBlog.title}
                       </h2>
 

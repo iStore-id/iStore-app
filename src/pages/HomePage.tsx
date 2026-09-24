@@ -19,6 +19,7 @@ import { useSEO } from "../lib/seo";
 export default function HomePage() {
   const [storeName, setStoreName] = useState("Toko Kami");
   const [catalogMarqueeText, setCatalogMarqueeText] = useState("Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.");
+  const [showCatalogMarquee, setShowCatalogMarquee] = useState<boolean>(true);
   const [homepageBackgroundColor, setHomepageBackgroundColor] = useState<string>("");
   const [homepageBackgroundImage, setHomepageBackgroundImage] = useState<string>("");
   const [homepageBackgroundMode, setHomepageBackgroundMode] = useState<"color" | "image">("color");
@@ -33,6 +34,9 @@ export default function HomePage() {
         }
         if (config.catalogMarqueeText && config.catalogMarqueeText.trim() !== "") {
           setCatalogMarqueeText(config.catalogMarqueeText.trim());
+        }
+        if (config.showCatalogMarquee !== undefined) {
+          setShowCatalogMarquee(config.showCatalogMarquee);
         }
         if (config.homepageBackgroundColor) {
           setHomepageBackgroundColor(config.homepageBackgroundColor);
@@ -293,7 +297,7 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
             <div className="text-left">
               {(navFilter.type !== "all" || searchQuery) && (
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">
+                <h2 className="ui-section-title text-slate-950">
                   {navFilter.type === "game"
                     ? `Game: ${popularGames.find((g) => g.id === navFilter.id)?.name || "Katalog Game"}`
                     : navFilter.type === "category"
@@ -302,20 +306,22 @@ export default function HomePage() {
                 </h2>
               )}
               {navFilter.type === "all" && !searchQuery ? (
-                <div className="overflow-hidden w-full max-w-xl py-0.5">
-                  <motion.div
-                    animate={{ x: ["100%", "-100%"] }}
-                    transition={{
-                      repeat: Infinity,
-                      repeatType: "loop",
-                      duration: 16,
-                      ease: "linear",
-                    }}
-                    className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
-                  >
-                    {catalogMarqueeText}
-                  </motion.div>
-                </div>
+                showCatalogMarquee ? (
+                  <div className="overflow-hidden w-full max-w-xl py-0.5">
+                    <motion.div
+                      animate={{ x: ["100%", "-100%"] }}
+                      transition={{
+                        repeat: Infinity,
+                        repeatType: "loop",
+                        duration: 16,
+                        ease: "linear",
+                      }}
+                      className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
+                    >
+                      {catalogMarqueeText}
+                    </motion.div>
+                  </div>
+                ) : null
               ) : (
                 <p className="text-slate-500 mt-1 sm:mt-1.5 text-xs sm:text-sm max-w-xl">
                   {navFilter.type === "game"
@@ -507,11 +513,11 @@ export default function HomePage() {
         <section className={`py-8 sm:py-10 lg:py-12 ${hasCustomBg ? "bg-slate-50/80 backdrop-blur-xs" : "bg-slate-50"} px-4 sm:px-6 lg:px-8 border-t border-slate-150`}>
           <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
             <div className="text-center space-y-2 sm:space-y-2.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wider uppercase bg-brand-50 text-brand-600 border border-brand-100 mx-auto">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-brand-600 mx-auto">
                 <HelpCircle className="w-3.5 h-3.5 text-brand-600" />
                 <span>Pusat Informasi</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">
+              <h2 className="ui-section-title text-slate-950">
                 Pertanyaan Umum (FAQ)
               </h2>
               <p className="text-slate-500 text-xs sm:text-sm max-w-xl mx-auto">

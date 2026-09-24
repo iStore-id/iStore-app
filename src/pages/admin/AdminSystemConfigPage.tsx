@@ -92,7 +92,7 @@ export function AdminSystemConfigPage() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">System Configuration</h1>
+          <h1 className="ui-page-title text-slate-900">System Configuration</h1>
           <p className="text-sm text-slate-500 mt-1">System-wide Configuration Control Center.</p>
         </div>
         <button

@@ -66,7 +66,7 @@ export default function SLAPage() {
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
               <Activity className="w-6 h-6" />
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Service Level Agreement</h1>
+            <h1 className="ui-page-title text-slate-900">Service Level Agreement</h1>
           </div>
           <p className="text-slate-500 max-w-2xl">
             Pantau dan kelola kebijakan SLA operasional untuk memastikan kualitas layanan pengiriman produk digital tetap dalam target.

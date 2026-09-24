@@ -181,7 +181,7 @@ export default function AdminPrivacyPage() {
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="ui-page-title text-slate-900">
                 Kebijakan Privasi & Legal
               </h1>
               <p className="text-xs sm:text-sm text-slate-500">

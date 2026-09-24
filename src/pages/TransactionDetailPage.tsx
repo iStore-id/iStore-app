@@ -163,7 +163,7 @@ export default function TransactionDetailPage() {
            order.transactionStatus === 'failed' ? <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" /> :
            <Clock className="w-16 h-16 text-brand-500 mx-auto mb-4" />}
           
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">
+          <h1 className="ui-page-title text-slate-900 mb-2">
             {order.transactionStatus === 'success' ? 'Transaksi Berhasil' :
              order.transactionStatus === 'failed' ? 'Transaksi Gagal' :
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :

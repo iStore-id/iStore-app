@@ -566,7 +566,7 @@ export default function AdminLandingsPage() {
             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
               <Layout className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Landing Pages</h1>
+            <h1 className="ui-page-title text-slate-900">Landing Pages</h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
             Bangun dan publikasikan halaman kampanye promosi dan event khusus iStore.id
