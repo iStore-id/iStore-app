@@ -20,35 +20,32 @@ export default function HomePage() {
   const [storeName, setStoreName] = useState("Toko Kami");
   const [catalogMarqueeText, setCatalogMarqueeText] = useState("Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.");
   const [showCatalogMarquee, setShowCatalogMarquee] = useState<boolean>(true);
-  const [homepageBackgroundColor, setHomepageBackgroundColor] = useState<string>("");
-  const [homepageBackgroundImage, setHomepageBackgroundImage] = useState<string>("");
-  const [homepageBackgroundMode, setHomepageBackgroundMode] = useState<"color" | "image">("color");
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const location = useLocation();
 
   useEffect(() => {
-    fetchStoreConfig().then(config => {
-      if (config) {
-        if (config.name) {
-          setStoreName(config.name);
+    const loadConfig = () => {
+      fetchStoreConfig().then(config => {
+        if (config) {
+          if (config.name) {
+            setStoreName(config.name);
+          }
+          if (config.catalogMarqueeText && config.catalogMarqueeText.trim() !== "") {
+            setCatalogMarqueeText(config.catalogMarqueeText.trim());
+          }
+          if (config.showCatalogMarquee !== undefined) {
+            setShowCatalogMarquee(config.showCatalogMarquee);
+          }
         }
-        if (config.catalogMarqueeText && config.catalogMarqueeText.trim() !== "") {
-          setCatalogMarqueeText(config.catalogMarqueeText.trim());
-        }
-        if (config.showCatalogMarquee !== undefined) {
-          setShowCatalogMarquee(config.showCatalogMarquee);
-        }
-        if (config.homepageBackgroundColor) {
-          setHomepageBackgroundColor(config.homepageBackgroundColor);
-        }
-        if (config.homepageBackgroundImage) {
-          setHomepageBackgroundImage(config.homepageBackgroundImage);
-        }
-        if (config.homepageBackgroundMode) {
-          setHomepageBackgroundMode(config.homepageBackgroundMode);
-        }
-      }
-    });
+      });
+    };
+
+    loadConfig();
+
+    window.addEventListener("store-config-updated", loadConfig);
+    return () => {
+      window.removeEventListener("store-config-updated", loadConfig);
+    };
   }, []);
 
   useSEO({
@@ -233,20 +230,14 @@ export default function HomePage() {
     ? heroBanners.filter(b => bannerIdsFilter.includes(b.id))
     : heroBanners;
 
-  const hasCustomColor = homepageBackgroundMode === "color" && Boolean(homepageBackgroundColor);
-  const hasCustomImage = homepageBackgroundMode === "image" && Boolean(homepageBackgroundImage);
-  const hasCustomBg = hasCustomColor || hasCustomImage;
-
   return (
-    <div className={`flex flex-col w-full min-h-screen ${!hasCustomBg ? "bg-slate-50/50" : ""}`}>
+    <div className="flex flex-col w-full min-h-screen">
       <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />
       
       {/* Premium Hero Section */}
       {displayedBanners.length > 0 && (
-        <section className="w-full bg-slate-950 relative overflow-hidden border-b border-slate-900">
-          <div className="max-w-7xl mx-auto px-4">
-            <HeroBannerCarousel banners={displayedBanners} />
-          </div>
+        <section className="w-full relative overflow-hidden border-b border-slate-200/80 [.public-storefront[data-theme='dark']_&]:border-slate-900 transition-colors duration-300">
+          <HeroBannerCarousel banners={displayedBanners} />
         </section>
       )}
 
@@ -444,8 +435,8 @@ export default function HomePage() {
                             <Link 
                               to={`/games/${game.slug}`} 
                               key={game.id} 
-                              className="group relative aspect-[1/1.15] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border shadow-2xs hover:shadow-lg transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
-                              style={{ borderColor: 'var(--border-color)' }}
+                              className="group relative aspect-[1/1.15] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-lg transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
+                              style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
                             >
                               <img 
                                 src={game.image || fallbackImg} 
@@ -510,7 +501,7 @@ export default function HomePage() {
 
       {/* Customer FAQ Preview Section */}
       {homeFaqs.length > 0 && (
-        <section className={`py-8 sm:py-10 lg:py-12 ${hasCustomBg ? "bg-slate-50/80 backdrop-blur-xs" : "bg-slate-50"} px-4 sm:px-6 lg:px-8 border-t border-slate-150`}>
+        <section className="py-8 sm:py-10 lg:py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-150">
           <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
             <div className="text-center space-y-2 sm:space-y-2.5">
               <div className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-brand-600 mx-auto">

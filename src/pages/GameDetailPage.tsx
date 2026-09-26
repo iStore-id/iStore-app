@@ -21,6 +21,20 @@ function hexToRgba(hex: string, opacity: number) {
   return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
 }
 
+function isHexDark(hex?: string): boolean {
+  if (!hex || typeof hex !== 'string') return false;
+  let c = hex.replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map(char => char + char).join('');
+  }
+  if (c.length !== 6) return false;
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}
+
 export interface AccountInputField {
   name: string;
   label: string;
@@ -123,6 +137,49 @@ export default function GameDetailPage() {
   const [cardColor, setCardColor] = useState("#ffffff");
   const [cardOpacity, setCardOpacity] = useState(85);
   const [cardBlur, setCardBlur] = useState<"none" | "sm" | "md" | "lg">("md");
+
+  // Track active theme from .public-storefront[data-theme]
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (typeof document !== "undefined") {
+      const storefront = document.querySelector(".public-storefront");
+      if (storefront) {
+        return storefront.getAttribute("data-theme") === "dark";
+      }
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const storefront = document.querySelector(".public-storefront");
+    if (!storefront) return;
+
+    const checkTheme = () => {
+      setIsDarkMode(storefront.getAttribute("data-theme") === "dark");
+    };
+
+    checkTheme();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === "attributes" && m.attributeName === "data-theme") {
+          checkTheme();
+        }
+      }
+    });
+
+    observer.observe(storefront, { attributes: true, attributeFilter: ["data-theme"] });
+    window.addEventListener("store-config-updated", checkTheme);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("store-config-updated", checkTheme);
+    };
+  }, []);
+
+  const effectiveCardColor = isDarkMode
+    ? (isHexDark(cardColor) ? cardColor : "#0f172a")
+    : cardColor;
   
   const [customerInput, setCustomerInput] = useState<Record<string, string>>({});
   const [buyerName, setBuyerName] = useState("");
@@ -497,19 +554,10 @@ export default function GameDetailPage() {
       {/* Header Game */}
       {checkoutStep === 1 && (
         <div 
-          className={`${
-            cardBlur === "none" ? "" : cardBlur === "sm" ? "backdrop-blur-sm" : cardBlur === "lg" ? "backdrop-blur-lg" : "backdrop-blur-md"
-          } rounded-3xl p-6 md:p-8 shadow-sm border mb-6 flex flex-col md:flex-row gap-6 items-start transition-all`}
+          className="rounded-3xl p-6 md:p-8 shadow-sm border mb-6 flex flex-col md:flex-row gap-6 items-start transition-all"
           style={{
-            backgroundColor: hexToRgba(cardColor, cardOpacity),
-            backdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-            WebkitBackdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-            borderColor: cardOpacity < 100 
-              ? (cardColor === "#ffffff" ? "rgba(226, 232, 240, 0.85)" : hexToRgba(cardColor, Math.min(100, cardOpacity + 20))) 
-              : "#f1f5f9",
-            boxShadow: cardOpacity < 100 
-              ? "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)" 
-              : "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
+            backgroundColor: "var(--surface-color)",
+            borderColor: "var(--border-color)"
           }}
         >
           <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
@@ -542,10 +590,14 @@ export default function GameDetailPage() {
               } rounded-3xl p-6 md:p-8 shadow-sm border space-y-8 transition-all`
         }
         style={checkoutStep === 3 ? {} : {
-          backgroundColor: hexToRgba(cardColor, cardOpacity),
+          backgroundColor: hexToRgba(effectiveCardColor, cardOpacity),
           backdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)",
           WebkitBackdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-          borderColor: "var(--border-color)",
+          borderColor: isDarkMode 
+            ? "var(--border-color)" 
+            : (cardOpacity < 100 
+                ? (effectiveCardColor === "#ffffff" ? "rgba(226, 232, 240, 0.85)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 20))) 
+                : "#f1f5f9"),
           boxShadow: cardOpacity < 100 
             ? "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)" 
             : "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"
@@ -671,17 +723,8 @@ export default function GameDetailPage() {
               </>
             )}
 
-            {/* 2. Pilih Nominal Top-Up (LEVEL 2 Panel Transaksi) */}
-            <div 
-              className={`${
-                cardBlur === "none" ? "" : cardBlur === "sm" ? "backdrop-blur-sm" : cardBlur === "lg" ? "backdrop-blur-lg" : "backdrop-blur-md"
-              } rounded-2xl p-2.5 sm:p-3.5 space-y-2.5 transition-all`}
-              style={{
-                backgroundColor: hexToRgba(cardColor, cardOpacity),
-                backdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-                WebkitBackdropFilter: cardBlur === "none" ? "none" : cardBlur === "sm" ? "blur(4px)" : cardBlur === "lg" ? "blur(16px)" : "blur(12px)"
-              }}
-            >
+            {/* 2. Pilih Nominal Top-Up */}
+            <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">2</span>
                 Pilih Nominal Top-Up
@@ -851,7 +894,7 @@ export default function GameDetailPage() {
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                   className="w-full px-4 py-2.5 text-xs uppercase border border-solid rounded-xl font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 m-px"
-                  style={{ borderColor: "var(--border-color)", backgroundColor: hexToRgba(cardColor, Math.min(100, cardOpacity + 5)) }}
+                  style={{ borderColor: "var(--border-color)", backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)) }}
                 />
               </div>
             </div>
@@ -863,7 +906,7 @@ export default function GameDetailPage() {
                   <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
                   Poin Loyalty
                 </h2>
-                <div className="space-y-3 p-4 rounded-xl border" style={{ borderColor: "var(--border-color)", backgroundColor: hexToRgba(cardColor, Math.min(100, cardOpacity + 5)) }}>
+                <div className="space-y-3 p-4 rounded-xl border" style={{ borderColor: "var(--border-color)", backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)) }}>
                   <p className="text-xs text-slate-600">Saldo: <span className="font-bold text-brand-700">{loyaltyData.balance} poin</span></p>
                   <input
                     type="number"
@@ -912,7 +955,7 @@ export default function GameDetailPage() {
                           : "hover:border-brand-300"
                       }`}
                       style={isSelected ? {} : {
-                        backgroundColor: hexToRgba(cardColor, Math.min(100, cardOpacity + 5)),
+                        backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
                         borderColor: "var(--border-color)"
                       }}
                     >

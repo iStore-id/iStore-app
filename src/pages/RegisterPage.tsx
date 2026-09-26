@@ -237,7 +237,7 @@ export default function RegisterPage() {
 
   if (showOtp) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
         <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
           <OtpInput 
             phone={normalizedPhone}
@@ -258,7 +258,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-slate-50" style={getAuthBackgroundStyle()}>
+    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
       <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
         <div className="text-center mb-8">
           {storeLogo ? (

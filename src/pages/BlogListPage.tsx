@@ -122,7 +122,7 @@ export default function BlogListPage() {
   const standardBlogs = featuredBlog ? blogs.slice(1) : blogs;
 
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-20">
+    <div className="min-h-screen pb-20">
       {/* Header Banner */}
       <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white py-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
         <div className="max-w-6xl mx-auto text-center space-y-4">

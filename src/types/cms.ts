@@ -23,6 +23,9 @@ export interface Banner {
   name: string;
   mediaId: string;
   mediaUrl: string;
+  mediaWidth?: number;
+  mediaHeight?: number;
+  displayMode?: 'fit' | 'fill';
   placement: 'homepage_hero' | 'homepage_promo' | 'game_promo';
   title?: string;
   altText?: string;

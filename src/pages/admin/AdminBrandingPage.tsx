@@ -8,9 +8,6 @@ import {
   Eye, 
   RefreshCw, 
   Sparkles, 
-  Check, 
-  ShoppingBag, 
-  ShieldCheck, 
   Image as ImageIcon, 
   Sliders, 
   Sun, 
@@ -19,11 +16,15 @@ import {
   CheckCircle2,
   Trash2,
   FolderOpen,
-  HelpCircle,
-  ExternalLink,
-  Search
+  Search,
+  Store,
+  Layout,
+  Layers,
+  Compass,
+  Monitor
 } from "lucide-react";
 import { StoreConfiguration } from "../../types/core";
+import { invalidateStoreConfigCache } from "../../lib/utils";
 
 interface MediaItem {
   id: string;
@@ -137,6 +138,21 @@ const COLOR_PRESETS = [
   }
 ];
 
+// Helper to determine if a hex color is dark
+function isHexDark(hex: string): boolean {
+  if (!hex || typeof hex !== 'string') return false;
+  let c = hex.replace('#', '');
+  if (c.length === 3) {
+    c = c.split('').map(char => char + char).join('');
+  }
+  if (c.length !== 6) return false;
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance < 0.5;
+}
+
 export default function AdminBrandingPage() {
   const { user } = useAuthStore();
   const [config, setConfig] = useState<StoreConfiguration | null>(null);
@@ -144,6 +160,9 @@ export default function AdminBrandingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Mobile View Switcher (Settings vs Live Preview)
+  const [mobileView, setMobileView] = useState<"settings" | "preview">("settings");
 
   // Form Fields - Identitas Dasar
   const [name, setName] = useState("");
@@ -176,6 +195,7 @@ export default function AdminBrandingPage() {
   const [borderRadius, setBorderRadius] = useState<StoreConfiguration['borderRadius']>("xl");
   const [buttonStyle, setButtonStyle] = useState<StoreConfiguration['buttonStyle']>("solid");
   const [themePreference, setThemePreference] = useState<StoreConfiguration['themePreference']>("light");
+  const [showGlobalBorders, setShowGlobalBorders] = useState<boolean>(true);
 
   // Latar Belakang Khusus Homepage & Layer Transaksi
   const [homepageBackgroundColor, setHomepageBackgroundColor] = useState("");
@@ -192,9 +212,12 @@ export default function AdminBrandingPage() {
   const [authBackgroundImage, setAuthBackgroundImage] = useState("");
   const [authBackgroundMode, setAuthBackgroundMode] = useState<"color" | "image">("color");
   
+  // Transparansi Form Transaksi (Game Detail)
   const [transactionCardColor, setTransactionCardColor] = useState<string>("#ffffff");
   const [transactionCardOpacity, setTransactionCardOpacity] = useState<number>(85);
   const [transactionCardBlur, setTransactionCardBlur] = useState<"none" | "sm" | "md" | "lg">("md");
+
+  // Perilaku Header & Navigasi
   const [headerScrollEffect, setHeaderScrollEffect] = useState<boolean>(true);
   const [logoHoverEffect, setLogoHoverEffect] = useState<boolean>(true);
   const [navIndicator, setNavIndicator] = useState<boolean>(true);
@@ -247,9 +270,13 @@ export default function AdminBrandingPage() {
         setHeaderTextColor(cfg.headerTextColor || "#475569");
         setLogoStyle(cfg.logoStyle || "natural");
         setLogoShowName(cfg.logoShowName || false);
+        setLogoHoverEffect(cfg.logoHoverEffect ?? true);
+        setHeaderScrollEffect(cfg.headerScrollEffect ?? true);
+        setNavIndicator(cfg.navIndicator ?? true);
         setBorderRadius(cfg.borderRadius || "xl");
         setButtonStyle(cfg.buttonStyle || "solid");
         setThemePreference(cfg.themePreference || "light");
+        setShowGlobalBorders(cfg.showGlobalBorders ?? true);
         setHomepageBackgroundColor(cfg.homepageBackgroundColor || "");
         setHomepageBackgroundImage(cfg.homepageBackgroundImage || "");
         setHomepageBackgroundMode(cfg.homepageBackgroundMode || "color");
@@ -262,9 +289,6 @@ export default function AdminBrandingPage() {
         setTransactionCardColor(cfg.transactionCardColor || "#ffffff");
         setTransactionCardOpacity(typeof cfg.transactionCardOpacity === "number" ? cfg.transactionCardOpacity : 85);
         setTransactionCardBlur(cfg.transactionCardBlur || "md");
-        setHeaderScrollEffect(cfg.headerScrollEffect ?? true);
-        setLogoHoverEffect(cfg.logoHoverEffect ?? true);
-        setNavIndicator(cfg.navIndicator ?? true);
       } else {
         setError(data.message || "Gagal memuat konfigurasi");
       }
@@ -275,19 +299,23 @@ export default function AdminBrandingPage() {
     }
   };
 
-  const fetchMediaLibrary = async () => {
+  const fetchMediaList = async () => {
     try {
       setMediaLoading(true);
       const token = await (user as any)?.getIdToken?.();
-      const res = await fetch("/api/admin/media?limit=50", {
-        headers: { Authorization: token ? `Bearer ${token}` : "" }
+      const res = await fetch("/api/admin/media?limit=100", {
+        headers: {
+          "Authorization": token ? `Bearer ${token}` : ""
+        }
       });
       const data = await res.json();
-      if (data.success) {
-        setMediaList(data.data || []);
+      if (data.success && Array.isArray(data.data)) {
+        setMediaList(data.data);
+      } else if (Array.isArray(data)) {
+        setMediaList(data);
       }
-    } catch (e) {
-      console.error("Gagal memuat media library:", e);
+    } catch (err) {
+      console.error("Gagal memuat media library:", err);
     } finally {
       setMediaLoading(false);
     }
@@ -296,18 +324,10 @@ export default function AdminBrandingPage() {
   const openMediaPicker = (target: "logo" | "favicon" | "homepageBg" | "footerBg" | "authBg") => {
     setActiveMediaTarget(target);
     setIsMediaPickerOpen(true);
-    fetchMediaLibrary();
+    fetchMediaList();
   };
 
-  const isHexDark = (hex?: string): boolean => {
-    if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
-    const r = parseInt(hex.slice(1, 3), 16) || 0;
-    const g = parseInt(hex.slice(3, 5), 16) || 0;
-    const b = parseInt(hex.slice(5, 7), 16) || 0;
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness < 128;
-  };
-
+  // Live system preference detection
   const [systemPrefersDark, setSystemPrefersDark] = useState<boolean>(() => {
     if (typeof window !== "undefined" && window.matchMedia) {
       return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -318,22 +338,14 @@ export default function AdminBrandingPage() {
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSystemPrefersDark(e.matches);
-    };
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", handleChange);
-      return () => mediaQuery.removeEventListener("change", handleChange);
-    } else if ((mediaQuery as any).addListener) {
-      (mediaQuery as any).addListener(handleChange);
-      return () => (mediaQuery as any).removeListener(handleChange);
-    }
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
-  const sanitizeHex = (hex: string, fallback: string = ""): string => {
-    if (!hex) return fallback;
-    let clean = hex.trim();
-    if (!clean.startsWith("#")) clean = "#" + clean;
+  const sanitizeHex = (color: string, fallback: string): string => {
+    if (!color) return fallback;
+    const clean = color.startsWith("#") ? color : `#${color}`;
     const hex6Regex = /^#([0-9a-fA-F]{6})$/;
     if (hex6Regex.test(clean)) {
       return clean.toLowerCase();
@@ -387,6 +399,7 @@ export default function AdminBrandingPage() {
       borderRadius,
       buttonStyle,
       themePreference,
+      showGlobalBorders,
       basicInformation: {
         ...config.basicInformation,
         tagline: tagline.trim()
@@ -405,6 +418,8 @@ export default function AdminBrandingPage() {
       });
       const data = await res.json();
       if (data.success) {
+        invalidateStoreConfigCache();
+        window.dispatchEvent(new CustomEvent("store-config-updated"));
         setConfig(data.data);
         setSuccessMsg("Branding toko berhasil diperbarui!");
         setTimeout(() => setSuccessMsg(null), 3000);
@@ -479,6 +494,40 @@ export default function AdminBrandingPage() {
     }
   };
 
+  // Uniform Toggle Switch Component
+  const ToggleSwitch = ({
+    id,
+    checked,
+    onChange,
+    disabled = false,
+    label
+  }: {
+    id?: string;
+    checked: boolean;
+    onChange: (val: boolean) => void;
+    disabled?: boolean;
+    label?: string;
+  }) => (
+    <button
+      id={id}
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+        checked ? "bg-indigo-600" : "bg-slate-200"
+      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+      title={label}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+          checked ? "translate-x-5" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
+
   const ColorPickerField = ({ 
     id,
     label, 
@@ -500,7 +549,6 @@ export default function AdminBrandingPage() {
 
     return (
       <div className="bg-slate-50/70 hover:bg-white border border-slate-200/90 rounded-xl p-3 flex flex-col justify-between gap-2.5 transition-all hover:border-slate-300 hover:shadow-2xs group">
-        {/* Card Header */}
         <div>
           <div className="flex items-center justify-between gap-1 mb-1">
             <label htmlFor={id} className="text-[11px] font-bold text-slate-800 tracking-wide uppercase truncate" title={label}>
@@ -520,10 +568,9 @@ export default function AdminBrandingPage() {
           <p className="text-[10px] text-slate-500 leading-tight line-clamp-2 min-h-[24px]">{desc}</p>
         </div>
 
-        {/* Big Color Swatch / Interactive Visual Preview Block */}
         <label 
           htmlFor={id} 
-          className="relative h-12 w-full rounded-lg border border-slate-200/80 shadow-inner flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] overflow-hidden group/swatch"
+          className="relative h-11 w-full rounded-lg border border-slate-200/80 shadow-inner flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] overflow-hidden group/swatch"
           style={{ backgroundColor: currentColor }}
           title={`Pilih warna untuk ${label}`}
         >
@@ -544,7 +591,6 @@ export default function AdminBrandingPage() {
           </span>
         </label>
 
-        {/* HEX Input Box */}
         <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100">
           <div 
             className="w-3.5 h-3.5 rounded-full border border-slate-300 shadow-2xs shrink-0"
@@ -579,7 +625,7 @@ export default function AdminBrandingPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 pb-24">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3.5">
@@ -591,7 +637,7 @@ export default function AdminBrandingPage() {
               Pengaturan Branding & Tema Toko
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Kelola identitas visual, palet warna, logo, dan style tombol untuk tampilan toko publik Anda.
+              Kelola identitas visual, palet warna, logo, dan style tampilan toko publik Anda.
             </p>
           </div>
         </div>
@@ -640,477 +686,399 @@ export default function AdminBrandingPage() {
         </div>
       )}
 
+      {/* Mobile View Switcher (Pengaturan vs Pratinjau) */}
+      <div className="lg:hidden flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setMobileView("settings")}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
+            mobileView === "settings"
+              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+          <span>Pengaturan</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView("preview")}
+          className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition ${
+            mobileView === "preview"
+              ? "bg-white text-indigo-700 shadow-xs border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Pratinjau Langsung</span>
+        </button>
+      </div>
+
       {/* Main 2-Column Responsive Layout: Form (Left) & Live Preview (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Form Settings (7 cols on desktop) */}
-        <div className="lg:col-span-7 space-y-6">
+        
+        {/* Left Column: 6 Consolidated Sections (7 cols on desktop) */}
+        <div className={`lg:col-span-7 space-y-6 ${mobileView === "settings" ? "block" : "hidden lg:block"}`}>
           <form onSubmit={handleSave} className="space-y-6">
             
-            {/* 1. Identitas Dasar Toko (Grid 2 Kolom + Full Width Desc) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+            {/* KELOMPOK 1: IDENTITAS & BRANDING TOKO */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-5">
               <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                  1
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <Store className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Identitas Dasar Toko</h2>
-                  <p className="text-[11px] text-slate-500">Informasi nama, slogan, dan deskripsi publik toko.</p>
+                  <h2 className="text-sm font-bold text-slate-900">Identitas & Branding Toko</h2>
+                  <p className="text-[11px] text-slate-500">Nama resmi, slogan, aset logo, favicon, dan teks pengumuman katalog toko.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <div>
-                  <label htmlFor="store-name" className="block text-xs font-bold text-slate-700 mb-1">
-                    Nama Toko
-                  </label>
-                  <input
-                    id="store-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Contoh: TokoGame ID"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Tampil di header navbar dan tab browser.</p>
-                </div>
+              {/* Subsection 1.1: Identitas Toko */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Identitas Toko</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="store-name" className="block text-xs font-bold text-slate-700 mb-1">
+                      Nama Toko
+                    </label>
+                    <input
+                      id="store-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Contoh: TokoGame ID"
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Tampil di header navbar dan tab browser.</p>
+                  </div>
 
-                <div>
-                  <label htmlFor="store-tagline" className="block text-xs font-bold text-slate-700 mb-1">
-                    Tagline Toko
-                  </label>
-                  <input
-                    id="store-tagline"
-                    type="text"
-                    value={tagline}
-                    onChange={(e) => setTagline(e.target.value)}
-                    placeholder="Contoh: Top Up Game Cepat & Terpercaya"
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Slogan singkat di bawah nama toko / hero.</p>
-                </div>
+                  <div>
+                    <label htmlFor="store-tagline" className="block text-xs font-bold text-slate-700 mb-1">
+                      Tagline Toko
+                    </label>
+                    <input
+                      id="store-tagline"
+                      type="text"
+                      value={tagline}
+                      onChange={(e) => setTagline(e.target.value)}
+                      placeholder="Contoh: Top Up Game Cepat & Terpercaya"
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Slogan singkat di bawah nama toko / hero.</p>
+                  </div>
 
-                <div className="sm:col-span-2">
-                  <label htmlFor="store-marquee" className="block text-xs font-bold text-slate-700 mb-1">
-                    Teks Berjalan Header Katalog
-                  </label>
-                  <input
-                    id="store-marquee"
-                    type="text"
-                    value={catalogMarqueeText}
-                    onChange={(e) => setCatalogMarqueeText(e.target.value)}
-                    placeholder="Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1 mb-2">
-                    Teks marquee berjalan (KANAN → KIRI) pada bagian atas katalog game di Homepage. Jika kosong, menggunakan teks default.
-                  </p>
-                  
-                  {/* ON/OFF toggle settings for marquee display */}
-                  <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60 mt-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="store-desc" className="block text-xs font-bold text-slate-700 mb-1">
+                      Deskripsi Toko
+                    </label>
+                    <textarea
+                      id="store-desc"
+                      rows={2}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Tuliskan deskripsi lengkap tentang layanan toko Anda..."
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">Digunakan untuk SEO metadata dan deskripsi footer.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subsection 1.2: Aset Visual & Logo */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Aset Visual & Logo</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Logo Toko */}
+                  <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/40 flex flex-col justify-between">
                     <div>
-                      <h4 className="text-[11px] font-bold text-slate-900">Aktifkan Teks Berjalan</h4>
-                      <p className="text-[9px] text-slate-500">Tampilkan atau sembunyikan teks marquee berjalan pada katalog di Homepage.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowCatalogMarquee(!showCatalogMarquee)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
-                        showCatalogMarquee ? 'bg-indigo-600' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          showCatalogMarquee ? 'translate-x-5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label htmlFor="store-desc" className="block text-xs font-bold text-slate-700 mb-1">
-                    Deskripsi Toko
-                  </label>
-                  <textarea
-                    id="store-desc"
-                    rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Tuliskan deskripsi lengkap tentang layanan toko Anda..."
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Digunakan untuk SEO metadata dan deskripsi footer.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Aset Visual Toko (Grid 2 Kolom: Logo & Favicon) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
-                  2
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Aset Visual Toko</h2>
-                  <p className="text-[11px] text-slate-500">Logo utama dan ikon tab browser (favicon) resmi toko.</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                {/* Logo Toko */}
-                <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/40 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
-                        Logo Toko (Navbar)
-                      </label>
-                      {logo && (
-                        <button
-                          type="button"
-                          onClick={() => setLogo("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" /> Hapus
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="h-20 w-full rounded-lg border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden relative">
-                      {logo ? (
-                        <div className={`flex items-center justify-center transition-all duration-300 ${
-                          logoStyle === 'circle' ? 'rounded-full aspect-square p-2 bg-slate-50 border border-slate-100' : 
-                          logoStyle === 'rounded-box' ? 'rounded-xl p-2 bg-slate-50 border border-slate-100' : ''
-                        }`}>
-                          <img 
-                            src={logo} 
-                            alt="Logo Toko" 
-                            className="max-h-16 max-w-full object-contain" 
-                            referrerPolicy="no-referrer" 
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-center text-slate-400">
-                          <ImageIcon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
-                          <span className="text-[10px]">Belum ada logo dipilih</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-slate-200/60">
-                    <button
-                      type="button"
-                      onClick={() => openMediaPicker("logo")}
-                      className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      Pilih dari Media Library
-                    </button>
-                  </div>
-                </div>
-
-                {/* Favicon Toko */}
-                <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/40 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Laptop className="w-3.5 h-3.5 text-slate-500" />
-                        Favicon (Tab Browser)
-                      </label>
-                      {favicon && (
-                        <button
-                          type="button"
-                          onClick={() => setFavicon("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" /> Hapus
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="h-20 w-full rounded-lg border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
-                      {favicon ? (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-100 border border-slate-200">
-                          <img 
-                            src={favicon} 
-                            alt="Favicon" 
-                            className="w-6 h-6 object-contain" 
-                            referrerPolicy="no-referrer" 
-                          />
-                          <span className="text-[11px] font-medium text-slate-600 max-w-[100px] truncate">{displayName}</span>
-                        </div>
-                      ) : (
-                        <div className="text-center text-slate-400">
-                          <Laptop className="w-6 h-6 mx-auto mb-1 text-slate-300" />
-                          <span className="text-[10px]">Rekomendasi ikon 64x64px</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-slate-200/60">
-                    <button
-                      type="button"
-                      onClick={() => openMediaPicker("favicon")}
-                      className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      Pilih dari Media Library
-                    </button>
-                  </div>
-                </div>
-
-                {/* Gaya Logo & Opsi Nama */}
-                <div className="sm:col-span-2 border-t border-slate-100 pt-4 mt-2">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                        Gaya Bentuk Logo
-                      </label>
-                      <div className="flex gap-2">
-                        {(['natural', 'circle', 'rounded-box'] as const).map((style) => (
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+                          Logo Toko (Navbar)
+                        </label>
+                        {logo && (
                           <button
-                            key={style}
                             type="button"
-                            onClick={() => setLogoStyle(style)}
-                            className={`flex-1 py-1.5 px-1 rounded-xl border text-[10px] font-bold transition capitalize cursor-pointer ${
-                              logoStyle === style
-                                ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs"
-                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                            }`}
+                            onClick={() => setLogo("")}
+                            className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
                           >
-                            {style === 'rounded-box' ? 'Box' : style}
+                            <Trash2 className="w-3 h-3" /> Hapus
                           </button>
-                        ))}
+                        )}
+                      </div>
+
+                      <div className="h-20 w-full rounded-lg border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden relative">
+                        {logo ? (
+                          <div className={`flex items-center justify-center transition-all duration-300 ${
+                            logoStyle === 'circle' ? 'rounded-full aspect-square p-2 bg-slate-50 border border-slate-100' : 
+                            logoStyle === 'rounded-box' ? 'rounded-xl p-2 bg-slate-50 border border-slate-100' : ''
+                          }`}>
+                            <img 
+                              src={logo} 
+                              alt="Logo Toko" 
+                              className="max-h-16 max-w-full object-contain" 
+                              referrerPolicy="no-referrer" 
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <ImageIcon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                            <span className="text-[10px]">Belum ada logo dipilih</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
-                      <div>
-                        <h4 className="text-[11px] font-bold text-slate-900">Nama Brand</h4>
-                        <p className="text-[9px] text-slate-500">Tampilkan teks nama di samping logo.</p>
-                      </div>
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/60">
                       <button
                         type="button"
-                        onClick={() => setLogoShowName(!logoShowName)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
-                          logoShowName ? 'bg-indigo-600' : 'bg-slate-300'
-                        }`}
+                        onClick={() => openMediaPicker("logo")}
+                        className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
                       >
-                        <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                            logoShowName ? 'translate-x-5' : 'translate-x-0.5'
-                          }`}
-                        />
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        Pilih dari Media Library
                       </button>
                     </div>
                   </div>
+
+                  {/* Favicon Toko */}
+                  <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/40 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Laptop className="w-3.5 h-3.5 text-slate-500" />
+                          Favicon (Tab Browser)
+                        </label>
+                        {favicon && (
+                          <button
+                            type="button"
+                            onClick={() => setFavicon("")}
+                            className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" /> Hapus
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="h-20 w-full rounded-lg border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                        {favicon ? (
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-100 border border-slate-200">
+                            <img 
+                              src={favicon} 
+                              alt="Favicon" 
+                              className="w-6 h-6 object-contain" 
+                              referrerPolicy="no-referrer" 
+                            />
+                            <span className="text-[11px] font-medium text-slate-600 max-w-[100px] truncate">{displayName}</span>
+                          </div>
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <Laptop className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                            <span className="text-[10px]">Rekomendasi ikon 64x64px</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-200/60">
+                      <button
+                        type="button"
+                        onClick={() => openMediaPicker("favicon")}
+                        className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        Pilih dari Media Library
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Gaya Bentuk Logo & Perilaku Visual Logo */}
+                  <div className="sm:col-span-2 space-y-3 pt-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                          Gaya Bentuk Logo
+                        </label>
+                        <div className="flex gap-1.5">
+                          {(['natural', 'circle', 'rounded-box'] as const).map((style) => (
+                            <button
+                              key={style}
+                              type="button"
+                              onClick={() => setLogoStyle(style)}
+                              className={`flex-1 py-1.5 px-1 rounded-xl border text-[10px] font-bold transition capitalize cursor-pointer ${
+                                logoStyle === style
+                                  ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-xs"
+                                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                              }`}
+                            >
+                              {style === 'rounded-box' ? 'Box' : style}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-900">Nama Brand</h4>
+                          <p className="text-[9px] text-slate-500">Tampilkan teks di samping logo.</p>
+                        </div>
+                        <ToggleSwitch
+                          checked={logoShowName}
+                          onChange={setLogoShowName}
+                          label="Tampilkan nama brand"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
+                        <div>
+                          <h4 className="text-[11px] font-bold text-slate-900">Efek Hover Logo</h4>
+                          <p className="text-[9px] text-slate-500">Animasi zoom halus saat hover.</p>
+                        </div>
+                        <ToggleSwitch
+                          checked={logoHoverEffect}
+                          onChange={setLogoHoverEffect}
+                          label="Efek hover logo"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              {/* Subsection 1.3: Pengumuman Katalog (Marquee) */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Pengumuman Katalog (Teks Berjalan)</h3>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Teks berjalan dinamis di bagian atas grid katalog Beranda.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-medium text-slate-600 hidden sm:inline">Aktifkan Marquee</span>
+                    <ToggleSwitch
+                      checked={showCatalogMarquee}
+                      onChange={setShowCatalogMarquee}
+                      label="Aktifkan teks berjalan"
+                    />
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  value={catalogMarqueeText}
+                  onChange={(e) => setCatalogMarqueeText(e.target.value)}
+                  placeholder="Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow bg-slate-50/50"
+                />
               </div>
             </div>
 
-            {/* 2.1 Kustomisasi Header */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+            {/* KELOMPOK 2: HEADER & NAVIGASI */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-5">
               <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                  H
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <Layout className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Kustomisasi Header (Navbar)</h2>
-                  <p className="text-[11px] text-slate-500">Atur skema warna khusus untuk bar navigasi bagian atas.</p>
+                  <h2 className="text-sm font-bold text-slate-900">Header & Navigasi</h2>
+                  <p className="text-[11px] text-slate-500">Kustomisasi skema warna bar navigasi atas serta perilaku interaksi saat pengunjung berselancar.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <ColorPickerField 
-                  id="header-bg-color"
-                  label="Background Header"
-                  desc="Warna latar belakang bar navigasi utama."
-                  value={headerBackgroundColor}
-                  onChange={setHeaderBackgroundColor}
-                  placeholder="#ffffff"
-                />
-                <ColorPickerField 
-                  id="header-text-color"
-                  label="Warna Teks & Ikon"
-                  desc="Warna untuk menu navigasi dan ikon di header."
-                  value={headerTextColor}
-                  onChange={setHeaderTextColor}
-                  placeholder="#64748b"
-                />
+              {/* Tampilan Header */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tampilan Warna Header</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <ColorPickerField 
+                    id="header-bg-color"
+                    label="Background Header"
+                    desc="Warna latar belakang bar navigasi utama."
+                    value={headerBackgroundColor}
+                    onChange={setHeaderBackgroundColor}
+                    placeholder="#ffffff"
+                  />
+                  <ColorPickerField 
+                    id="header-text-color"
+                    label="Warna Teks & Ikon"
+                    desc="Warna untuk menu navigasi dan ikon di header."
+                    value={headerTextColor}
+                    onChange={setHeaderTextColor}
+                    placeholder="#475569"
+                  />
+                </div>
+              </div>
+
+              {/* Perilaku Header & Navigasi */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Perilaku Header & Navigasi</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
+                    <div>
+                      <h4 className="text-[11px] font-bold text-slate-900">Header saat Scroll</h4>
+                      <p className="text-[9px] text-slate-500">Efek kaca buram (blur) dan bayangan saat halaman digulir.</p>
+                    </div>
+                    <ToggleSwitch
+                      checked={headerScrollEffect}
+                      onChange={setHeaderScrollEffect}
+                      label="Header saat scroll"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
+                    <div>
+                      <h4 className="text-[11px] font-bold text-slate-900">Indikator Navigasi Aktif</h4>
+                      <p className="text-[9px] text-slate-500">Garis bawah aksen pada menu navigasi yang sedang aktif.</p>
+                    </div>
+                    <ToggleSwitch
+                      checked={navIndicator}
+                      onChange={setNavIndicator}
+                      label="Indikator navigasi"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* 3. Latar Belakang Khusus Beranda (Homepage) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-xs">
-                    3
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900">Latar Belakang Beranda (Homepage)</h2>
-                    <p className="text-[11px] text-slate-500">Atur warna khusus atau gambar wallpaper khusus untuk halaman utama toko.</p>
-                  </div>
+            {/* KELOMPOK 3: LATAR BELAKANG STOREFRONT */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-6">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Latar Belakang Storefront</h2>
+                  <p className="text-[11px] text-slate-500">Konfigurasi kanvas visual toko untuk wallpaper utama beranda (Layer 1), halaman autentikasi, dan area footer.</p>
                 </div>
               </div>
 
-              {/* 3.1 Latar Belakang Khusus Auth (Login & Daftar) */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-xs">
-                      A
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900">Latar Belakang Login & Daftar</h2>
-                      <p className="text-[11px] text-slate-500">Atur tampilan latar belakang untuk halaman Login dan Pendaftaran Akun.</p>
-                    </div>
+              {/* Subsection 3.1: Latar Belakang Utama Beranda (Layer 1) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Latar Belakang Utama Beranda</h3>
+                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wide">
+                      Layer 1 Global
+                    </span>
                   </div>
                 </div>
+                <p className="text-[11px] text-slate-500">Mengontrol kanvas visual paling dasar (wallpaper/warna) di seluruh halaman toko publik.</p>
 
-                {/* Mode Selector */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Mode Latar Belakang Auth
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAuthBackgroundMode("color")}
-                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        authBackgroundMode === "color"
-                          ? "border-orange-600 bg-orange-50 text-orange-700 shadow-xs"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                      }`}
-                    >
-                      <Palette className="w-3.5 h-3.5" />
-                      <span>Warna (Color)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthBackgroundMode("image")}
-                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        authBackgroundMode === "image"
-                          ? "border-orange-600 bg-orange-50 text-orange-700 shadow-xs"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                      }`}
-                    >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      <span>Wallpaper (Gambar)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Konten Mode: Warna */}
-                {authBackgroundMode === "color" && (
-                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Kustom Warna Latar Auth</h4>
-                        <p className="text-[11px] text-slate-500">Pilih warna latar khusus untuk halaman Login/Daftar.</p>
-                      </div>
-                      {authBackgroundColor && (
-                        <button
-                          type="button"
-                          onClick={() => setAuthBackgroundColor("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
-                        >
-                          <Trash2 className="w-3 h-3" /> Reset ke Default
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-300 shrink-0 shadow-2xs">
-                        <input
-                          type="color"
-                          value={authBackgroundColor || "#f8fafc"}
-                          onChange={(e) => setAuthBackgroundColor(e.target.value)}
-                          className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        value={authBackgroundColor}
-                        onChange={(e) => setAuthBackgroundColor(e.target.value)}
-                        placeholder="#F8FAFC (Default)"
-                        className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 uppercase font-mono font-bold bg-white"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Konten Mode: Wallpaper */}
-                {authBackgroundMode === "image" && (
-                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Wallpaper Gambar Auth</h4>
-                        <p className="text-[11px] text-slate-500">Pilih gambar wallpaper untuk latar belakang Login/Daftar.</p>
-                      </div>
-                      {authBackgroundImage && (
-                        <button
-                          type="button"
-                          onClick={() => setAuthBackgroundImage("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" /> Hapus
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="relative h-24 w-full rounded-xl border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
-                      {authBackgroundImage ? (
-                        <img 
-                          src={authBackgroundImage} 
-                          alt="Auth Wallpaper" 
-                          className="max-h-full max-w-full object-contain" 
-                          referrerPolicy="no-referrer" 
-                        />
-                      ) : (
-                        <div className="text-center text-slate-400">
-                          <ImageIcon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
-                          <span className="text-[10px]">Belum ada wallpaper dipilih</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => openMediaPicker("authBg")}
-                      className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      Ganti Wallpaper Auth
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Mode Selector */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Mode Latar Belakang
-                </label>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setHomepageBackgroundMode("color")}
-                    className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                    className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                       homepageBackgroundMode === "color"
                         ? "border-sky-600 bg-sky-50 text-sky-700 shadow-xs"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
                     }`}
                   >
                     <Palette className="w-3.5 h-3.5" />
-                    <span>Warna (Color)</span>
+                    <span>Warna</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setHomepageBackgroundMode("image")}
-                    className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                    className={`flex-1 py-1.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                       homepageBackgroundMode === "image"
                         ? "border-sky-600 bg-sky-50 text-sky-700 shadow-xs"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
@@ -1120,657 +1088,276 @@ export default function AdminBrandingPage() {
                     <span>Wallpaper (Gambar)</span>
                   </button>
                 </div>
-              </div>
 
-              {/* Konten Mode: Warna */}
-              {homepageBackgroundMode === "color" && (
-                <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">Kustom Warna Latar Beranda</h4>
-                      <p className="text-[11px] text-slate-500">Pilih warna latar khusus untuk kanvas Beranda.</p>
-                    </div>
-                    {homepageBackgroundColor && (
-                      <button
-                        type="button"
-                        onClick={() => setHomepageBackgroundColor("")}
-                        className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
-                      >
-                        <Trash2 className="w-3 h-3" /> Reset ke Default
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-300 shrink-0 shadow-2xs">
-                      <input
-                        type="color"
-                        value={homepageBackgroundColor || "#ffffff"}
-                        onChange={(e) => setHomepageBackgroundColor(e.target.value)}
-                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={homepageBackgroundColor}
-                      onChange={(e) => setHomepageBackgroundColor(e.target.value)}
-                      placeholder="#FFFFFF (Default)"
-                      className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 uppercase font-mono font-bold bg-white"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 italic">Kosongkan jika ingin menggunakan warna default toko (#ffffff).</p>
-                </div>
-              )}
-
-              {/* Konten Mode: Wallpaper */}
-              {homepageBackgroundMode === "image" && (
-                <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">Wallpaper Gambar Beranda</h4>
-                      <p className="text-[11px] text-slate-500">Pilih gambar wallpaper berukuran penuh untuk latar belakang Beranda.</p>
-                    </div>
-                    {homepageBackgroundImage && (
-                      <button
-                        type="button"
-                        onClick={() => setHomepageBackgroundImage("")}
-                        className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3 h-3" /> Hapus Wallpaper
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Preview Container */}
-                  <div className="h-32 w-full rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden relative flex items-center justify-center">
-                    {homepageBackgroundImage ? (
-                      <img
-                        src={homepageBackgroundImage}
-                        alt="Wallpaper Preview"
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="text-center text-slate-400 p-4">
-                        <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                        <span className="text-xs font-medium">Belum ada wallpaper dipilih</span>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Pilih dari Media Library atau tempel URL gambar</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Media Picker Trigger */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => openMediaPicker("homepageBg")}
-                      className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      Pilih dari Media Library
-                    </button>
-                    <input
-                      type="text"
-                      placeholder="Atau tempel URL gambar wallpaper (https://...)"
-                      value={homepageBackgroundImage}
-                      onChange={(e) => setHomepageBackgroundImage(e.target.value)}
-                      className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400">Wallpaper akan otomatis ditampilkan dengan skala cover dan posisi center di halaman Beranda.</p>
-                </div>
-              )}
-
-              {/* Pengaturan Background Footer */}
-              <div className="pt-6 border-t border-slate-100 space-y-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                    <Sliders className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Pengaturan Background Footer</h3>
-                    <p className="text-[11px] text-slate-500">Atur warna khusus atau gambar wallpaper untuk bagian Footer toko.</p>
-                  </div>
-                </div>
-
-                {/* Mode Selector Footer */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Mode Latar Belakang Footer
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFooterBackgroundMode("color")}
-                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        footerBackgroundMode === "color"
-                          ? "border-sky-600 bg-sky-50 text-sky-700 shadow-xs"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                      }`}
-                    >
-                      <Palette className="w-3.5 h-3.5" />
-                      <span>Warna (Color)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFooterBackgroundMode("image")}
-                      className={`flex-1 py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                        footerBackgroundMode === "image"
-                          ? "border-sky-600 bg-sky-50 text-sky-700 shadow-xs"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                      }`}
-                    >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      <span>Wallpaper (Gambar)</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Footer Color Mode */}
-                {footerBackgroundMode === "color" && (
-                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Kustom Warna Footer</h4>
-                        <p className="text-[11px] text-slate-500">Pilih warna latar khusus untuk bagian Footer.</p>
-                      </div>
-                      {footerBackgroundColor && (
+                {homepageBackgroundMode === "color" ? (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">Warna Latar Beranda</span>
+                      {homepageBackgroundColor && (
                         <button
                           type="button"
-                          onClick={() => setFooterBackgroundColor("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                          onClick={() => setHomepageBackgroundColor("")}
+                          className="text-[10px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
                         >
-                          <Trash2 className="w-3 h-3" /> Reset ke Default
+                          <Trash2 className="w-3 h-3" /> Reset
                         </button>
                       )}
                     </div>
-
                     <div className="flex items-center gap-3">
-                      <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-slate-300 shrink-0 shadow-2xs">
+                      <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-slate-300 shrink-0">
                         <input
                           type="color"
-                          value={footerBackgroundColor || "#0f172a"}
-                          onChange={(e) => setFooterBackgroundColor(e.target.value)}
+                          value={homepageBackgroundColor || "#ffffff"}
+                          onChange={(e) => setHomepageBackgroundColor(e.target.value)}
                           className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
                         />
                       </div>
                       <input
                         type="text"
-                        value={footerBackgroundColor}
-                        onChange={(e) => setFooterBackgroundColor(e.target.value)}
-                        placeholder="#0F172A (Default Slate 900)"
-                        className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 uppercase font-mono font-bold bg-white"
+                        value={homepageBackgroundColor}
+                        onChange={(e) => setHomepageBackgroundColor(e.target.value)}
+                        placeholder="#FFFFFF (Default)"
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 uppercase font-mono font-bold bg-white"
                       />
                     </div>
                   </div>
-                )}
-
-                {/* Footer Image Mode */}
-                {footerBackgroundMode === "image" && (
-                  <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Wallpaper Gambar Footer</h4>
-                        <p className="text-[11px] text-slate-500">Pilih gambar wallpaper untuk latar belakang Footer.</p>
-                      </div>
-                      {footerBackgroundImage && (
-                        <button
-                          type="button"
-                          onClick={() => setFooterBackgroundImage("")}
-                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" /> Hapus Wallpaper
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="h-32 w-full rounded-xl border border-dashed border-slate-300 bg-white overflow-hidden relative flex items-center justify-center">
-                      {footerBackgroundImage ? (
+                ) : (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-3">
+                    <div className="h-28 w-full rounded-lg border border-dashed border-slate-300 bg-white overflow-hidden relative flex items-center justify-center">
+                      {homepageBackgroundImage ? (
                         <img
-                          src={footerBackgroundImage}
-                          alt="Footer Wallpaper Preview"
+                          src={homepageBackgroundImage}
+                          alt="Wallpaper Preview"
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="text-center text-slate-400 p-4">
-                          <ImageIcon className="w-8 h-8 mx-auto mb-1 text-slate-300" />
-                          <span className="text-xs font-medium">Belum ada wallpaper dipilih</span>
+                        <div className="text-center text-slate-400 p-2">
+                          <ImageIcon className="w-6 h-6 mx-auto mb-1 text-slate-300" />
+                          <span className="text-[11px] font-medium">Belum ada wallpaper Beranda dipilih</span>
                         </div>
                       )}
                     </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         type="button"
-                        onClick={() => openMediaPicker("footerBg")}
-                        className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0"
+                        onClick={() => openMediaPicker("homepageBg")}
+                        className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-2xs shrink-0"
                       >
                         <FolderOpen className="w-3.5 h-3.5" />
                         Pilih dari Media Library
                       </button>
                       <input
                         type="text"
-                        placeholder="Atau tempel URL gambar wallpaper"
-                        value={footerBackgroundImage}
-                        onChange={(e) => setFooterBackgroundImage(e.target.value)}
-                        className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white"
+                        placeholder="Atau tempel URL gambar wallpaper (https://...)"
+                        value={homepageBackgroundImage}
+                        onChange={(e) => {
+                          setHomepageBackgroundImage(e.target.value);
+                          if (e.target.value.trim()) setHomepageBackgroundMode("image");
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white"
+                      />
+                      {homepageBackgroundImage && (
+                        <button
+                          type="button"
+                          onClick={() => setHomepageBackgroundImage("")}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold shrink-0"
+                          title="Hapus wallpaper"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Subsection 3.2: Latar Belakang Khusus Auth */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Latar Belakang Halaman Login & Daftar</h3>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setAuthBackgroundMode("color")}
+                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                        authBackgroundMode === "color"
+                          ? "border-orange-600 bg-orange-50 text-orange-700"
+                          : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      Warna
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthBackgroundMode("image")}
+                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                        authBackgroundMode === "image"
+                          ? "border-orange-600 bg-orange-50 text-orange-700"
+                          : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      Wallpaper
+                    </button>
+                  </div>
+                </div>
+
+                {authBackgroundMode === "color" ? (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 flex items-center gap-3">
+                    <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 shrink-0">
+                      <input
+                        type="color"
+                        value={authBackgroundColor || "#f8fafc"}
+                        onChange={(e) => setAuthBackgroundColor(e.target.value)}
+                        className="absolute -top-2 -left-2 w-14 h-14 cursor-pointer"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={authBackgroundColor}
+                      onChange={(e) => setAuthBackgroundColor(e.target.value)}
+                      placeholder="#F8FAFC (Default)"
+                      className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 uppercase font-mono font-bold bg-white"
+                    />
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openMediaPicker("authBg")}
+                        className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shrink-0"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        Pilih Wallpaper Auth
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="Atau tempel URL gambar (https://...)"
+                        value={authBackgroundImage}
+                        onChange={(e) => {
+                          setAuthBackgroundImage(e.target.value);
+                          if (e.target.value.trim()) setAuthBackgroundMode("image");
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
                       />
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Kontrol Kustomisasi Layer Transaksi */}
-              <div className="pt-3 border-t border-slate-100 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-sky-600" />
-                      Transparansi & Efek Kaca Form Transaksi
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      Tentukan seberapa kuat rona background terlihat di balik kartu form pembelian (Data Akun, Nominal, Metode Pembayaran, & Ringkasan).
-                    </p>
+              {/* Subsection 3.3: Latar Belakang Khusus Footer */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Latar Belakang Khusus Footer</h3>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFooterBackgroundMode("color")}
+                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                        footerBackgroundMode === "color"
+                          ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                          : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      Warna
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFooterBackgroundMode("image")}
+                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                        footerBackgroundMode === "image"
+                          ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                          : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      Wallpaper
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHomepageBackgroundColor("");
-                      setHomepageBackgroundImage("");
-                      setHomepageBackgroundMode("color");
-                      setFooterBackgroundColor("");
-                      setFooterBackgroundImage("");
-                      setFooterBackgroundMode("color");
-                      setTransactionCardOpacity(85);
-                      setTransactionCardBlur("md");
-                    }}
-                    className="text-[11px] text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
-                  >
-                    <RefreshCw className="w-3 h-3 text-slate-500" />
-                    Reset ke Default
-                  </button>
                 </div>
 
-                {/* Warna Lapisan Form Transaksi */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-800">
-                    Warna Lapisan Form Transaksi
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shrink-0 shadow-2xs">
+                {footerBackgroundMode === "color" ? (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 flex items-center gap-3">
+                    <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 shrink-0">
                       <input
                         type="color"
-                        value={transactionCardColor}
-                        onChange={(e) => setTransactionCardColor(e.target.value)}
-                        className="absolute -inset-2 w-14 h-14 cursor-pointer p-0 border-0"
+                        value={footerBackgroundColor || "#0f172a"}
+                        onChange={(e) => setFooterBackgroundColor(e.target.value)}
+                        className="absolute -top-2 -left-2 w-14 h-14 cursor-pointer"
                       />
                     </div>
                     <input
                       type="text"
-                      value={transactionCardColor}
-                      onChange={(e) => setTransactionCardColor(e.target.value)}
-                      placeholder="#FFFFFF"
-                      className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 uppercase"
+                      value={footerBackgroundColor}
+                      onChange={(e) => setFooterBackgroundColor(e.target.value)}
+                      placeholder="#0F172A (Default)"
+                      className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 uppercase font-mono font-bold bg-white"
                     />
                   </div>
-                </div>
-
-                {/* Slider Opacity */}
-                <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-2.5">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-slate-800">
-                      Tingkat Opacity Kartu Transaksi: <span className="text-sky-600 font-extrabold">{transactionCardOpacity}%</span>
-                    </label>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
-                      {transactionCardOpacity === 100 ? "100% (Solid / Putih Pekat)" :
-                       transactionCardOpacity >= 80 ? `${transactionCardOpacity}% (Halus - Standar)` :
-                       transactionCardOpacity >= 65 ? `${transactionCardOpacity}% (Sedang / Elegan)` :
-                       `${transactionCardOpacity}% (Transparan Kuat)`}
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="50"
-                    max="100"
-                    step="1"
-                    value={transactionCardOpacity}
-                    onChange={(e) => setTransactionCardOpacity(Number(e.target.value))}
-                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
-                  />
-
-                  <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-                    <span>50% (Transparan)</span>
-                    <span>70% (Sedang)</span>
-                    <span>85% (Rekomendasi)</span>
-                    <span>100% (Solid)</span>
-                  </div>
-                </div>
-
-                {/* Selector Blur */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-800">
-                    Intensitas Efek Blur (Frosted Glass)
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {[
-                      { id: "none", label: "Tanpa Blur", desc: "0px" },
-                      { id: "sm", label: "Kecil (sm)", desc: "4px" },
-                      { id: "md", label: "Sedang (md)", desc: "12px - Standar" },
-                      { id: "lg", label: "Besar (lg)", desc: "16px" }
-                    ].map((b) => (
+                ) : (
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <button
-                        key={b.id}
                         type="button"
-                        onClick={() => setTransactionCardBlur(b.id as any)}
-                        className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
-                          transactionCardBlur === b.id
-                            ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-500/20 shadow-xs"
-                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
-                        }`}
+                        onClick={() => openMediaPicker("footerBg")}
+                        className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition shrink-0"
                       >
-                        <span className="text-xs font-bold">{b.label}</span>
-                        <span className="text-[10px] text-slate-400 mt-0.5">{b.desc}</span>
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        Pilih Wallpaper Footer
                       </button>
-                    ))}
+                      <input
+                        type="text"
+                        placeholder="Atau tempel URL gambar (https://...)"
+                        value={footerBackgroundImage}
+                        onChange={(e) => {
+                          setFooterBackgroundImage(e.target.value);
+                          if (e.target.value.trim()) setFooterBackgroundMode("image");
+                        }}
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
-            {/* 4. Preset Skema Warna (Grid: Desktop 4x2, Tablet 2 col, Mobile 2 col) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+            {/* KELOMPOK 4: DESAIN SISTEM & PALET WARNA */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-6">
               <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">
-                  4
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <Palette className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Preset Skema Warna Siap Pakai</h2>
-                  <p className="text-[11px] text-slate-500">Pilih kombinasi warna harmonis yang dirancang secara proporsional.</p>
+                  <h2 className="text-sm font-bold text-slate-900">Desain Sistem & Palet Warna</h2>
+                  <p className="text-[11px] text-slate-500">Preferensi tema, preset skema warna siap pakai, dan 10 token palet warna desain sistem.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-1">
-                {COLOR_PRESETS.map((p) => {
-                  const isSelected =
-                    primaryColor.toLowerCase() === p.primary.toLowerCase() &&
-                    secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
-                    brandTextColor.toLowerCase() === p.brandText.toLowerCase();
-
-                  return (
-                    <button
-                      key={p.name}
-                      type="button"
-                      onClick={() => {
-                        setPrimaryColor(p.primary);
-                        setSecondaryColor(p.secondary);
-                        setBrandTextColor(p.brandText);
-                        setAccentColor(p.accent);
-                        setHoverColor(p.hover);
-                        setBackgroundColor(p.bg);
-                        setSurfaceColor(p.surface);
-
-                        if (p.name === "iStore Default") {
-                          setTextColor("#0f172a");
-                          setTextSecondaryColor("#64748b");
-                          setBorderColor("#e2e8f0");
-                          setHeaderBackgroundColor("#ffffff");
-                          setHeaderTextColor("#475569");
-                          setHomepageBackgroundColor("#f8fafc");
-                          setHomepageBackgroundImage("");
-                          setHomepageBackgroundMode("color");
-                          setFooterBackgroundColor("#0f172a");
-                          setFooterBackgroundImage("");
-                          setFooterBackgroundMode("color");
-                          setTransactionCardColor("#ffffff");
-                          setTransactionCardOpacity(85);
-                          setTransactionCardBlur("lg");
-                          setButtonStyle("solid");
-                          setThemePreference("light");
-                        }
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-2.5 cursor-pointer ${
-                        isSelected 
-                          ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20 shadow-xs" 
-                          : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 bg-white"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-xs font-bold text-slate-800 truncate">{p.name}</span>
-                        {isSelected && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        )}
-                      </div>
-
-                      {/* Swatches Bar */}
-                      <div className="flex h-4 w-full rounded-md overflow-hidden border border-slate-200/80 shadow-2xs">
-                        <div className="flex-1" style={{ backgroundColor: p.primary }} title={`Primary: ${p.primary}`} />
-                        <div className="flex-1" style={{ backgroundColor: p.secondary }} title={`Secondary: ${p.secondary}`} />
-                        <div className="flex-1" style={{ backgroundColor: p.brandText }} title={`Brand: ${p.brandText}`} />
-                        <div className="w-3" style={{ backgroundColor: p.accent }} title={`Accent: ${p.accent}`} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 5. Warna Custom (10 Field Card Grid) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
-                    5
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-bold text-slate-900">Kustomisasi Palet Warna (10 Field)</h2>
-                    <p className="text-[11px] text-slate-500">Atur kode warna HEX secara presisi untuk setiap elemen antarmuka.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
-                <ColorPickerField 
-                  id="color-primary"
-                  label="1. Primary" 
-                  desc="Warna utama tombol, badge aktif, dan highlight." 
-                  value={primaryColor} 
-                  onChange={setPrimaryColor} 
-                  placeholder="#3B82F6" 
-                />
-                
-                <ColorPickerField 
-                  id="color-secondary"
-                  label="2. Secondary" 
-                  desc="Warna pendukung, banner aksen, dan gradien." 
-                  value={secondaryColor} 
-                  onChange={setSecondaryColor} 
-                  placeholder="#1D4ED8" 
-                />
-
-                <ColorPickerField 
-                  id="color-brand-text"
-                  label="3. Teks Brand" 
-                  desc="Warna teks judul toko dan identitas brand." 
-                  value={brandTextColor} 
-                  onChange={setBrandTextColor} 
-                  placeholder="#1E3A8A"
-                  onSyncWithPrimary={() => setBrandTextColor(primaryColor)}
-                />
-
-                <ColorPickerField 
-                  id="color-accent"
-                  label="4. Aksen" 
-                  desc="Badge promo, diskon, notifikasi khusus." 
-                  value={accentColor} 
-                  onChange={setAccentColor} 
-                  placeholder="#F59E0B" 
-                />
-
-                <ColorPickerField 
-                  id="color-bg"
-                  label="5. Background Utama" 
-                  desc="Latar belakang canvas dasar website." 
-                  value={backgroundColor} 
-                  onChange={setBackgroundColor} 
-                  placeholder="#FFFFFF" 
-                />
-
-                <ColorPickerField 
-                  id="color-surface"
-                  label="6. Surface / Card" 
-                  desc="Latar belakang card produk, form & modal." 
-                  value={surfaceColor} 
-                  onChange={setSurfaceColor} 
-                  placeholder="#FFFFFF" 
-                />
-
-                <ColorPickerField 
-                  id="color-text-main"
-                  label="7. Teks Utama" 
-                  desc="Warna judul produk, heading & label utama." 
-                  value={textColor} 
-                  onChange={setTextColor} 
-                  placeholder="#0F172A" 
-                />
-
-                <ColorPickerField 
-                  id="color-text-sec"
-                  label="8. Teks Sekunder" 
-                  desc="Warna subtitle, deskripsi, dan info kecil." 
-                  value={textSecondaryColor} 
-                  onChange={setTextSecondaryColor} 
-                  placeholder="#64748B" 
-                />
-
-                <ColorPickerField 
-                  id="color-border"
-                  label="9. Garis & Border" 
-                  desc="Garis pemisah card, input outline, & divider." 
-                  value={borderColor} 
-                  onChange={setBorderColor} 
-                  placeholder="#E2E8F0" 
-                />
-
-                <ColorPickerField 
-                  id="color-hover"
-                  label="10. Hover / Active" 
-                  desc="Warna respons saat kursor berada di atas tombol." 
-                  value={hoverColor} 
-                  onChange={setHoverColor} 
-                  placeholder="#2563EB" 
-                />
-              </div>
-            </div>
-
-            {/* 6. Bentuk & Style Komponen (Grid Card Compact) */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-5">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs">
-                  6
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">Style Komponen</h2>
-                  <p className="text-[11px] text-slate-500">Sesuaikan kelengkungan sudut, style tombol, dan preferensi tema.</p>
-                </div>
-              </div>
-
-              {/* Corner Radius Grid */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Corner Radius
-                </label>
-                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                  {(['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'] as const).map((r) => {
-                    const isSelected = borderRadius === r;
-                    const labelName = r === 'none' ? 'None' : r === 'full' ? 'Pill' : r.toUpperCase();
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setBorderRadius(r)}
-                        className={`p-2 rounded-xl border text-center transition flex flex-col items-center gap-1.5 cursor-pointer ${
-                          isSelected 
-                            ? "border-indigo-600 bg-indigo-50/70 font-bold text-indigo-900 ring-2 ring-indigo-500/20 shadow-2xs" 
-                            : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
-                        }`}
-                      >
-                        <div 
-                          className="w-5 h-5 border-2 border-indigo-600 bg-indigo-100/50"
-                          style={{
-                            borderRadius: r === 'none' ? '0' : r === 'full' ? '9999px' : r === '3xl' ? '10px' : r === '2xl' ? '8px' : r === 'xl' ? '6px' : r === 'lg' ? '4px' : r === 'md' ? '3px' : '2px'
-                          }}
-                        />
-                        <span className="text-[10px] font-semibold">{labelName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Button Style Grid */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Button Style
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  {(['solid', 'outline', 'soft', 'ghost'] as const).map((style) => {
-                    const isSelected = buttonStyle === style;
-                    return (
-                      <button
-                        key={style}
-                        type="button"
-                        onClick={() => setButtonStyle(style)}
-                        className={`p-3 rounded-xl border text-center transition flex flex-col items-center gap-2 cursor-pointer ${
-                          isSelected 
-                            ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20 shadow-2xs" 
-                            : "border-slate-200 hover:border-slate-300 bg-white"
-                        }`}
-                      >
-                        <div 
-                          className="w-full py-1 text-[11px] font-bold transition shadow-2xs"
-                          style={{
-                            backgroundColor: style === 'solid' ? primaryColor : style === 'soft' ? `${primaryColor}20` : 'transparent',
-                            color: style === 'solid' ? '#ffffff' : primaryColor,
-                            border: style === 'outline' ? `1px solid ${primaryColor}` : 'none',
-                            borderRadius: getRadiusStyle('button')
-                          }}
-                        >
-                          {style.toUpperCase()}
-                        </div>
-                        <span className="text-[10px] font-semibold text-slate-600 capitalize">{style}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Theme Preference Grid */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Preferensi Tema
-                </label>
+              {/* Subsection 4.1: Preferensi Tema */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Preferensi Tema Toko</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {[
-                    { id: 'light', label: 'Light', icon: Sun, desc: 'Tampilan bersih terang' },
-                    { id: 'dark', label: 'Dark', icon: Moon, desc: 'Tampilan elegan gelap' },
-                    { id: 'system', label: 'System', icon: Laptop, desc: 'Sesuai preferensi OS' },
+                    { id: 'light', label: 'Terang (Light)', desc: 'Tampilan bersih bernuansa terang', icon: Sun },
+                    { id: 'dark', label: 'Gelap (Dark)', desc: 'Tampilan elegan bernuansa gelap', icon: Moon },
+                    { id: 'system', label: 'Ikuti Sistem (System)', desc: 'Otomatis mengikuti preferensi perangkat', icon: Laptop }
                   ].map((theme) => {
+                    const Icon = theme.icon;
                     const isSelected = themePreference === theme.id;
-                    const IconComponent = theme.icon;
                     return (
                       <button
                         key={theme.id}
                         type="button"
                         onClick={() => setThemePreference(theme.id as any)}
-                        className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                        className={`p-3 rounded-xl border text-left transition flex items-start gap-3 cursor-pointer ${
                           isSelected 
                             ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20 shadow-2xs" 
-                            : "border-slate-200 hover:border-slate-300 bg-white"
+                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 bg-white"
                         }`}
                       >
-                        <IconComponent className={`w-4 h-4 mt-0.5 shrink-0 ${isSelected ? "text-indigo-600" : "text-slate-500"}`} />
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
                         <div>
                           <div className="text-xs font-bold text-slate-800">{theme.label}</div>
                           <div className="text-[10px] text-slate-500 mt-0.5">{theme.desc}</div>
@@ -1780,70 +1367,411 @@ export default function AdminBrandingPage() {
                   })}
                 </div>
               </div>
+
+              {/* Subsection 4.2: Preset Skema Warna Siap Pakai */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Preset Skema Warna Siap Pakai</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Pilih kombinasi warna harmonis yang dirancang secara proporsional.</p>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {COLOR_PRESETS.map((p) => {
+                    const isSelected =
+                      primaryColor.toLowerCase() === p.primary.toLowerCase() &&
+                      secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
+                      brandTextColor.toLowerCase() === p.brandText.toLowerCase();
+
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => {
+                          setPrimaryColor(p.primary);
+                          setSecondaryColor(p.secondary);
+                          setBrandTextColor(p.brandText);
+                          setAccentColor(p.accent);
+                          setHoverColor(p.hover);
+                          setBackgroundColor(p.bg);
+                          setSurfaceColor(p.surface);
+
+                          if (p.name === "iStore Default") {
+                            setTextColor("#0f172a");
+                            setTextSecondaryColor("#64748b");
+                            setBorderColor("#e2e8f0");
+                            setHeaderBackgroundColor("#ffffff");
+                            setHeaderTextColor("#475569");
+                          }
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-2.5 cursor-pointer ${
+                          isSelected 
+                            ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20 shadow-xs" 
+                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xs font-bold text-slate-800 truncate">{p.name}</span>
+                          {isSelected && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          )}
+                        </div>
+
+                        {/* Swatches Bar */}
+                        <div className="flex h-3.5 w-full rounded-md overflow-hidden border border-slate-200/80 shadow-2xs">
+                          <div className="flex-1" style={{ backgroundColor: p.primary }} title={`Primary: ${p.primary}`} />
+                          <div className="flex-1" style={{ backgroundColor: p.secondary }} title={`Secondary: ${p.secondary}`} />
+                          <div className="flex-1" style={{ backgroundColor: p.brandText }} title={`Brand: ${p.brandText}`} />
+                          <div className="w-2.5" style={{ backgroundColor: p.accent }} title={`Accent: ${p.accent}`} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subsection 4.3: Kustomisasi Palet Warna (10 Token) */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Kustomisasi Palet Warna (10 Token Desain)</h3>
+                  <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-[11px] text-indigo-900 mt-2 space-y-1">
+                    <p><span className="font-bold">Background Utama:</span> Token canvas dasar fallback saat wallpaper tidak aktif.</p>
+                    <p><span className="font-bold">Surface / Card:</span> Token Layer 2 standar untuk kartu produk katalog, form, modal, dan invoice.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                  <ColorPickerField 
+                    id="color-primary"
+                    label="1. Primary" 
+                    desc="Warna utama tombol & badge." 
+                    value={primaryColor} 
+                    onChange={setPrimaryColor} 
+                    placeholder="#3B82F6" 
+                  />
+                  
+                  <ColorPickerField 
+                    id="color-secondary"
+                    label="2. Secondary" 
+                    desc="Warna pendukung & gradien." 
+                    value={secondaryColor} 
+                    onChange={setSecondaryColor} 
+                    placeholder="#1D4ED8" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-brand-text"
+                    label="3. Teks Brand" 
+                    desc="Warna teks judul toko." 
+                    value={brandTextColor} 
+                    onChange={setBrandTextColor} 
+                    placeholder="#1E3A8A"
+                    onSyncWithPrimary={() => setBrandTextColor(primaryColor)}
+                  />
+
+                  <ColorPickerField 
+                    id="color-accent"
+                    label="4. Aksen" 
+                    desc="Badge promo & diskon." 
+                    value={accentColor} 
+                    onChange={setAccentColor} 
+                    placeholder="#F59E0B" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-bg"
+                    label="5. Background" 
+                    desc="Canvas fallback dasar." 
+                    value={backgroundColor} 
+                    onChange={setBackgroundColor} 
+                    placeholder="#FFFFFF" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-surface"
+                    label="6. Surface (L2)" 
+                    desc="Kartu produk & modal." 
+                    value={surfaceColor} 
+                    onChange={setSurfaceColor} 
+                    placeholder="#FFFFFF" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-text-main"
+                    label="7. Teks Utama" 
+                    desc="Warna judul & heading." 
+                    value={textColor} 
+                    onChange={setTextColor} 
+                    placeholder="#0F172A" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-text-sec"
+                    label="8. Teks Sekunder" 
+                    desc="Subtitle & deskripsi." 
+                    value={textSecondaryColor} 
+                    onChange={setTextSecondaryColor} 
+                    placeholder="#64748B" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-border"
+                    label="9. Border" 
+                    desc="Garis pemisah card." 
+                    value={borderColor} 
+                    onChange={setBorderColor} 
+                    placeholder="#E2E8F0" 
+                  />
+
+                  <ColorPickerField 
+                    id="color-hover"
+                    label="10. Hover" 
+                    desc="Warna kursor di tombol." 
+                    value={hoverColor} 
+                    onChange={setHoverColor} 
+                    placeholder="#2563EB" 
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Pengaturan Animasi */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
+            {/* KELOMPOK 5: GAYA KOMPONEN & FORM TRANSAKSI */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-6">
               <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs">
-                  <Sparkles className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs shrink-0">
+                  <Sliders className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Animasi Header & Logo</h2>
-                  <p className="text-[11px] text-slate-500">Atur perilaku animasi untuk elemen header dan navigasi.</p>
+                  <h2 className="text-sm font-bold text-slate-900">Gaya Komponen & Form Transaksi</h2>
+                  <p className="text-[11px] text-slate-500">Bentuk sudut kartu dan tombol, border dekoratif global, serta efek kaca khusus formulir pembelian.</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-                {[
-                  { label: "Header saat Scroll", value: headerScrollEffect, onChange: setHeaderScrollEffect },
-                  { label: "Efek Hover Logo", value: logoHoverEffect, onChange: setLogoHoverEffect },
-                  { label: "Indikator Navigasi", value: navIndicator, onChange: setNavIndicator },
-                ].map((ctrl) => (
-                  <div key={ctrl.label} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-200/60">
-                    <span className="text-[11px] font-bold text-slate-700">{ctrl.label}</span>
-                    <button
-                      type="button"
-                      onClick={() => ctrl.onChange(!ctrl.value)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
-                        ctrl.value ? 'bg-indigo-600' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${ctrl.value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                    </button>
+              {/* Subsection 5.1: Corner Radius & Button Style */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Corner Radius (Kelengkungan Sudut)
+                  </label>
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                    {(['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', 'full'] as const).map((r) => {
+                      const isSelected = borderRadius === r;
+                      const labelName = r === 'none' ? 'None' : r === 'full' ? 'Pill' : r.toUpperCase();
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setBorderRadius(r)}
+                          className={`p-2 rounded-xl border text-center transition flex flex-col items-center gap-1.5 cursor-pointer min-h-[48px] justify-center ${
+                            isSelected 
+                              ? "border-indigo-600 bg-indigo-50/70 font-bold text-indigo-900 ring-2 ring-indigo-500/20 shadow-2xs" 
+                              : "border-slate-200 hover:border-slate-300 text-slate-600 bg-white"
+                          }`}
+                        >
+                          <div 
+                            className="w-4 h-4 border-2 border-indigo-600 bg-indigo-100/50"
+                            style={{
+                              borderRadius: r === 'none' ? '0' : r === 'full' ? '9999px' : r === '3xl' ? '10px' : r === '2xl' ? '8px' : r === 'xl' ? '6px' : r === 'lg' ? '4px' : r === 'md' ? '3px' : '2px'
+                            }}
+                          />
+                          <span className="text-[10px] font-semibold">{labelName}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Gaya Tombol (Button Style)
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {(['solid', 'outline', 'soft', 'ghost'] as const).map((style) => {
+                      const isSelected = buttonStyle === style;
+                      return (
+                        <button
+                          key={style}
+                          type="button"
+                          onClick={() => setButtonStyle(style)}
+                          className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center gap-1.5 cursor-pointer ${
+                            isSelected 
+                              ? "border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20 shadow-2xs" 
+                              : "border-slate-200 hover:border-slate-300 bg-white"
+                          }`}
+                        >
+                          <div 
+                            className="w-full py-1 text-[11px] font-bold transition shadow-2xs"
+                            style={{
+                              backgroundColor: style === 'solid' ? primaryColor : style === 'soft' ? `${primaryColor}20` : 'transparent',
+                              color: style === 'solid' ? '#ffffff' : primaryColor,
+                              border: style === 'outline' ? `1px solid ${primaryColor}` : 'none',
+                              borderRadius: getRadiusStyle('button')
+                            }}
+                          >
+                            {style.toUpperCase()}
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-600 capitalize">{style}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Subsection 5.2: Border UI Global */}
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/40">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">Border UI Global</h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5">Menampilkan atau menyembunyikan garis border visual dekoratif secara global di seluruh storefront.</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={showGlobalBorders}
+                    onChange={setShowGlobalBorders}
+                    label="Tampilkan border UI"
+                  />
+                </div>
+              </div>
+
+              {/* Subsection 5.3: Tampilan Kaca Khusus Form Transaksi */}
+              <div className="space-y-4 pt-3 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Tampilan Kaca Form Transaksi (Game Detail)</h3>
+                    <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 uppercase">
+                      Khusus Checkout
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTransactionCardColor("#ffffff");
+                      setTransactionCardOpacity(85);
+                      setTransactionCardBlur("md");
+                    }}
+                    className="text-[11px] text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
+                  >
+                    <RefreshCw className="w-3 h-3 text-slate-500" />
+                    Reset ke Default
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Efek frosted glass pada kartu transaksi di halaman pembelian game detail. Tidak memengaruhi Layer 2 Surface global toko.
+                </p>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-bold text-slate-700 w-32 shrink-0">
+                      Warna Lapisan Kaca:
+                    </label>
+                    <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-200 shrink-0">
+                      <input
+                        type="color"
+                        value={transactionCardColor}
+                        onChange={(e) => setTransactionCardColor(e.target.value)}
+                        className="absolute -top-2 -left-2 w-14 h-14 cursor-pointer"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={transactionCardColor}
+                      onChange={(e) => setTransactionCardColor(e.target.value)}
+                      placeholder="#FFFFFF"
+                      className="w-32 px-3 py-1.5 text-xs font-mono border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500 uppercase bg-white font-bold"
+                    />
+                  </div>
+
+                  {/* Slider Opacity */}
+                  <div className="p-3 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold text-slate-800">
+                        Tingkat Opacity Kartu Transaksi: <span className="text-sky-600 font-extrabold">{transactionCardOpacity}%</span>
+                      </label>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
+                        {transactionCardOpacity === 100 ? "100% (Solid)" :
+                         transactionCardOpacity >= 80 ? `${transactionCardOpacity}% (Standar)` :
+                         `${transactionCardOpacity}% (Transparan)`}
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min="50"
+                      max="100"
+                      step="1"
+                      value={transactionCardOpacity}
+                      onChange={(e) => setTransactionCardOpacity(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-sky-600"
+                    />
+
+                    <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                      <span>50% (Transparan)</span>
+                      <span>85% (Rekomendasi)</span>
+                      <span>100% (Solid)</span>
+                    </div>
+                  </div>
+
+                  {/* Selector Blur */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">
+                      Intensitas Efek Blur (Frosted Glass)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        { id: "none", label: "Tanpa Blur", desc: "0px" },
+                        { id: "sm", label: "Kecil (sm)", desc: "4px" },
+                        { id: "md", label: "Sedang (md)", desc: "12px" },
+                        { id: "lg", label: "Besar (lg)", desc: "16px" }
+                      ].map((b) => (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setTransactionCardBlur(b.id as any)}
+                          className={`p-2 rounded-xl border text-left transition flex flex-col justify-between cursor-pointer ${
+                            transactionCardBlur === b.id
+                              ? "border-sky-600 bg-sky-50 text-sky-900 ring-2 ring-sky-500/20 shadow-xs"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="text-xs font-bold">{b.label}</span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">{b.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Bottom Save Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-              <span className="text-xs text-slate-500 font-medium">
+            {/* Bottom Sticky Action Bar */}
+            <div className="sticky bottom-4 z-40 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-lg flex items-center justify-between gap-4">
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">
                 Perubahan langsung diterapkan ke pratinjau di samping kanan.
               </span>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-xs disabled:opacity-50 cursor-pointer"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Menyimpan...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Simpan Perubahan
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Simpan Perubahan
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>
 
         {/* Right Column: Live Interactive Website Preview (5 cols on desktop, sticky) */}
-        <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-4">
+        <div className={`lg:col-span-5 lg:sticky lg:top-6 space-y-4 ${mobileView === "preview" ? "block" : "hidden lg:block"}`}>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -1905,11 +1833,11 @@ export default function AdminBrandingPage() {
                   color: previewText 
                 }}
               >
-                {/* Navbar Mockup */}
+                {/* Navbar Mockup - accurately reflects previewHeaderBg */}
                 <div 
                   className="px-3 py-2.5 flex items-center justify-between border shadow-2xs transition-all relative z-10"
                   style={{ 
-                    backgroundColor: previewSurface, 
+                    backgroundColor: previewHeaderBg, 
                     borderColor: previewBorder,
                     borderRadius: getRadiusStyle('container')
                   }}
@@ -1941,258 +1869,209 @@ export default function AdminBrandingPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <span 
-                      className="text-[9px] font-bold px-2 py-0.5"
+                      className="px-2 py-0.5 text-[10px] font-bold border transition shadow-2xs"
                       style={{ 
-                        backgroundColor: `${primaryColor}15`, 
-                        color: primaryColor,
-                        borderRadius: getRadiusStyle('badge')
+                        backgroundColor: buttonStyle === 'solid' ? primaryColor : buttonStyle === 'soft' ? `${primaryColor}20` : 'transparent',
+                        color: buttonStyle === 'solid' ? '#ffffff' : primaryColor,
+                        borderColor: buttonStyle === 'outline' ? primaryColor : 'transparent',
+                        borderRadius: getRadiusStyle('button')
                       }}
                     >
-                      {previewTab === "homepage" ? "Beranda" : "Top Up"}
-                    </span>
-                    <span 
-                      className="text-[9px] font-medium px-1.5 py-0.5"
-                      style={{ color: previewTextSecondary }}
-                    >
-                      Lacak Pesanan
+                      Masuk
                     </span>
                   </div>
                 </div>
 
-                {previewTab === "homepage" ? (
-                  <>
-                    {/* Hero Banner Mockup */}
-                    <div 
-                      className="p-4 border text-center space-y-2.5 relative overflow-hidden transition-all shadow-xs"
-                      style={{ 
-                        backgroundColor: previewSurface, 
-                        borderColor: previewBorder,
-                        borderRadius: getRadiusStyle('container')
-                      }}
-                    >
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                {/* Content View 1: HOMEPAGE PREVIEW */}
+                {previewTab === "homepage" && (
+                  <div className="space-y-2.5 animate-fade-in relative z-10">
+                    {/* Marquee Banner Mockup */}
+                    {showCatalogMarquee && (
+                      <div 
+                        className="px-2.5 py-1 text-[9px] font-semibold border flex items-center gap-2 overflow-hidden truncate"
                         style={{ 
-                          backgroundColor: `${primaryColor}15`, 
-                          color: primaryColor,
-                          borderRadius: '9999px'
+                          backgroundColor: `${accentColor}15`, 
+                          color: previewText,
+                          borderColor: `${accentColor}40`,
+                          borderRadius: getRadiusStyle('badge')
                         }}
                       >
-                        <ShieldCheck className="w-2.5 h-2.5" /> Transaksi Aman & Terverifikasi
+                        <span className="px-1 py-0.2 rounded font-bold uppercase text-[8px]" style={{ backgroundColor: accentColor, color: '#ffffff' }}>
+                          INFO
+                        </span>
+                        <span className="truncate">{catalogMarqueeText || "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis."}</span>
                       </div>
+                    )}
 
-                      <div>
-                        <h3 className="text-xs font-black tracking-tight leading-snug" style={{ color: previewText }}>
-                          {displayName}
-                        </h3>
-                        <p className="text-[10px] mt-0.5 leading-relaxed" style={{ color: previewTextSecondary }}>
-                          {displayTagline}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          className="px-3 py-1 text-[10px] font-bold transition shadow-2xs"
-                          style={{
-                            backgroundColor: buttonStyle === 'solid' ? primaryColor : buttonStyle === 'soft' ? `${primaryColor}20` : 'transparent',
-                            color: buttonStyle === 'solid' ? '#ffffff' : primaryColor,
-                            border: buttonStyle === 'outline' ? `1px solid ${primaryColor}` : 'none',
-                            borderRadius: getRadiusStyle('button')
-                          }}
-                        >
-                          Beli Diamond
-                        </button>
-                        <button
-                          type="button"
-                          className="px-3 py-1 text-[10px] font-semibold border transition"
-                          style={{
-                            borderColor: previewBorder,
-                            color: previewTextSecondary,
-                            borderRadius: getRadiusStyle('button')
-                          }}
-                        >
-                          Cek Status
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Product Card Showcase Mockup */}
+                    {/* Hero Banner Mockup */}
                     <div 
-                      className="p-3 border flex items-center justify-between shadow-2xs transition-all"
+                      className="p-3.5 border shadow-2xs text-left relative overflow-hidden"
                       style={{ 
                         backgroundColor: previewSurface, 
                         borderColor: previewBorder,
                         borderRadius: getRadiusStyle('container')
                       }}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div 
-                          className="w-9 h-9 flex items-center justify-center text-white shrink-0 shadow-2xs"
-                          style={{ 
-                            backgroundColor: primaryColor, 
-                            borderRadius: getRadiusStyle('badge') 
-                          }}
-                        >
-                          <ShoppingBag className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[11px] font-bold truncate" style={{ color: previewText }}>
-                            Mobile Legends 86 💎
-                          </div>
-                          <div className="text-[9px] font-medium" style={{ color: previewTextSecondary }}>
-                            Proses Otomatis 1 Detik
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
+                      <div className="relative z-10 space-y-1">
                         <span 
-                          className="text-[8px] font-bold text-white px-1.5 py-0.5"
+                          className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider inline-block"
                           style={{ 
-                            backgroundColor: accentColor,
+                            backgroundColor: `${primaryColor}15`, 
+                            color: primaryColor,
                             borderRadius: getRadiusStyle('badge')
                           }}
                         >
-                          PROMO
+                          PROMO SPESIAL
                         </span>
-                        <div className="text-xs font-black mt-0.5" style={{ color: previewBrandText }}>
-                          Rp 22.500
-                        </div>
+                        <h4 className="text-xs font-black leading-tight" style={{ color: previewText }}>
+                          {displayTagline}
+                        </h4>
+                        <p className="text-[10px] leading-tight line-clamp-2" style={{ color: previewTextSecondary }}>
+                          {displayDesc}
+                        </p>
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  /* Form Transaksi Mockup */
-                  <div 
-                    className="p-3.5 border space-y-3 transition-all relative z-10 shadow-sm"
-                    style={{ 
-                      backgroundColor: hexToRgba(previewTransactionCardColor, transactionCardOpacity),
-                      backdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-                      WebkitBackdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
-                      borderColor: previewBorder,
-                      borderRadius: getRadiusStyle('container')
-                    }}
-                  >
-                    <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: previewBorder }}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-sky-500 text-white flex items-center justify-center font-bold text-xs">
-                          ML
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold" style={{ color: previewText }}>Mobile Legends: Bang Bang</div>
-                          <div className="text-[9px]" style={{ color: previewTextSecondary }}>Moonton • Top Up Resmi Instant</div>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-bold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-full">
-                        Layer: {transactionCardOpacity}%
-                      </span>
                     </div>
 
-                    {/* Step 1: Input Data Akun */}
+                    {/* Catalog Grid Mockup (Layer 2 Surface) */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: previewText }}>
-                        <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px]">1</span>
-                        <span>Masukkan Data Akun</span>
+                      <div className="flex items-center justify-between text-[10px] font-bold" style={{ color: previewText }}>
+                        <span>Katalog Game Populer</span>
+                        <span className="text-[9px]" style={{ color: primaryColor }}>Lihat Semua →</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div 
-                          className="p-1.5 border rounded-lg text-[10px] font-mono"
-                          style={{
-                            backgroundColor: isPreviewDark ? "#1e293b" : "rgba(255,255,255,0.9)",
-                            borderColor: previewBorder,
-                            color: previewTextSecondary
-                          }}
-                        >
-                          User ID (12345678)
-                        </div>
-                        <div 
-                          className="p-1.5 border rounded-lg text-[10px] font-mono"
-                          style={{
-                            backgroundColor: isPreviewDark ? "#1e293b" : "rgba(255,255,255,0.9)",
-                            borderColor: previewBorder,
-                            color: previewTextSecondary
-                          }}
-                        >
-                          Zone ID (1234)
-                        </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { title: "Mobile Legends", cat: "MOBA", diamond: "86 💎" },
+                          { title: "Free Fire", cat: "Battle Royale", diamond: "140 💎" },
+                          { title: "Genshin Impact", cat: "RPG", diamond: "60 💎" }
+                        ].map((item, idx) => (
+                          <div 
+                            key={idx}
+                            className="p-2 border shadow-2xs flex flex-col justify-between transition-all"
+                            style={{ 
+                              backgroundColor: previewSurface, 
+                              borderColor: previewBorder,
+                              borderRadius: getRadiusStyle('container')
+                            }}
+                          >
+                            <div className="w-full aspect-[4/3] rounded-md bg-slate-200/70 mb-1 flex items-center justify-center font-black text-slate-400 text-xs">
+                              {item.title.charAt(0)}
+                            </div>
+                            <span className="font-bold text-[10px] truncate leading-tight" style={{ color: previewText }}>{item.title}</span>
+                            <span className="text-[8px] truncate" style={{ color: previewTextSecondary }}>{item.cat}</span>
+                            <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between">
+                              <span className="text-[9px] font-bold" style={{ color: primaryColor }}>{item.diamond}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content View 2: TRANSACTION FORM PREVIEW (Game Detail) */}
+                {previewTab === "transaction" && (
+                  <div className="space-y-2.5 animate-fade-in relative z-10">
+                    {/* Header Breadcrumb */}
+                    <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
+                      <span>Beranda</span>
+                      <span>›</span>
+                      <span>Mobile Legends</span>
+                      <span>›</span>
+                      <span className="font-bold text-indigo-400">Top Up</span>
+                    </div>
+
+                    {/* Simulated Game Header Card */}
+                    <div 
+                      className="p-3 border shadow-xs flex items-center gap-2.5"
+                      style={{ 
+                        backgroundColor: hexToRgba(previewTransactionCardColor, transactionCardOpacity),
+                        backdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
+                        WebkitBackdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
+                        borderColor: previewBorder,
+                        borderRadius: getRadiusStyle('container')
+                      }}
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-base shadow-xs shrink-0">
+                        ML
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-black truncate" style={{ color: previewText }}>Mobile Legends: Bang Bang</h4>
+                        <p className="text-[9px]" style={{ color: previewTextSecondary }}>Moonton • Top Up Cepat Otomatis</p>
                       </div>
                     </div>
 
-                    {/* Step 2: Pilih Nominal */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: previewText }}>
-                        <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px]">2</span>
-                        <span>Pilih Nominal Top Up</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div 
-                          className="p-2 border-2 rounded-lg text-left relative shadow-2xs"
-                          style={{ 
-                            borderColor: primaryColor,
-                            backgroundColor: isPreviewDark ? "#1e293b" : "#ffffff"
-                          }}
-                        >
-                          <div className="text-[10px] font-bold" style={{ color: primaryColor }}>86 Diamonds</div>
-                          <div className="text-[9px] font-extrabold" style={{ color: previewText }}>Rp 22.500</div>
-                          <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: primaryColor }} />
+                    {/* Transaction Form Card with Frosted Glass Effect */}
+                    <div 
+                      className="p-3 border shadow-sm space-y-2.5 relative transition-all"
+                      style={{ 
+                        backgroundColor: hexToRgba(previewTransactionCardColor, transactionCardOpacity),
+                        backdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
+                        WebkitBackdropFilter: transactionCardBlur === "none" ? "none" : transactionCardBlur === "sm" ? "blur(4px)" : transactionCardBlur === "lg" ? "blur(16px)" : "blur(12px)",
+                        borderColor: previewBorder,
+                        borderRadius: getRadiusStyle('container')
+                      }}
+                    >
+                      <div className="flex items-center justify-between border-b pb-1.5" style={{ borderColor: `${previewBorder}80` }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold">1</span>
+                          <span className="text-[10px] font-bold" style={{ color: previewText }}>Masukkan User ID</span>
                         </div>
-                        <div 
-                          className="p-2 border rounded-lg text-left"
-                          style={{
-                            borderColor: previewBorder,
-                            backgroundColor: isPreviewDark ? "#1e293b" : "rgba(255,255,255,0.8)"
-                          }}
-                        >
-                          <div className="text-[10px] font-bold" style={{ color: previewText }}>172 Diamonds</div>
-                          <div className="text-[9px] font-medium" style={{ color: previewTextSecondary }}>Rp 45.000</div>
-                        </div>
+                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                          Layer: {transactionCardOpacity}%
+                        </span>
                       </div>
-                    </div>
 
-                    {/* Step 3: Metode Pembayaran */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: previewText }}>
-                        <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[9px]">3</span>
-                        <span>Pilih Metode Pembayaran</span>
-                      </div>
                       <div className="grid grid-cols-2 gap-1.5">
-                        <div 
-                          className="p-1.5 border rounded-lg flex items-center justify-between shadow-2xs"
-                          style={{ 
-                            borderColor: primaryColor,
-                            backgroundColor: isPreviewDark ? "#1e293b" : "#ffffff"
-                          }}
-                        >
-                          <span className="text-[9px] font-bold" style={{ color: previewText }}>QRIS Instant</span>
-                          <span className="text-[8px] font-extrabold" style={{ color: primaryColor }}>Rp 22.500</span>
+                        <div className="px-2 py-1.5 text-[9px] rounded-lg border bg-white/60" style={{ borderColor: previewBorder, color: previewText }}>
+                          12345678
                         </div>
-                        <div 
-                          className="p-1.5 border rounded-lg flex items-center justify-between"
-                          style={{
-                            borderColor: previewBorder,
-                            backgroundColor: isPreviewDark ? "#1e293b" : "rgba(255,255,255,0.8)"
-                          }}
-                        >
-                          <span className="text-[9px] font-medium" style={{ color: previewText }}>BCA VA</span>
-                          <span className="text-[8px]" style={{ color: previewTextSecondary }}>Rp 22.500</span>
+                        <div className="px-2 py-1.5 text-[9px] rounded-lg border bg-white/60" style={{ borderColor: previewBorder, color: previewText }}>
+                          (2026)
                         </div>
                       </div>
-                    </div>
 
-                    {/* Tombol Beli */}
-                    <div className="pt-1">
+                      <div className="border-t pt-1.5 space-y-1.5" style={{ borderColor: `${previewBorder}80` }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold">2</span>
+                          <span className="text-[10px] font-bold" style={{ color: previewText }}>Pilih Nominal Top Up</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {[
+                            { nominal: "86 Diamonds", price: "Rp 21.000", active: true },
+                            { nominal: "172 Diamonds", price: "Rp 42.000", active: false }
+                          ].map((item, idx) => (
+                            <div 
+                              key={idx}
+                              className={`p-1.5 rounded-lg border text-left cursor-pointer transition ${
+                                item.active ? 'ring-1 ring-indigo-500 bg-indigo-50/80 font-bold' : 'bg-white/50'
+                              }`}
+                              style={{ 
+                                borderColor: item.active ? primaryColor : previewBorder,
+                                color: previewText
+                              }}
+                            >
+                              <div className="text-[9px] font-extrabold">{item.nominal}</div>
+                              <div className="text-[8px]" style={{ color: primaryColor }}>{item.price}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Checkout Button */}
                       <button
                         type="button"
-                        className="w-full py-2 text-[10px] font-bold text-white shadow-xs flex items-center justify-center gap-1 transition"
-                        style={{
-                          backgroundColor: primaryColor,
+                        className="w-full py-2 text-center text-[10px] font-black transition cursor-pointer shadow-xs"
+                        style={{ 
+                          backgroundColor: buttonStyle === 'solid' ? primaryColor : buttonStyle === 'soft' ? `${primaryColor}20` : 'transparent',
+                          color: buttonStyle === 'solid' ? '#ffffff' : primaryColor,
+                          border: buttonStyle === 'outline' ? `1px solid ${primaryColor}` : 'none',
                           borderRadius: getRadiusStyle('button')
                         }}
                       >
-                        <ShieldCheck className="w-3 h-3" />
-                        Bayar Sekarang (Rp 22.500)
+                        Beli Sekarang →
                       </button>
                     </div>
                   </div>
@@ -2200,31 +2079,18 @@ export default function AdminBrandingPage() {
 
                 {/* Footer Mockup */}
                 <div 
-                  className="p-3 text-center border-t space-y-1 transition-all relative z-10"
+                  className="p-2.5 rounded-lg text-center text-[9px] transition-all relative z-10"
                   style={{ 
-                    borderColor: previewBorder,
-                    color: previewTextSecondary,
                     backgroundColor: footerBackgroundMode === 'color' && footerBackgroundColor ? footerBackgroundColor : (footerBackgroundMode === 'image' ? 'transparent' : '#0f172a'),
                     backgroundImage: footerBackgroundMode === 'image' && footerBackgroundImage ? `url("${footerBackgroundImage}")` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center'
+                    color: '#94a3b8',
+                    borderRadius: getRadiusStyle('container')
                   }}
                 >
-                  <div className="text-[10px] font-extrabold" style={{ color: previewBrandText }}>
-                    {displayName}
-                  </div>
-                  <p className="text-[8px] leading-tight opacity-80">
-                    {displayDesc}
-                  </p>
+                  <p className="font-bold text-white text-[10px]">{displayName}</p>
+                  <p className="text-[8px] mt-0.5">© 2026 {displayName}. All rights reserved.</p>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-indigo-50/60 rounded-xl p-3 border border-indigo-100/80 flex items-start gap-2 text-indigo-900 text-[11px]">
-              <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-indigo-600" />
-              <span>
-                Pratinjau di atas merender data nyata secara real-time sesuai palet warna, nama toko, logo, dan bentuk komponen yang sedang Anda tentukan.
-              </span>
             </div>
           </div>
         </div>
@@ -2284,10 +2150,13 @@ export default function AdminBrandingPage() {
                         setFavicon(m.url);
                       } else if (activeMediaTarget === "homepageBg") {
                         setHomepageBackgroundImage(m.url);
+                        setHomepageBackgroundMode("image");
                       } else if (activeMediaTarget === "authBg") {
                         setAuthBackgroundImage(m.url);
+                        setAuthBackgroundMode("image");
                       } else if (activeMediaTarget === "footerBg") {
                         setFooterBackgroundImage(m.url);
+                        setFooterBackgroundMode("image");
                       }
                       setIsMediaPickerOpen(false);
                     }}
@@ -2322,4 +2191,3 @@ export default function AdminBrandingPage() {
     </div>
   );
 }
-

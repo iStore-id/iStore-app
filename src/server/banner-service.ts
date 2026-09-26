@@ -1,4 +1,5 @@
 import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
+import { SupabaseMediaRepository } from "./supabase/media-repository.js";
 import { Banner } from "../types/cms.js";
 
 export class BannerService {
@@ -41,10 +42,27 @@ export class BannerService {
       }
     }
 
+    let mediaId = data.mediaId;
+    if ((!mediaId || mediaId.trim() === '') && data.mediaUrl) {
+      try {
+        const mediaRepo = SupabaseMediaRepository.getInstance();
+        const { items } = await mediaRepo.listMediaItems({ limit: 200 });
+        const matched = items.filter(m => m.url === data.mediaUrl);
+        if (matched.length === 1) {
+          mediaId = matched[0].id;
+        }
+      } catch (e) {
+        console.warn("Auto-link banner mediaUrl failed:", e);
+      }
+    }
+
+    const displayMode = data.displayMode === 'fill' ? 'fill' : 'fit';
+
     const now = new Date().toISOString();
     return this.cmsRepo.createBanner({
       ...data,
-      mediaId: data.mediaId || '',
+      mediaId: mediaId || '',
+      displayMode,
       title: data.title || '',
       altText: data.altText || data.name,
       target: data.target || '',
@@ -59,7 +77,29 @@ export class BannerService {
   }
 
   async updateBanner(id: string, data: Partial<Banner>, uid: string): Promise<Banner> {
-    const updateData: Partial<Banner> = { ...data, updatedBy: uid };
+    let mediaId = data.mediaId;
+    if ((!mediaId || mediaId.trim() === '') && data.mediaUrl) {
+      try {
+        const mediaRepo = SupabaseMediaRepository.getInstance();
+        const { items } = await mediaRepo.listMediaItems({ limit: 200 });
+        const matched = items.filter(m => m.url === data.mediaUrl);
+        if (matched.length === 1) {
+          mediaId = matched[0].id;
+        }
+      } catch (e) {
+        console.warn("Auto-link banner mediaUrl update failed:", e);
+      }
+    }
+
+    const updateData: Partial<Banner> = {
+      ...data,
+      mediaId: mediaId !== undefined ? mediaId : data.mediaId,
+      updatedBy: uid
+    };
+
+    if (data.displayMode !== undefined) {
+      updateData.displayMode = data.displayMode === 'fill' ? 'fill' : 'fit';
+    }
     if (data.startAt !== undefined) {
       updateData.startAt = typeof data.startAt === 'string' && data.startAt.trim() ? data.startAt.trim() : undefined;
     }

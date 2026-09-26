@@ -50,7 +50,7 @@ export default function BlogPreviewSection() {
   }
 
   return (
-    <section className="py-8 sm:py-10 lg:py-12 bg-slate-50/60 border-t border-slate-200/80 px-4 relative overflow-hidden">
+    <section className="py-8 sm:py-10 lg:py-12 border-t border-slate-200/80 px-4 relative overflow-hidden">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
         
         {/* Section Header */}
@@ -61,7 +61,7 @@ export default function BlogPreviewSection() {
 
           {/* Desktop & Tablet Header Actions */}
           {blogs.length > 2 && (
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+            <div className="flex items-center gap-1.5 p-1 rounded-xl border border-slate-200 shadow-2xs" style={{ backgroundColor: 'var(--surface-color)' }}>
               <button
                 type="button"
                 onClick={() => handleScroll("left")}

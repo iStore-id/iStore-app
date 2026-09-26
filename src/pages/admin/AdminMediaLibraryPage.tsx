@@ -34,6 +34,7 @@ export default function AdminMediaLibraryPage() {
 
   // Preview Modal
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<MediaItem | null>(null);
 
   useEffect(() => {
     fetchMedia();
@@ -102,24 +103,33 @@ export default function AdminMediaLibraryPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus asset ini?")) return;
+  const handleDelete = (item: MediaItem) => {
+    setError(null);
+    setItemToDelete(item);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
     try {
+      setError(null);
       const token = await (user as any)?.getIdToken?.();
-      const res = await fetch(`/api/admin/media/${id}`, {
+      const res = await fetch(`/api/admin/media/${itemToDelete.id}`, {
         method: "DELETE",
         headers: { Authorization: token ? `Bearer ${token}` : "" }
       });
       const data = await res.json();
       if (data.success) {
         setSuccessMsg("Asset berhasil dihapus.");
+        setItemToDelete(null);
         fetchMedia();
         setTimeout(() => setSuccessMsg(null), 4000);
       } else {
         setError(data.message || "Gagal menghapus asset");
+        setItemToDelete(null);
       }
     } catch (err: any) {
       setError(err.message);
+      setItemToDelete(null);
     }
   };
 
@@ -236,7 +246,7 @@ export default function AdminMediaLibraryPage() {
                     <Copy className="w-3.5 h-3.5" /> Salin URL
                   </button>
                   <button
-                    onClick={() => handleDelete(item.id)}
+                    onClick={() => handleDelete(item)}
                     className="text-gray-400 hover:text-red-600 transition p-1"
                     title="Hapus"
                   >
@@ -246,6 +256,32 @@ export default function AdminMediaLibraryPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Konfirmasi Hapus Asset</h3>
+            <p className="text-sm text-gray-600">
+              Apakah Anda yakin ingin menghapus asset <strong className="text-gray-900">{itemToDelete.originalName}</strong>? Asset yang sedang digunakan oleh banner aktif tidak dapat dihapus.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setItemToDelete(null)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

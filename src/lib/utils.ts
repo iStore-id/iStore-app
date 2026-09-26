@@ -85,6 +85,11 @@ export async function loadMidtransSnap(): Promise<boolean> {
 let storeConfigPromise: Promise<any> | null = null;
 let storeConfigCache: any = null;
 
+export function invalidateStoreConfigCache(): void {
+  storeConfigCache = null;
+  storeConfigPromise = null;
+}
+
 export async function fetchStoreConfig(): Promise<any> {
   if (storeConfigCache) return storeConfigCache;
   if (storeConfigPromise) return storeConfigPromise;

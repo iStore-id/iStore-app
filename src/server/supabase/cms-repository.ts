@@ -29,14 +29,14 @@ export class SupabaseCMSRepository {
 
   async getBanner(id: string): Promise<Banner | null> {
     const client = this.ensureClient();
-    const { data, error } = await client.from("banners").select("*").eq("id", id).maybeSingle();
+    const { data, error } = await client.from("banners").select("*, media_library:media_id(width, height)").eq("id", id).maybeSingle();
     if (error) throw new Error(`Supabase getBanner error: ${error.message}`);
     return data ? this.mapRowToBanner(data) : null;
   }
 
   async listBanners(onlyActive = true): Promise<Banner[]> {
     const client = this.ensureClient();
-    let query = client.from("banners").select("*").order("sort_order", { ascending: true });
+    let query = client.from("banners").select("*, media_library:media_id(width, height)").order("sort_order", { ascending: true });
 
     if (onlyActive) {
       const now = new Date().toISOString();
@@ -54,26 +54,46 @@ export class SupabaseCMSRepository {
 
   async createBanner(banner: Omit<Banner, "id" | "createdAt" | "updatedAt">): Promise<Banner> {
     const client = this.ensureClient();
-    const { data, error } = await client
+    const insertPayload: Record<string, any> = {
+      name: banner.name,
+      media_id: typeof banner.mediaId === 'string' && banner.mediaId.trim() ? banner.mediaId.trim() : null,
+      media_url: banner.mediaUrl,
+      placement: banner.placement,
+      title: banner.title,
+      alt_text: banner.altText,
+      target: banner.target,
+      sort_order: banner.sortOrder,
+      enabled: banner.enabled,
+      published: banner.published,
+      start_at: typeof banner.startAt === 'string' && banner.startAt.trim() ? banner.startAt.trim() : null,
+      end_at: typeof banner.endAt === 'string' && banner.endAt.trim() ? banner.endAt.trim() : null,
+      created_by: banner.createdBy,
+      updated_by: banner.updatedBy
+    };
+
+    if (banner.displayMode) {
+      insertPayload.display_mode = banner.displayMode === 'fill' ? 'fill' : 'fit';
+    }
+
+    let { data, error } = await client
       .from("banners")
-      .insert({
-        name: banner.name,
-        media_id: typeof banner.mediaId === 'string' && banner.mediaId.trim() ? banner.mediaId.trim() : null,
-        media_url: banner.mediaUrl,
-        placement: banner.placement,
-        title: banner.title,
-        alt_text: banner.altText,
-        target: banner.target,
-        sort_order: banner.sortOrder,
-        enabled: banner.enabled,
-        published: banner.published,
-        start_at: typeof banner.startAt === 'string' && banner.startAt.trim() ? banner.startAt.trim() : null,
-        end_at: typeof banner.endAt === 'string' && banner.endAt.trim() ? banner.endAt.trim() : null,
-        created_by: banner.createdBy,
-        updated_by: banner.updatedBy
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    if (error && error.message && error.message.includes("display_mode")) {
+      delete insertPayload.display_mode;
+      if (banner.displayMode === 'fill') {
+        insertPayload.alt_text = ((insertPayload.alt_text || '') + ' [__DM:fill__]').trim();
+      }
+      const retry = await client
+        .from("banners")
+        .insert(insertPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) throw new Error(`Supabase createBanner error: ${error.message}`);
     return this.mapRowToBanner(data);
@@ -98,6 +118,9 @@ export class SupabaseCMSRepository {
     if (banner.sortOrder !== undefined) updatePayload.sort_order = banner.sortOrder;
     if (banner.enabled !== undefined) updatePayload.enabled = banner.enabled;
     if (banner.published !== undefined) updatePayload.published = banner.published;
+    if (banner.displayMode !== undefined) {
+      updatePayload.display_mode = banner.displayMode === 'fill' ? 'fill' : 'fit';
+    }
     if (banner.startAt !== undefined) {
       updatePayload.start_at = typeof banner.startAt === 'string' && banner.startAt.trim() ? banner.startAt.trim() : null;
     }
@@ -105,10 +128,26 @@ export class SupabaseCMSRepository {
       updatePayload.end_at = typeof banner.endAt === 'string' && banner.endAt.trim() ? banner.endAt.trim() : null;
     }
 
-    const { error } = await client
+    let { error } = await client
       .from("banners")
       .update(updatePayload)
       .eq("id", id);
+
+    if (error && error.message && error.message.includes("display_mode")) {
+      delete updatePayload.display_mode;
+      if (banner.displayMode === 'fill') {
+        const currentAlt = typeof banner.altText === 'string' ? banner.altText : '';
+        updatePayload.alt_text = currentAlt.includes('[__DM:fill__]') ? currentAlt : `${currentAlt} [__DM:fill__]`.trim();
+      } else if (banner.displayMode === 'fit') {
+        const currentAlt = typeof banner.altText === 'string' ? banner.altText : (updatePayload.alt_text || '');
+        updatePayload.alt_text = currentAlt.replace(/\s*\[__DM:fill__\]/g, '').trim();
+      }
+      const retry = await client
+        .from("banners")
+        .update(updatePayload)
+        .eq("id", id);
+      error = retry.error;
+    }
 
     if (error) throw new Error(`Supabase updateBanner error: ${error.message}`);
   }
@@ -117,6 +156,16 @@ export class SupabaseCMSRepository {
     const client = this.ensureClient();
     const { error } = await client.from("banners").delete().eq("id", id);
     if (error) throw new Error(`Supabase deleteBanner error: ${error.message}`);
+  }
+
+  async isMediaReferenced(mediaId: string): Promise<boolean> {
+    const client = this.ensureClient();
+    const { count, error } = await client
+      .from("banners")
+      .select("id", { count: "exact", head: true })
+      .eq("media_id", mediaId);
+    if (error) return false;
+    return (count || 0) > 0;
   }
 
   // ==========================================
@@ -719,14 +768,29 @@ export class SupabaseCMSRepository {
   // ==========================================
 
   private mapRowToBanner(row: any): Banner {
+    const mediaLib = Array.isArray(row.media_library) ? row.media_library[0] : row.media_library;
+    let displayMode: 'fit' | 'fill' = 'fit';
+    if (row.display_mode === 'fill' || row.display_mode === 'fit') {
+      displayMode = row.display_mode;
+    } else if (typeof row.alt_text === 'string' && row.alt_text.includes('[__DM:fill__]')) {
+      displayMode = 'fill';
+    }
+
+    const cleanAltText = typeof row.alt_text === 'string'
+      ? row.alt_text.replace(/\s*\[__DM:fill__\]/g, '').trim()
+      : row.alt_text;
+
     return {
       id: row.id,
       name: row.name,
       mediaId: row.media_id,
       mediaUrl: row.media_url,
+      mediaWidth: mediaLib?.width || undefined,
+      mediaHeight: mediaLib?.height || undefined,
+      displayMode,
       placement: row.placement,
       title: row.title,
-      altText: row.alt_text,
+      altText: cleanAltText,
       target: row.target,
       sortOrder: row.sort_order,
       enabled: row.enabled,

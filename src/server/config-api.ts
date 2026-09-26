@@ -179,6 +179,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         borderRadius: config.borderRadius || "xl",
         buttonStyle: config.buttonStyle || "solid",
         themePreference: config.themePreference || "system",
+        showGlobalBorders: config.showGlobalBorders ?? true,
         currency: config.currency || "IDR",
         currencySymbol: config.currencySymbol || "Rp",
         currencyPosition: config.currencyPosition || "prefix",

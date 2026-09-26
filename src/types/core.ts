@@ -92,6 +92,7 @@ export interface StoreConfiguration {
   borderRadius?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
   buttonStyle?: 'solid' | 'outline' | 'ghost' | 'soft';
   themePreference?: 'light' | 'dark' | 'system';
+  showGlobalBorders?: boolean;
   
   updatedAt: string;
   createdAt: string;

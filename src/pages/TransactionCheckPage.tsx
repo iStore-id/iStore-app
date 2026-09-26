@@ -23,7 +23,10 @@ export default function TransactionCheckPage() {
         <p className="text-slate-600">Masukkan nomor invoice Anda untuk melacak status pesanan secara real-time.</p>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
+      <div 
+        className="rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80"
+        style={{ backgroundColor: 'var(--surface-color)' }}
+      >
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />

@@ -63,7 +63,7 @@ export default function PublicLandingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="h-10 bg-slate-200 rounded-xl animate-pulse w-1/3"></div>
           <div className="h-72 bg-slate-200 rounded-2xl animate-pulse w-full"></div>
@@ -79,7 +79,7 @@ export default function PublicLandingPage() {
 
   if (error || !landing) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16">
+      <div className="min-h-screen flex items-center justify-center px-4 py-16">
         <div className="max-w-md w-full text-center bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
           <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8" />
@@ -100,7 +100,7 @@ export default function PublicLandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
+    <div className="min-h-screen pb-20">
       {/* Top breadcrumb navigation */}
       <div className="bg-white border-b border-slate-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">

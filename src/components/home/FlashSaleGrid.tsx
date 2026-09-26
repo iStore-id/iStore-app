@@ -125,7 +125,10 @@ const FlashSaleCard: React.FC<{ item: FlashSaleItem; index: number }> = ({ item,
   return (
     <div className={`transition-all duration-700 ease-out transform-gpu ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
       <Link to={`/games/${item.gameSlug}`} className="block group">
-        <div className="relative aspect-[1/1.15] overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 transition-all duration-300 ease-out hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/5 hover:-translate-y-1 active:scale-[0.98]">
+        <div 
+          className="relative aspect-[1/1.15] overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-800/80 transition-all duration-300 ease-out hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/5 hover:-translate-y-1 active:scale-[0.98]"
+          style={{ backgroundColor: 'var(--surface-color)' }}
+        >
           {/* Main Visual / Logo Section (Full Bleed) */}
           <div className="absolute inset-0">
             {item.image ? (

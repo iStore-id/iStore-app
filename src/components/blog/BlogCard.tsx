@@ -55,11 +55,12 @@ export default function BlogCard({
     <Link
       to={`/blog/${blog.slug}`}
       onClick={handleClick}
-      className={`group bg-white rounded-3xl ${
+      className={`group rounded-3xl ${
         isCompact 
           ? "p-2 sm:p-3.5 h-[190px] xs:h-[205px] sm:h-auto overflow-hidden" 
           : "p-2.5 sm:p-3.5"
       } border border-slate-200/70 shadow-2xs hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between ${className}`}
+      style={{ backgroundColor: 'var(--surface-color)' }}
     >
       <div className={isCompact ? "space-y-1 sm:space-y-3" : "space-y-3"}>
         {/* Aspect-Ratio Governed Cover Image with Media Library Source */}

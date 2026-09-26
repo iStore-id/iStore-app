@@ -1,4 +1,5 @@
 import { SupabaseMediaRepository } from "./supabase/media-repository.js";
+import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
 import { MediaItem } from "../types/cms.js";
 import { v2 as cloudinary } from "cloudinary";
 
@@ -132,6 +133,12 @@ export class MediaService {
   }
 
   async deleteMedia(mediaId: string): Promise<void> {
+    const cmsRepo = SupabaseCMSRepository.getInstance();
+    const referenced = await cmsRepo.isMediaReferenced(mediaId);
+    if (referenced) {
+      throw new Error("Asset media ini sedang digunakan oleh banner aktif dan tidak dapat dihapus.");
+    }
+
     const media = await this.mediaRepo.getMediaItem(mediaId);
     if (!media) throw new Error("Asset media tidak ditemukan.");
 

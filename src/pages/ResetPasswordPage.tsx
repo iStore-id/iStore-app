@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
 
   if (success) {
     return (
-      <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
+      <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md bg-white rounded-3xl p-10 text-center shadow-sm border border-slate-100">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
             <CheckCircle2 className="w-10 h-10" />
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12 bg-slate-50">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-brand-50 text-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">

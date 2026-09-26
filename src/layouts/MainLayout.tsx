@@ -26,7 +26,7 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { fetchStoreConfig } from "../lib/utils";
+import { fetchStoreConfig, invalidateStoreConfigCache } from "../lib/utils";
 import NotificationBell from "../components/NotificationBell";
 import { PaymentMethodLogos } from "../components/PaymentLogos";
 import ThemeToggle, { CustomerThemePreference } from "../components/ThemeToggle";
@@ -244,11 +244,25 @@ export default function MainLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
-    fetchStoreConfig().then(config => {
-      if (config) {
-        setBranding(config);
-      }
-    });
+    const loadConfig = () => {
+      fetchStoreConfig().then(config => {
+        if (config) {
+          setBranding(config);
+        }
+      });
+    };
+
+    loadConfig();
+
+    const handleConfigUpdate = () => {
+      invalidateStoreConfigCache();
+      loadConfig();
+    };
+
+    window.addEventListener("store-config-updated", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("store-config-updated", handleConfigUpdate);
+    };
   }, []);
 
   useEffect(() => {
@@ -446,6 +460,7 @@ export default function MainLayout() {
     <div 
       className={`public-storefront min-h-screen flex flex-col ${!hasCustomBg ? (isDark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900") : ""} font-sans relative`}
       data-theme={effectiveTheme}
+      data-borders={branding?.showGlobalBorders !== false ? "true" : "false"}
     >
       {/* Global Public Custom Background Layer */}
       {hasCustomBg && (
@@ -489,7 +504,7 @@ export default function MainLayout() {
             --radius-xl: ${radiusTokens.xl};
             --radius-2xl: ${radiusTokens.xxl};
             --radius-3xl: ${radiusTokens.xxxl};
-            background-color: var(--background-color);
+            background-color: ${hasCustomBg ? 'transparent' : 'var(--background-color)'};
             color: var(--text-color);
             color-scheme: ${effectiveTheme};
           }
@@ -854,6 +869,27 @@ export default function MainLayout() {
               color: #ffffff !important;
             }
           `}
+
+          /* Global Border OFF Control (Robustly catching opacity variants & preserving functional borders) */
+          .public-storefront[data-borders="false"] :where(
+            .border,
+            .border-t,
+            .border-b,
+            .border-l,
+            .border-r,
+            .border-x,
+            .border-y,
+            [class*="border-slate-"],
+            [class*="border-gray-"],
+            [class*="border-zinc-"],
+            [class*="border-neutral-"],
+            [class*="border-white/"],
+            [class*="border-black/"],
+            [class*="border-brand-"],
+            [class*="divide-"]
+          ):not(:focus):not(:focus-within):not(:focus-visible):not([aria-invalid="true"]):not([aria-checked="true"]):not([aria-selected="true"]):not(.border-red-500):not(.border-red-600):not(.border-rose-500):not(.border-emerald-500):not(.border-amber-500):not(.border-brand-500) {
+            border-color: transparent !important;
+          }
         `}</style>
       )}
 

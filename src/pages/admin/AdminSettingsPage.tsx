@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/auth-store";
 import { Store, Save, Loader2, Info } from "lucide-react";
 import { StoreConfiguration } from "../../types/core";
@@ -135,14 +136,16 @@ export default function AdminSettingsPage() {
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Nama Toko (Opsional)</label>
-              <input
-                type="text"
-                value={config.name}
-                onChange={(e) => setConfig({ ...config, name: e.target.value })}
-                placeholder="Masukkan nama toko..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-700">Nama Toko</label>
+                <Link to="/admin/branding" className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                  Kelola di Branding →
+                </Link>
+              </div>
+              <div className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium text-sm flex items-center justify-between">
+                <span className="truncate">{config.name || "Belum diatur"}</span>
+                <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-200/60 px-2 py-0.5 rounded shrink-0">Identitas Toko</span>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Status Operasional</label>
@@ -189,13 +192,19 @@ export default function AdminSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Deskripsi Utama</label>
-            <textarea
-              value={config.description}
-              onChange={(e) => setConfig({ ...config, description: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={3}
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-slate-700">Deskripsi Toko</label>
+              <Link to="/admin/branding" className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                Kelola di Branding →
+              </Link>
+            </div>
+            <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-sm leading-relaxed">
+              {config.description ? (
+                <span>{config.description}</span>
+              ) : (
+                <span className="text-slate-400 italic">Deskripsi toko belum diatur. Kelola melalui menu Pengaturan Branding.</span>
+              )}
+            </div>
           </div>
 
           <div className="border-t border-slate-100 pt-6">

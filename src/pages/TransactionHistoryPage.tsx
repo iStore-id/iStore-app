@@ -68,7 +68,10 @@ export default function TransactionHistoryPage() {
   if (errorState === "service_error") {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+        <div 
+          className="rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm"
+          style={{ backgroundColor: 'var(--surface-color)' }}
+        >
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900 mb-2">Gagal Memuat Riwayat</h2>
           <p className="text-slate-600 mb-6">Terjadi kesalahan pada layanan saat mengambil data transaksi.</p>
@@ -82,7 +85,10 @@ export default function TransactionHistoryPage() {
       <h1 className="ui-page-title text-slate-900 mb-6">Riwayat Transaksi</h1>
       
       {orders.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
+        <div 
+          className="rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm"
+          style={{ backgroundColor: 'var(--surface-color)' }}
+        >
           <Receipt className="w-16 h-16 text-slate-300 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-slate-700 mb-2">Belum ada transaksi</h2>
           <p className="text-slate-500 mb-6">Anda belum pernah melakukan top up atau pembelian.</p>
@@ -96,7 +102,8 @@ export default function TransactionHistoryPage() {
             <Link 
               to={`/transactions/${order.invoice || order.id}`} 
               key={order.id}
-              className="block bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all hover:border-brand-200"
+              className="block rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all hover:border-brand-200"
+              style={{ backgroundColor: 'var(--surface-color)' }}
             >
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>

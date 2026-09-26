@@ -151,7 +151,10 @@ export default function TransactionDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
-      <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100">
+      <div 
+        className="rounded-3xl overflow-hidden shadow-sm border border-slate-200/80"
+        style={{ backgroundColor: 'var(--surface-color)' }}
+      >
         
         {/* Status Header */}
         <div className={`p-8 text-center border-b ${

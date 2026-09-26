@@ -8,6 +8,7 @@ interface Banner {
   name: string;
   mediaId: string;
   mediaUrl: string;
+  displayMode?: 'fit' | 'fill';
   placement: 'homepage_hero' | 'homepage_promo' | 'game_promo';
   title?: string;
   altText?: string;
@@ -39,6 +40,7 @@ export default function AdminBannersPage() {
   // Form Fields
   const [name, setName] = useState("");
   const [placement, setPlacement] = useState<'homepage_hero' | 'homepage_promo' | 'game_promo'>('homepage_hero');
+  const [displayMode, setDisplayMode] = useState<'fit' | 'fill'>('fit');
   const [mediaUrl, setMediaUrl] = useState("");
   const [mediaId, setMediaId] = useState("");
   const [title, setTitle] = useState("");
@@ -105,6 +107,7 @@ export default function AdminBannersPage() {
     setEditingBanner(null);
     setName("");
     setPlacement("homepage_hero");
+    setDisplayMode("fit");
     setMediaUrl("");
     setMediaId("");
     setTitle("");
@@ -122,6 +125,7 @@ export default function AdminBannersPage() {
     setEditingBanner(b);
     setName(b.name);
     setPlacement(b.placement);
+    setDisplayMode(b.displayMode || "fit");
     setMediaUrl(b.mediaUrl);
     setMediaId(b.mediaId || "");
     setTitle(b.title || "");
@@ -145,6 +149,7 @@ export default function AdminBannersPage() {
       const payload = {
         name,
         placement,
+        displayMode,
         mediaUrl,
         mediaId,
         title,
@@ -285,8 +290,16 @@ export default function AdminBannersPage() {
                 {banners.map((b) => (
                   <tr key={b.id} className="hover:bg-gray-50/50">
                     <td className="py-3 px-4 flex items-center gap-3">
-                      <div className="w-16 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                        <img src={b.mediaUrl} alt={b.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div
+                        className="w-16 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center border border-slate-700/60 shadow-inner"
+                        style={{
+                          backgroundImage: `linear-gradient(45deg, #1e293b 25%, transparent 25%), linear-gradient(-45deg, #1e293b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1e293b 75%), linear-gradient(-45deg, transparent 75%, #1e293b 75%)`,
+                          backgroundSize: '10px 10px',
+                          backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0',
+                          backgroundColor: '#0f172a'
+                        }}
+                      >
+                        <img src={b.mediaUrl} alt={b.name} className={`w-full h-full ${b.displayMode === 'fill' ? 'object-cover' : 'object-contain'}`} referrerPolicy="no-referrer" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{b.name}</p>
@@ -294,9 +307,14 @@ export default function AdminBannersPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                        {b.placement}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          {b.placement}
+                        </span>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-slate-100 text-slate-700">
+                          {b.displayMode || 'fit'}
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3 px-4 font-mono text-gray-600">{b.sortOrder}</td>
                     <td className="py-3 px-4">
@@ -364,6 +382,42 @@ export default function AdminBannersPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Mode Tampilan (Display Mode)</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setDisplayMode('fit')}
+                    className={`px-3 py-2.5 rounded-xl border text-left transition-all ${
+                      displayMode === 'fit'
+                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'border-gray-200 bg-gray-50/60 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>FIT</span>
+                      {displayMode === 'fit' && <span className="text-indigo-600 font-extrabold text-sm">✓</span>}
+                    </div>
+                    <p className="text-[10.5px] text-gray-500 mt-0.5 leading-tight">Seluruh gambar terlihat (tanpa crop).</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayMode('fill')}
+                    className={`px-3 py-2.5 rounded-xl border text-left transition-all ${
+                      displayMode === 'fill'
+                        ? 'border-indigo-600 bg-indigo-50/80 text-indigo-900 ring-2 ring-indigo-500/20 shadow-xs'
+                        : 'border-gray-200 bg-gray-50/60 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>FILL</span>
+                      {displayMode === 'fill' && <span className="text-indigo-600 font-extrabold text-sm">✓</span>}
+                    </div>
+                    <p className="text-[10.5px] text-gray-500 mt-0.5 leading-tight">Penuhi frame (boleh crop sisi).</p>
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Asset Media (Dari Media Library)</label>
                 <div className="flex gap-2 items-center">
                   <input
@@ -386,8 +440,16 @@ export default function AdminBannersPage() {
                   </button>
                 </div>
                 {mediaUrl && (
-                  <div className="mt-2 w-32 h-20 rounded-lg overflow-hidden border bg-gray-100">
-                    <img src={mediaUrl} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div
+                    className="mt-2 w-32 h-20 rounded-lg overflow-hidden border border-slate-700/60 shadow-inner flex items-center justify-center"
+                    style={{
+                      backgroundImage: `linear-gradient(45deg, #1e293b 25%, transparent 25%), linear-gradient(-45deg, #1e293b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #1e293b 75%), linear-gradient(-45deg, transparent 75%, #1e293b 75%)`,
+                      backgroundSize: '12px 12px',
+                      backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0',
+                      backgroundColor: '#0f172a'
+                    }}
+                  >
+                    <img src={mediaUrl} alt="Preview" className={`w-full h-full ${displayMode === 'fill' ? 'object-cover' : 'object-contain'}`} referrerPolicy="no-referrer" />
                   </div>
                 )}
               </div>
@@ -507,8 +569,16 @@ export default function AdminBannersPage() {
                   }}
                   className="cursor-pointer group bg-white border border-gray-200 rounded-xl overflow-hidden hover:ring-2 hover:ring-indigo-500 transition"
                 >
-                  <div className="aspect-square bg-gray-100 overflow-hidden">
-                    <img src={m.url} alt={m.originalName} className="w-full h-full object-cover group-hover:scale-105 transition" referrerPolicy="no-referrer" />
+                  <div
+                    className="aspect-square overflow-hidden flex items-center justify-center border-b border-slate-200"
+                    style={{
+                      backgroundImage: `linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)`,
+                      backgroundSize: '12px 12px',
+                      backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0',
+                      backgroundColor: '#e2e8f0'
+                    }}
+                  >
+                    <img src={m.url} alt={m.originalName} className="w-full h-full object-contain group-hover:scale-105 transition" referrerPolicy="no-referrer" />
                   </div>
                   <p className="p-2 text-xs truncate text-gray-700 font-medium">{m.originalName}</p>
                 </div>
