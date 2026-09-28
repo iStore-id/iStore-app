@@ -2,26 +2,18 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
-import { AlertCircle, LogIn, CheckCircle2, Mail, Smartphone } from "lucide-react";
-import { normalizePhone, isValidIndonesianPhone } from "../lib/utils/phone";
-import { OtpInput } from "../components/auth/OtpInput";
+import { AlertCircle, LogIn, CheckCircle2 } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { user, role } = useAuthStore();
-  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [resetSent, setResetSent] = useState(false);
   const [config, setConfig] = useState<any>(null);
-
-  // OTP States
-  const [showOtp, setShowOtp] = useState(false);
-  const [normalizedPhone, setNormalizedPhone] = useState("");
 
   useEffect(() => {
     fetch("/api/public/store-config")
@@ -43,82 +35,6 @@ export default function LoginPage() {
       }
     }
   }, [user, role, navigate]);
-
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isSupabaseConfigured || !supabase) {
-      setError("Konfigurasi Supabase belum lengkap.");
-      return;
-    }
-
-    if (!isValidIndonesianPhone(phone)) {
-      setError("Nomor telepon tidak valid.");
-      return;
-    }
-
-    const e164 = normalizePhone(phone);
-    setNormalizedPhone(e164);
-    setError("");
-    setLoading(true);
-
-    try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        phone: e164,
-      });
-
-      if (otpError) throw otpError;
-      setShowOtp(true);
-    } catch (err: any) {
-      console.error("OTP login error:", err);
-      setError(err.message || "Gagal mengirim kode OTP.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (otp: string) => {
-    if (!supabase) return;
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        phone: normalizedPhone,
-        token: otp,
-        type: "sms",
-      });
-
-      if (verifyError) throw verifyError;
-      if (!data.user) throw new Error("Gagal verifikasi OTP.");
-
-      const sbUser = data.user;
-
-      // Sync to backend for phone login to ensure profile exists
-      try {
-        await fetch("/api/auth/sync-user", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${sbUser.id}`
-          },
-          body: JSON.stringify({ 
-            phone: normalizedPhone,
-            name: sbUser.user_metadata?.full_name || normalizedPhone
-          })
-        });
-      } catch (syncErr) {
-        console.warn("Notice: Phone login sync-user failed", syncErr);
-      }
-
-      // Auth state update will be handled by App.tsx's onAuthStateChange
-      navigate("/");
-    } catch (err: any) {
-      console.error("OTP verification error:", err);
-      setError(err.message || "Kode OTP salah atau sudah kedaluwarsa.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,28 +134,6 @@ export default function LoginPage() {
   const storeName = config?.name || "iStore.id";
   const storeLogo = config?.logo;
 
-  if (showOtp) {
-    return (
-      <div className="min-h-[85vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
-        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
-          <OtpInput 
-            phone={normalizedPhone}
-            loading={loading}
-            onVerify={handleVerifyOtp}
-            onResend={() => supabase!.auth.signInWithOtp({ phone: normalizedPhone }).then(() => {})}
-          />
-          <button 
-            onClick={() => setShowOtp(false)}
-            className="w-full mt-6 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
-            style={{ color: primaryColor }}
-          >
-            Kembali ke Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
       <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
@@ -260,27 +154,7 @@ export default function LoginPage() {
             </div>
           )}
           <h1 className="ui-page-title text-slate-900">Masuk ke {storeName}</h1>
-          <p className="text-slate-500 mt-2 text-sm">Silakan pilih metode masuk Anda</p>
-        </div>
-
-        {/* Method Toggle */}
-        <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
-          <button
-            onClick={() => { setLoginMethod("email"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-            style={loginMethod === "email" ? { color: primaryColor } : {}}
-          >
-            <Mail className="w-4 h-4" />
-            Email
-          </button>
-          <button
-            onClick={() => { setLoginMethod("phone"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${loginMethod === "phone" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-            style={loginMethod === "phone" ? { color: primaryColor } : {}}
-          >
-            <Smartphone className="w-4 h-4" />
-            WhatsApp
-          </button>
+          <p className="text-slate-500 mt-2 text-sm">Silakan masuk menggunakan akun Anda</p>
         </div>
 
         {error && (
@@ -299,92 +173,58 @@ export default function LoginPage() {
           </div>
         )}
 
-        {loginMethod === "email" ? (
-          <form onSubmit={handleEmailLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-              <input 
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
-                style={{ "--tw-ring-color": primaryColor } as any}
-                placeholder="nama@email.com"
-              />
+        <form onSubmit={handleEmailLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": primaryColor } as any}
+              placeholder="nama@email.com"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-slate-700">Password</label>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-xs font-medium hover:opacity-80"
+                style={{ color: primaryColor }}
+              >
+                Lupa Password?
+              </button>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700">Password</label>
-                <button
-                  type="button"
-                  onClick={handleForgotPassword}
-                  className="text-xs font-medium hover:opacity-80"
-                  style={{ color: primaryColor }}
-                >
-                  Lupa Password?
-                </button>
-              </div>
-              <input 
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
-                style={{ "--tw-ring-color": primaryColor } as any}
-                placeholder="••••••••"
-              />
-            </div>
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+              style={{ "--tw-ring-color": primaryColor } as any}
+              placeholder="••••••••"
+            />
+          </div>
 
-            <button 
-              type="submit" 
-              disabled={loading || googleLoading}
-              className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98]"
-              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  Masuk Sekarang
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">No WhatsApp</label>
-              <input 
-                type="tel" 
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
-                style={{ "--tw-ring-color": primaryColor } as any}
-                placeholder="081234567890"
-              />
-              <p className="text-xs text-slate-400 mt-2">Kode verifikasi akan dikirim via WhatsApp/SMS.</p>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading || googleLoading}
-              className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98]"
-              style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Smartphone className="w-5 h-5" />
-                  Kirim Kode OTP
-                </>
-              )}
-            </button>
-          </form>
-        )}
+          <button 
+            type="submit" 
+            disabled={loading || googleLoading}
+            className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg active:scale-[0.98]"
+            style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <LogIn className="w-5 h-5" />
+                Masuk Sekarang
+              </>
+            )}
+          </button>
+        </form>
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
