@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Zap, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -25,9 +25,23 @@ interface FlashSaleGridProps {
   allowedIds?: string[];
 }
 
+const FLASH_SALE_MARQUEE_SPEED = 120; // px/sec
+
 export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
   const [flashSales, setFlashSales] = useState<FlashSaleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [setAWidth, setSetAWidth] = useState(0);
+  const setARef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  
+  // Motion & Drag State (Single Source of Truth)
+  const positionRef = useRef(0);
+  const isDraggingRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragStartPosRef = useRef(0);
+  const wasDraggedRef = useRef(false);
+  const requestRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
 
   const allowedIdsStr = allowedIds ? allowedIds.join(",") : "";
 
@@ -42,7 +56,7 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
             if (allowedIds) {
               data = data.filter((item: FlashSaleItem) => allowedIds.includes(item.id));
             }
-            setFlashSales(data.slice(0, 3)); // Max 3 items
+            setFlashSales(data); 
           }
         }
       } catch (err) {
@@ -54,39 +68,198 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
     fetchFlashSales();
   }, [allowedIdsStr]);
 
+  // Geometry Tracking: Measure Set A width for speed calculation
+  useEffect(() => {
+    if (flashSales.length === 0 || !setARef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const width = entry.contentRect.width;
+        if (width > 0) {
+          setSetAWidth(width);
+        }
+      }
+    });
+
+    observer.observe(setARef.current);
+    
+    const initialWidth = setARef.current.getBoundingClientRect().width;
+    if (initialWidth > 0) {
+      setSetAWidth(initialWidth);
+    }
+
+    return () => observer.disconnect();
+  }, [flashSales.length, loading]);
+
+  // Unified Motion Engine (Auto + Drag)
+  useEffect(() => {
+    if (loading || flashSales.length === 0 || setAWidth <= 0) return;
+
+    const animate = (time: number) => {
+      if (lastTimeRef.current === 0) {
+        lastTimeRef.current = time;
+      }
+      const deltaTime = (time - lastTimeRef.current) / 1000;
+      lastTimeRef.current = time;
+
+      // Auto-motion only if not dragging
+      if (!isDraggingRef.current) {
+        positionRef.current -= FLASH_SALE_MARQUEE_SPEED * deltaTime;
+        
+        // Loop logic: if we passed the end of Set A, wrap around
+        if (positionRef.current <= -setAWidth) {
+          positionRef.current += setAWidth;
+        }
+      }
+
+      // Apply transform directly for highest performance
+      if (trackRef.current) {
+        trackRef.current.style.transform = `translate3d(${positionRef.current}px, 0, 0)`;
+      }
+
+      requestRef.current = requestAnimationFrame(animate);
+    };
+
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      lastTimeRef.current = 0;
+    };
+  }, [loading, flashSales.length, setAWidth]);
+
+  // Drag Handlers
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!trackRef.current) return;
+    
+    isDraggingRef.current = true;
+    wasDraggedRef.current = false;
+    dragStartXRef.current = e.clientX;
+    dragStartPosRef.current = positionRef.current;
+    
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    
+    const deltaX = e.clientX - dragStartXRef.current;
+    
+    // Threshold to distinguish between tap and drag
+    if (Math.abs(deltaX) > 4) {
+      wasDraggedRef.current = true;
+    }
+    
+    let newPos = dragStartPosRef.current + deltaX;
+    
+    // Normalize position during drag to maintain the "infinite" feel
+    if (setAWidth > 0) {
+      // Use modulo-like logic to keep within [ -setAWidth, 0 ]
+      while (newPos <= -setAWidth) newPos += setAWidth;
+      while (newPos > 0) newPos -= setAWidth;
+    }
+    
+    positionRef.current = newPos;
+    // Transform is updated in the next rAF frame
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDraggingRef.current = false;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+  };
+
   if (loading || flashSales.length === 0) {
     return null;
   }
 
+  const sequenceItems = flashSales;
+
   return (
-    <section className="w-full py-4 sm:py-5 lg:py-6 px-4 border-b border-slate-200/70 bg-transparent">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-3">
+    <section className="w-full py-4 sm:py-5 lg:py-6 border-b border-slate-200/70 bg-transparent overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 mb-3 sm:mb-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-brand-600 uppercase">
             <Zap className="w-4 h-4 text-brand-600 fill-brand-100" />
             <h2>Flash Sale Terbatas</h2>
           </div>
-        </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
-          {flashSales.map((item, index) => (
-            <FlashSaleCard key={item.id} item={item} index={index} />
-          ))}
+          <div className="flex items-center gap-2.5">
+            <span className="hidden sm:inline-block text-[11px] font-medium text-slate-400">
+              Penawaran terbaru • Gerak otomatis
+            </span>
+          </div>
         </div>
       </div>
+
+      <div 
+        className="flash-sale-viewport relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent_0%,black_16px,black_calc(100%-16px),transparent_100%)] sm:[mask-image:linear-gradient(to_right,transparent_0%,black_32px,black_calc(100%-32px),transparent_100%)] touch-pan-y select-none"
+        aria-label="Flash sale conveyor marquee"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        <div 
+          ref={trackRef}
+          className="flash-sale-track flex flex-nowrap w-max py-1 will-change-transform cursor-grab active:cursor-grabbing"
+          style={{
+            transform: `translate3d(${positionRef.current}px, 0, 0)`
+          }}
+        >
+          {/* Set A: Primary Sequence */}
+          <div 
+            ref={setARef} 
+            className="flex flex-nowrap gap-2.5 sm:gap-4 lg:gap-5 pr-2.5 sm:pr-4 lg:pr-5 shrink-0"
+          >
+            {sequenceItems.map((item, index) => (
+              <FlashSaleCard 
+                key={`primary-${item.id}-${index}`} 
+                item={item} 
+                index={index} 
+                wasDraggedRef={wasDraggedRef}
+              />
+            ))}
+          </div>
+
+          {/* Set B: Identical Clone for Seamless Infinite Loop */}
+          <div 
+            className="flex flex-nowrap gap-2.5 sm:gap-4 lg:gap-5 pr-2.5 sm:pr-4 lg:pr-5 shrink-0" 
+            aria-hidden="true"
+          >
+            {sequenceItems.map((item, index) => (
+              <FlashSaleCard 
+                key={`clone-${item.id}-${index}`} 
+                item={item} 
+                index={index} 
+                isDuplicate={true} 
+                wasDraggedRef={wasDraggedRef}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .flash-sale-track {
+          user-select: none;
+          -webkit-user-drag: none;
+        }
+      `}</style>
     </section>
   );
 };
 
-const FlashSaleCard: React.FC<{ item: FlashSaleItem; index: number }> = ({ item, index }) => {
+
+
+interface FlashSaleCardProps {
+  item: FlashSaleItem;
+  index: number;
+  isDuplicate?: boolean;
+  wasDraggedRef: React.RefObject<boolean>;
+}
+
+const FlashSaleCard: React.FC<FlashSaleCardProps> = ({ item, isDuplicate = false, wasDraggedRef }) => {
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
   const [isExpired, setIsExpired] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const entranceTimer = setTimeout(() => setIsVisible(true), index * 80);
-    return () => clearTimeout(entranceTimer);
-  }, [index]);
 
   useEffect(() => {
     if (!item.endAt) return;
@@ -122,76 +295,84 @@ const FlashSaleCard: React.FC<{ item: FlashSaleItem; index: number }> = ({ item,
 
   if (isExpired) return null;
 
+  const displayName = item.variantName || item.productName || item.name;
+
   return (
-    <div className={`transition-all duration-700 ease-out transform-gpu ${isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95'}`}>
-      <Link to={`/games/${item.gameSlug}`} className="block group">
-        <div 
-          className="relative aspect-[1/1.15] overflow-hidden rounded-2xl border border-slate-200/70 dark:border-slate-800/80 transition-all duration-300 ease-out hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/5 hover:-translate-y-1 active:scale-[0.98]"
-          style={{ backgroundColor: 'var(--surface-color)' }}
-        >
-          {/* Main Visual / Logo Section (Full Bleed) */}
-          <div className="absolute inset-0">
-            {item.image ? (
-              <img 
-                src={item.image} 
-                alt={item.gameName}
-                className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-700">
-                <Zap className="w-8 h-8 opacity-20" />
-              </div>
-            )}
+    <Link 
+      to={`/games/${item.gameSlug}`} 
+      tabIndex={isDuplicate ? -1 : 0}
+      aria-hidden={isDuplicate ? "true" : undefined}
+      onClick={(e) => {
+        if (wasDraggedRef.current) {
+          e.preventDefault();
+        }
+      }}
+      className="group flex flex-col w-[112px] sm:w-[140px] lg:w-[160px] shrink-0 aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 ease-out hover:-translate-y-0.5 sm:hover:-translate-y-1 active:scale-[0.98] cursor-pointer motion-reduce:transition-none motion-reduce:transform-none select-none"
+      style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
+    >
+      {/* Zona 1: Clean Artwork Zone (~72%) */}
+      <div 
+        className="relative w-full h-[72%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b"
+        style={{ borderColor: 'var(--border-color)' }}
+      >
+        {item.image ? (
+          <img 
+            src={item.image} 
+            alt={displayName}
+            className="w-full h-full object-cover object-top transition-transform duration-500 will-change-transform group-hover:scale-[1.025] motion-reduce:transform-none"
+            loading="lazy"
+            draggable={false}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-400 dark:text-slate-600">
+            <Zap className="w-8 h-8 opacity-25" />
           </div>
+        )}
 
-          {/* Gradient Overlay for Legibility (Bottom-up) */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent z-10" />
-
-          {/* Discount Badge Overlay (Zero-Pill Minimalist look) */}
-          {item.discount && item.discount > 0 && (
-            <div className="absolute top-2.5 left-2.5 z-20">
-              <span className="inline-flex items-center bg-red-600 text-white font-bold px-1.5 py-0.5 rounded text-[10px] tracking-wider">
-                -{item.discount}%
-              </span>
-            </div>
-          )}
-
-          {/* Pricing & Progress Overlay (At the bottom) */}
-          <div className="absolute inset-x-0 bottom-0 p-3 z-20">
-            <div className="flex items-baseline gap-1.5 flex-wrap mb-1.5">
-              <span className="text-sm sm:text-base font-extrabold text-white leading-none tracking-tight font-mono tabular-nums">
-                Rp {item.salePrice.toLocaleString("id-ID")}
-              </span>
-              {item.normalPrice > item.salePrice && (
-                <span className="text-[10px] text-white/50 line-through leading-none font-mono tabular-nums">
-                  Rp {item.normalPrice.toLocaleString("id-ID")}
-                </span>
-              )}
-            </div>
-            
-            {item.totalQuota && item.remainingQuota !== null && item.remainingQuota !== undefined && (
-              <div className="w-full bg-white/20 rounded-full h-[2px] overflow-hidden">
-                <div 
-                  className="bg-red-500 h-full transition-all duration-1000" 
-                  style={{ width: `${Math.max(5, (item.remainingQuota / item.totalQuota) * 100)}%` }}
-                ></div>
-              </div>
-            )}
+        {/* Refined Single Editorial Discount Accent Badge */}
+        {item.discount && item.discount > 0 && (
+          <div className="absolute top-2 left-2 z-10">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold tracking-tight bg-brand-600 text-white shadow-xs transition-transform duration-250 ease-out group-hover:scale-105 motion-reduce:transform-none">
+              -{item.discount}%
+            </span>
           </div>
+        )}
+      </div>
 
-          {/* Subtle Hover Countdown */}
-          {timeLeft && (
-            <div className="absolute top-2.5 right-2.5 bg-black/60 backdrop-blur-sm text-white px-2 py-1 rounded-md text-[9px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
-              <Clock className="w-3 h-3 text-yellow-400" />
-              <span className="font-mono tabular-nums">
-                {String(timeLeft.hours).padStart(2, '0')}:
-                {String(timeLeft.minutes).padStart(2, '0')}:
-                {String(timeLeft.seconds).padStart(2, '0')}
-              </span>
-            </div>
+      {/* Zona 2: Dedicated Editorial Plinth (~28%) */}
+      <div className="w-full h-[28%] flex flex-col justify-between p-1.5 sm:p-2 bg-white dark:bg-slate-900 transition-colors">
+        {/* Product / Variant Name */}
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[10px] sm:text-[11px] leading-tight line-clamp-1 tracking-tight group-hover:text-brand-600 transition-colors">
+          {displayName}
+        </h3>
+
+        {/* Price Row: Primary Flash Sale Price + Line-through Original Price */}
+        <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap">
+          <span className="text-[11px] sm:text-xs font-extrabold text-brand-600 dark:text-brand-400 leading-none tracking-tight">
+            Rp {item.salePrice.toLocaleString("id-ID")}
+          </span>
+          {item.normalPrice > item.salePrice && (
+            <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 line-through leading-none tabular-nums">
+              Rp {item.normalPrice.toLocaleString("id-ID")}
+            </span>
           )}
         </div>
-      </Link>
-    </div>
+
+        {/* Subtle Metadata Row: Quota or Countdown (Subtle & Non-Obtrusive) */}
+        {((item.remainingQuota !== null && item.remainingQuota !== undefined) || timeLeft) && (
+          <div className="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-500 dark:text-slate-400 leading-none pt-0.5">
+            {item.remainingQuota !== null && item.remainingQuota !== undefined ? (
+              <span className="truncate font-medium">Sisa {item.remainingQuota}</span>
+            ) : <span />}
+            {timeLeft && (
+              <span className="inline-flex items-center gap-0.5 text-slate-400 dark:text-slate-500 font-mono text-[8px] sm:text-[9px] shrink-0">
+                <Clock className="w-2.5 h-2.5" />
+                {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </Link>
   );
 };

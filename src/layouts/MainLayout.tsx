@@ -73,6 +73,7 @@ interface BrandingConfig {
     address?: string;
   };
   socialMedia?: Record<string, string>;
+  showGlobalBorders?: boolean;
 }
 
 function isHexDark(hex?: string): boolean {

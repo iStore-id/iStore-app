@@ -515,6 +515,14 @@ export default function GameDetailPage() {
         }),
       });
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+          // If response is not JSON, it might be an HTML error page
+          const text = await response.text();
+          console.error("Response not JSON:", text);
+          throw new Error("Server error: received non-JSON response");
+      }
+
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || "Gagal membuat pesanan");
 

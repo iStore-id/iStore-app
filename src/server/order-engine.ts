@@ -25,13 +25,14 @@ const loyaltyService = LoyaltyService.getInstance();
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
+  const userId = req.user ? (req.user.uid || req.user.id) : null;
   try {
     // 0. Operational Gate
     const storeConfig = await getStoreConfiguration();
     if (storeConfig && storeConfig.operationalStatus && storeConfig.operationalStatus !== "open") {
       const defaultClosed = "Maaf, toko sedang tutup sementara. Silakan kembali beberapa saat lagi.";
       const defaultMaintenance = "iStore sedang dalam maintenance. Layanan akan kembali normal setelah proses selesai.";
-      return res.status(503).json({ 
+      return res.status(409).json({ 
         success: false, 
         message: storeConfig.operationalStatus === "maintenance" 
           ? (storeConfig.maintenanceMessage?.trim() || defaultMaintenance)
@@ -40,9 +41,6 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     const { productId, variantId, customerInput, promoCode, referralCode, paymentMethod, pointsToUse } = req.body;
-    
-    // STRICT SECURITY: Trust token UID, do not trust req.body.userId
-    const userId = req.user ? (req.user.uid || req.user.id) : null;
 
     if (!productId || !variantId || !customerInput) {
       return res.status(400).json({ success: false, message: "Incomplete data" });

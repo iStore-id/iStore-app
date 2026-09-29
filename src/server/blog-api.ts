@@ -247,6 +247,25 @@ export async function archiveBlogApi(req: AuthenticatedRequest, res: Response) {
   }
 }
 
+export async function restoreBlogApi(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const uid = req.user?.uid || "system";
+
+    const blog = await blogService.restoreBlog(id, uid);
+    await logAudit(req, "RESTORE_BLOG", id, { isArchived: false });
+
+    return res.status(200).json({
+      success: true,
+      message: "Artikel berhasil dipulihkan dari arsip.",
+      data: blog
+    });
+  } catch (error: any) {
+    console.error("[Admin Restore Blog Error]:", error);
+    return res.status(400).json({ success: false, message: error.message || "Gagal memulihkan artikel." });
+  }
+}
+
 export async function deleteBlogApi(req: AuthenticatedRequest, res: Response) {
   try {
     const { id } = req.params;

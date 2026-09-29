@@ -119,6 +119,7 @@ export default function HeroBannerCarousel({ banners }: HeroBannerCarouselProps)
   // JIKA HANYA 1 BANNER: Tampilkan statis tanpa controls, dots, atau auto-slide
   if (banners.length === 1) {
     const banner = banners[0];
+    const key = banner.id || banner.mediaUrl;
     const activeRatio = getBannerRatio(banner);
     const isTransparent = isTransparentFormat(banner.mediaUrl);
 
@@ -288,13 +289,18 @@ export default function HeroBannerCarousel({ banners }: HeroBannerCarouselProps)
             )}
 
             {/* Main Banner Image - Crisp, Uncropped (FIT) or Edge-to-Edge (FILL) */}
-            <img
-              src={currentBanner.mediaUrl}
-              alt={currentBanner.altText || currentBanner.name}
-              onLoad={(e) => handleImageLoad(activeKey, e)}
-              className={`w-full h-full ${currentBanner.displayMode === 'fill' ? 'object-cover' : 'object-contain'} relative z-10 select-none pointer-events-none`}
-              referrerPolicy="no-referrer"
-            />
+            {(() => {
+              const activeKey = currentBanner.id || currentBanner.mediaUrl;
+              return (
+                <img
+                  src={currentBanner.mediaUrl}
+                  alt={currentBanner.altText || currentBanner.name}
+                  onLoad={(e) => handleImageLoad(activeKey, e)}
+                  className={`w-full h-full ${currentBanner.displayMode === 'fill' ? 'object-cover' : 'object-contain'} relative z-10 select-none pointer-events-none`}
+                  referrerPolicy="no-referrer"
+                />
+              );
+            })()}
 
             {/* Overlay only if title or target exists */}
             {(currentBanner.title || currentBanner.target) && (

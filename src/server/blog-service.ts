@@ -499,7 +499,8 @@ export class BlogService {
   async updateBlog(
     id: string,
     data: Partial<BlogPost>,
-    uid: string
+    uid: string,
+    isRestoreCall = false
   ): Promise<BlogPost> {
     const existing = await this.cmsRepo.getBlog(id);
     if (!existing) throw new Error("Artikel Blog tidak ditemukan.");
@@ -541,17 +542,63 @@ export class BlogService {
       updates.publishedAt = null;
     }
 
+    // Merge for state check & status recalculation
+    const merged = {
+      published: updates.published !== undefined ? updates.published : existing.published,
+      enabled: updates.enabled !== undefined ? updates.enabled : existing.enabled,
+      isArchived: updates.isArchived !== undefined ? updates.isArchived : existing.isArchived,
+      startAt: updates.startAt !== undefined ? updates.startAt : existing.startAt,
+      endAt: updates.endAt !== undefined ? updates.endAt : existing.endAt
+    };
+
+    // State Enforcement Guard (Backend)
+    if (existing.isArchived) {
+      // Prevent unarchiving via general PUT updates unless it is a restore call
+      if (data.isArchived === false && !isRestoreCall) {
+        throw new Error("Artikel yang diarsipkan tidak dapat dipulihkan melalui pembaruan umum. Silakan gunakan tombol/endpoint Restore khusus.");
+      }
+    }
+
+    if (merged.isArchived) {
+      // If we are setting enabled or published to true on an archived post, reject!
+      if (updates.enabled === true || updates.published === true) {
+        throw new Error("Artikel yang diarsipkan tidak dapat diaktifkan atau dipublikasikan. Silakan pulihkan (restore) artikel terlebih dahulu.");
+      }
+    }
+
+    // Recalculate status so that we don't leave it stale (solves "status=PUBLISHED" on archive)
+    updates.status = computeBlogStatus(merged);
+
     await this.cmsRepo.updateBlog(id, updates);
     const updated = await this.cmsRepo.getBlog(id);
     return updated!;
   }
 
   async publishBlog(id: string, published: boolean, uid: string): Promise<BlogPost> {
-    return this.updateBlog(id, { published }, uid);
+    const existing = await this.cmsRepo.getBlog(id);
+    if (!existing) throw new Error("Artikel Blog tidak ditemukan.");
+    if (existing.isArchived) {
+      throw new Error("Artikel yang diarsipkan tidak dapat dipublikasikan atau ditarik ke draft. Silakan pulihkan (restore) artikel terlebih dahulu.");
+    }
+    const updates: Partial<BlogPost> = { published };
+    if (published) {
+      updates.enabled = true;
+    }
+    return this.updateBlog(id, updates, uid);
   }
 
   async archiveBlog(id: string, uid: string): Promise<BlogPost> {
     return this.updateBlog(id, { isArchived: true, enabled: false }, uid);
+  }
+
+  async restoreBlog(id: string, uid: string): Promise<BlogPost> {
+    const existing = await this.cmsRepo.getBlog(id);
+    if (!existing) throw new Error("Artikel Blog tidak ditemukan.");
+    if (!existing.isArchived) {
+      throw new Error("Artikel tidak sedang diarsipkan.");
+    }
+    // Restore clears the archive flag and ensures it does not automatically publish or enable
+    return this.updateBlog(id, { isArchived: false, enabled: false, published: false }, uid, true);
   }
 
   async deleteBlog(id: string): Promise<void> {

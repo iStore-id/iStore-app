@@ -246,9 +246,6 @@ export default function HomePage() {
 
       <LandingPreviewSection />
 
-      {/* Flash Sale Section */}
-      <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
-
       {/* Unified Storefront Navigation Dock */}
       {(popularGames.length > 0 || activeCategories.length > 0) && (
         <section className="py-2 sm:py-2.5 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200/80 sticky top-16 z-20 shadow-xs">
@@ -280,6 +277,9 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* Flash Sale Section */}
+      <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
 
       {/* Popular Games / Catalog */}
       <section id="katalog" className="pt-4 sm:pt-6 pb-8 sm:pb-10 lg:pb-12 px-4">
@@ -344,7 +344,7 @@ export default function HomePage() {
           {catalogLoading ? (
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
               {[...Array(12)].map((_, i) => (
-                <div key={i} className="animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl aspect-[1/1.15] overflow-hidden relative border" style={{ borderColor: 'var(--border-color)' }}>
+                <div key={i} className="animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl aspect-[1/1.38] overflow-hidden relative border" style={{ borderColor: 'var(--border-color)' }}>
                   <div className="absolute inset-0 bg-slate-200/50 dark:bg-slate-700/50"></div>
                   <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-slate-300/30 dark:from-slate-900/30 to-transparent"></div>
                 </div>
@@ -435,19 +435,25 @@ export default function HomePage() {
                             <Link 
                               to={`/games/${game.slug}`} 
                               key={game.id} 
-                              className="group relative aspect-[1/1.15] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-lg transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] cursor-pointer"
+                              className="group flex flex-col aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
                               style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
                             >
-                              <img 
-                                src={game.image || fallbackImg} 
-                                alt={game.name}
-                                className="w-full h-full object-cover transition-transform duration-500 will-change-transform group-hover:scale-110"
-                                loading="lazy"
-                              />
+                              {/* Zona 1: Clean Artwork (74% height) */}
+                              <div 
+                                className="relative w-full h-[74%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b"
+                                style={{ borderColor: 'var(--border-color)' }}
+                              >
+                                <img 
+                                  src={game.image || fallbackImg} 
+                                  alt={game.name}
+                                  className="w-full h-full object-cover object-top transition-transform duration-500 will-change-transform group-hover:scale-105"
+                                  loading="lazy"
+                                />
+                              </div>
                               
-                              {/* Overlay for Game Name - Appears on bottom */}
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-2 sm:p-2.5 pt-8 z-10 translate-y-1 group-hover:translate-y-0 transition-transform duration-300">
-                                <h3 className="font-bold text-white text-[10px] sm:text-xs leading-tight line-clamp-2 text-center drop-shadow-sm">
+                              {/* Zona 2: Dedicated Editorial Plinth (26% height) */}
+                              <div className="w-full h-[26%] flex items-center justify-center px-1.5 sm:px-2 py-1 text-center bg-white dark:bg-slate-900 transition-colors">
+                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-600 transition-colors">
                                   {game.name}
                                 </h3>
                               </div>

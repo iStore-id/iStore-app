@@ -428,6 +428,25 @@ export default function AdminBlogPage() {
     }
   };
 
+  const handleRestore = async (blog: BlogPost) => {
+    if (!confirm(`Pulihkan artikel "${blog.title}" dari arsip? Artikel akan kembali ke status Draft.`)) return;
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch(`/api/admin/blog/${blog.id}/restore`, {
+        method: "POST",
+        headers: { Authorization: token ? `Bearer ${token}` : "" }
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchBlogs();
+      } else {
+        alert(json.message || "Gagal memulihkan artikel.");
+      }
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan.");
+    }
+  };
+
   const handleDelete = async () => {
     if (!deleteConfirmBlog) return;
     try {
@@ -757,22 +776,30 @@ export default function AdminBlogPage() {
                       <div className="space-y-1 text-xs">
                         <div className="flex items-center gap-2">
                           <button
+                            disabled={blog.isArchived}
                             onClick={() => handleTogglePublish(blog)}
-                            className={`px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors ${
-                              blog.published
-                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                              blog.isArchived
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : blog.published
+                                ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 cursor-pointer"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
                             }`}
+                            title={blog.isArchived ? "Pulihkan artikel terlebih dahulu untuk mengubah status publikasi" : ""}
                           >
                             {blog.published ? "Published" : "Draft"}
                           </button>
                           <button
+                            disabled={blog.isArchived}
                             onClick={() => handleToggleEnabled(blog)}
-                            className={`px-2 py-0.5 rounded text-xs font-medium cursor-pointer transition-colors ${
-                              blog.enabled
-                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200"
-                                : "bg-red-100 text-red-800 hover:bg-red-200"
+                            className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                              blog.isArchived
+                                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                : blog.enabled
+                                ? "bg-blue-100 text-blue-800 hover:bg-blue-200 cursor-pointer"
+                                : "bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer"
                             }`}
+                            title={blog.isArchived ? "Pulihkan artikel terlebih dahulu untuk mengaktifkan" : ""}
                           >
                             {blog.enabled ? "Aktif" : "Nonaktif"}
                           </button>
@@ -801,13 +828,23 @@ export default function AdminBlogPage() {
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleArchive(blog)}
-                          title="Arsipkan"
-                          className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Archive className="w-4 h-4" />
-                        </button>
+                        {blog.isArchived ? (
+                          <button
+                            onClick={() => handleRestore(blog)}
+                            title="Pulihkan dari Arsip"
+                            className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleArchive(blog)}
+                            title="Arsipkan"
+                            className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Archive className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => setDeleteConfirmBlog(blog)}
                           title="Hapus Artikel"
@@ -1320,9 +1357,18 @@ export default function AdminBlogPage() {
               {/* TAB 4: PUBLIKASI & SEO */}
               {modalTab === "schedule" && (
                 <div className="space-y-5">
+                  {editingBlog?.isArchived && (
+                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                      <span>
+                        <strong>Artikel Sedang Diarsipkan:</strong> Artikel ini berada dalam status terarsip dan dinonaktifkan. Anda harus menutup modal ini dan mengklik tombol <strong>Pulihkan (Restore)</strong> (ikon lingkaran hijau) pada tabel daftar untuk dapat mengaktifkan atau mempublikasikannya kembali.
+                      </span>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Toggle Published */}
-                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                    <div className={`p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between ${editingBlog?.isArchived ? "opacity-60" : ""}`}>
                       <div>
                         <div className="font-bold text-sm text-slate-900">Publikasikan Artikel</div>
                         <div className="text-xs text-slate-500">
@@ -1331,14 +1377,15 @@ export default function AdminBlogPage() {
                       </div>
                       <input
                         type="checkbox"
+                        disabled={editingBlog?.isArchived}
                         checked={published}
                         onChange={(e) => setPublished(e.target.checked)}
-                        className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
+                        className={`w-5 h-5 accent-blue-600 rounded ${editingBlog?.isArchived ? "cursor-not-allowed" : "cursor-pointer"}`}
                       />
                     </div>
 
                     {/* Toggle Enabled */}
-                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                    <div className={`p-4 rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-between ${editingBlog?.isArchived ? "opacity-60" : ""}`}>
                       <div>
                         <div className="font-bold text-sm text-slate-900">Status Aktif (Enabled)</div>
                         <div className="text-xs text-slate-500">
@@ -1347,9 +1394,10 @@ export default function AdminBlogPage() {
                       </div>
                       <input
                         type="checkbox"
+                        disabled={editingBlog?.isArchived}
                         checked={enabled}
                         onChange={(e) => setEnabled(e.target.checked)}
-                        className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
+                        className={`w-5 h-5 accent-blue-600 rounded ${editingBlog?.isArchived ? "cursor-not-allowed" : "cursor-pointer"}`}
                       />
                     </div>
                   </div>

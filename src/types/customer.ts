@@ -141,6 +141,7 @@ export interface CustomerSegment {
   name: string;
   description?: string;
   type: 'STATIC' | 'DYNAMIC';
+  status: 'ACTIVE' | 'INACTIVE';
   ruleGroup?: SegmentRuleGroup;
   memberCount: number;
   evaluationStatus: 'IDLE' | 'RUNNING' | 'COMPLETED' | 'FAILED';

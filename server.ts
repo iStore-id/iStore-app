@@ -73,7 +73,7 @@ import { getPublicBannersApi, getAdminBannersApi, createBannerApi, updateBannerA
 import { getPublicPopupsApi, getAdminPopupsApi, createPopupApi, updatePopupApi, deletePopupApi } from "./src/server/popup-api.js";
 import { getPublicCampaignsApi, getPublicCampaignDetailApi, getAdminCampaignsApi, getCampaignComponentsDataApi, createCampaignApi, updateCampaignApi, archiveCampaignApi, deleteCampaignApi } from "./src/server/campaign-api.js";
 import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi, getAdminLandingPageByIdApi, getAdminLandingPagePreviewApi, getAdminLandingComponentsApi, createLandingPageApi, updateLandingPageApi, publishLandingPageApi, archiveLandingPageApi, deleteLandingPageApi } from "./src/server/landing-api.js";
-import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi } from "./src/server/blog-api.js";
+import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi, restoreBlogApi } from "./src/server/blog-api.js";
 import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api.js";
 import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api.js";
 import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api.js";
@@ -205,9 +205,13 @@ export async function initServerLogic() {
   app.use(securityHeadersMiddleware);
   app.use(ipFirewallMiddleware);
 
-  const distPath = "/app/applet/dist";
-  app.use("/assets", express.static(path.join(distPath, "assets")));
-  app.use(express.static(distPath, { index: false }));
+  const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+  const distPath = path.join(process.cwd(), "dist");
+
+  if (isProd) {
+    app.use("/assets", express.static(path.join(distPath, "assets")));
+    app.use(express.static(distPath, { index: false }));
+  }
 
   // API Routes
   app.get("/api/health", async (req, res) => {
@@ -670,6 +674,7 @@ export async function initServerLogic() {
   app.put("/api/admin/blog/:id", requirePermission("content", "edit"), updateBlogApi);
   app.post("/api/admin/blog/:id/publish", requirePermission("content", "edit"), publishBlogApi);
   app.post("/api/admin/blog/:id/archive", requirePermission("content", "edit"), archiveBlogApi);
+  app.post("/api/admin/blog/:id/restore", requirePermission("content", "edit"), restoreBlogApi);
   app.delete("/api/admin/blog/:id", requirePermission("content", "delete"), deleteBlogApi);
 
   // Marketing & Konten - FAQ
@@ -740,7 +745,7 @@ export async function initServerLogic() {
   isServerInitialized = true;
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (!isProd) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -749,13 +754,15 @@ export async function initServerLogic() {
     app.use(vite.middlewares);
   }
 
-  // SPA fallback
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api") || req.path.startsWith("/assets")) {
-      return next();
-    }
-    res.sendFile(path.join("/app/applet/dist", "index.html"));
-  });
+  // SPA fallback (Production only, Vite handles this in Dev)
+  if (isProd) {
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api") || req.path.startsWith("/assets")) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
 
   // Only open long-running HTTP server when not in Vercel Serverless environment
   if (process.env.VERCEL !== "1") {
