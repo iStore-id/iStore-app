@@ -6,6 +6,26 @@
       "destination": "/api"
     },
     {
+      "source": "/",
+      "destination": "/api"
+    },
+    {
+      "source": "/games/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/blog/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/api"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
