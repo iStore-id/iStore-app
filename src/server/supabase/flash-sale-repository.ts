@@ -25,6 +25,7 @@ export class SupabaseFlashSaleRepository {
     const { data, error } = await client
       .from("flash_sales")
       .select("*")
+      .eq("status", "active")
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(`Supabase getFlashSales error: ${error.message}`);

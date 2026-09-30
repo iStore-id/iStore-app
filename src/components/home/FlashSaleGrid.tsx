@@ -307,12 +307,12 @@ const FlashSaleCard: React.FC<FlashSaleCardProps> = ({ item, isDuplicate = false
           e.preventDefault();
         }
       }}
-      className="group flex flex-col w-[112px] sm:w-[140px] lg:w-[160px] shrink-0 aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 ease-out hover:-translate-y-0.5 sm:hover:-translate-y-1 active:scale-[0.98] cursor-pointer motion-reduce:transition-none motion-reduce:transform-none select-none"
+      className="group flex flex-col w-[104px] sm:w-[132px] lg:w-[152px] shrink-0 aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 ease-out hover:-translate-y-0.5 sm:hover:-translate-y-1 active:scale-[0.98] cursor-pointer motion-reduce:transition-none motion-reduce:transform-none select-none"
       style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
     >
-      {/* Zona 1: Clean Artwork Zone (~72%) */}
+      {/* Zona 1: Clean Artwork Zone (~68%) */}
       <div 
-        className="relative w-full h-[72%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b"
+        className="relative w-full h-[68%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b"
         style={{ borderColor: 'var(--border-color)' }}
       >
         {item.image ? (
@@ -331,45 +331,47 @@ const FlashSaleCard: React.FC<FlashSaleCardProps> = ({ item, isDuplicate = false
 
         {/* Refined Single Editorial Discount Accent Badge */}
         {item.discount && item.discount > 0 && (
-          <div className="absolute top-2 left-2 z-10">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold tracking-tight bg-brand-600 text-white shadow-xs transition-transform duration-250 ease-out group-hover:scale-105 motion-reduce:transform-none">
+          <div className="absolute top-1.5 left-1.5 z-10">
+            <span className="inline-flex items-center px-1 py-0.5 sm:px-1.5 sm:py-0.5 lg:px-2 lg:py-0.5 rounded-md text-[9px] sm:text-[9.5px] lg:text-[10px] font-extrabold tracking-tight bg-slate-900 text-white shadow-xs transition-transform duration-250 ease-out group-hover:scale-105 motion-reduce:transform-none">
               -{item.discount}%
+            </span>
+          </div>
+        )}
+
+        {/* Countdown Overlay in the top-right of artwork */}
+        {timeLeft && (
+          <div className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-0.5 lg:px-2 lg:py-0.5 bg-slate-950/75 text-white backdrop-blur-[2px] border border-white/10 rounded-md font-mono text-[8px] sm:text-[8.5px] lg:text-[9px] leading-none shrink-0 tracking-tight">
+            <Clock className="w-2.5 h-2.5 text-white/90 shrink-0" />
+            <span>
+              {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
             </span>
           </div>
         )}
       </div>
 
-      {/* Zona 2: Dedicated Editorial Plinth (~28%) */}
-      <div className="w-full h-[28%] flex flex-col justify-between p-1.5 sm:p-2 bg-white dark:bg-slate-900 transition-colors">
-        {/* Product / Variant Name */}
-        <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[10px] sm:text-[11px] leading-tight line-clamp-1 tracking-tight group-hover:text-brand-600 transition-colors">
+      {/* Zona 2: Dedicated Editorial Plinth (~32%) */}
+      <div className="w-full h-[32%] flex flex-col justify-between p-1.5 sm:p-2 bg-white transition-colors">
+        {/* Product / Variant Name (line-clamp-2 for better text breathing room) */}
+        <h3 className="font-semibold text-slate-800 text-[10px] sm:text-[11px] leading-tight line-clamp-2 tracking-tight group-hover:text-brand-600 transition-colors">
           {displayName}
         </h3>
 
         {/* Price Row: Primary Flash Sale Price + Line-through Original Price */}
         <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap">
-          <span className="text-[11px] sm:text-xs font-extrabold text-brand-600 dark:text-brand-400 leading-none tracking-tight">
+          <span className="text-xs sm:text-sm font-black text-brand-600 leading-none tracking-tight">
             Rp {item.salePrice.toLocaleString("id-ID")}
           </span>
           {item.normalPrice > item.salePrice && (
-            <span className="text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 line-through leading-none tabular-nums">
+            <span className="text-[9px] sm:text-[10px] text-slate-400 line-through leading-none tabular-nums">
               Rp {item.normalPrice.toLocaleString("id-ID")}
             </span>
           )}
         </div>
 
-        {/* Subtle Metadata Row: Quota or Countdown (Subtle & Non-Obtrusive) */}
-        {((item.remainingQuota !== null && item.remainingQuota !== undefined) || timeLeft) && (
-          <div className="flex items-center justify-between text-[8px] sm:text-[9px] text-slate-500 dark:text-slate-400 leading-none pt-0.5">
-            {item.remainingQuota !== null && item.remainingQuota !== undefined ? (
-              <span className="truncate font-medium">Sisa {item.remainingQuota}</span>
-            ) : <span />}
-            {timeLeft && (
-              <span className="inline-flex items-center gap-0.5 text-slate-400 dark:text-slate-500 font-mono text-[8px] sm:text-[9px] shrink-0">
-                <Clock className="w-2.5 h-2.5" />
-                {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
-              </span>
-            )}
+        {/* Subtle Metadata Row: Remaining Quota (Subtle & Non-Obtrusive, at the bottom) */}
+        {item.remainingQuota !== null && item.remainingQuota !== undefined && (
+          <div className="text-[8px] sm:text-[9px] text-slate-500 leading-none pt-0.5">
+            <span className="truncate font-semibold text-slate-500">Sisa {item.remainingQuota}</span>
           </div>
         )}
       </div>

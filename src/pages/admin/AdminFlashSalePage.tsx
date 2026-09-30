@@ -25,6 +25,7 @@ export default function AdminFlashSalePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Selector data
   const [products, setProducts] = useState<any[]>([]);
@@ -206,7 +207,6 @@ export default function AdminFlashSalePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menonaktifkan flash sale ini?")) return;
     try {
       const token = await (user as any)?.getIdToken?.();
       const res = await fetch(`/api/admin/flash-sales/${id}`, {
@@ -322,21 +322,43 @@ export default function AdminFlashSalePage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-4 px-4 text-right space-x-2">
-                      <button
-                        onClick={() => handleOpenEdit(fs)}
-                        className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                        title="Edit Flash Sale"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(fs.id)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                        title="Nonaktifkan"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="py-4 px-4 text-right">
+                      {deletingId === fs.id ? (
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={async () => {
+                              await handleDelete(fs.id);
+                              setDeletingId(null);
+                            }}
+                            className="px-2 py-1 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white rounded transition shadow-sm"
+                          >
+                            Ya, Hapus
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(null)}
+                            className="px-2 py-1 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition border border-gray-200"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(fs)}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                            title="Edit Flash Sale"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(fs.id)}
+                            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            title="Nonaktifkan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
