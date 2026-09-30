@@ -1,33 +1,37 @@
 {
   "installCommand": "npm install --include=optional",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
+      "src": "/api/(.*)",
+      "dest": "/api"
     },
     {
-      "source": "/",
-      "destination": "/api"
+      "src": "/",
+      "dest": "/api"
     },
     {
-      "source": "/games/(.*)",
-      "destination": "/api"
+      "src": "/games/(.*)",
+      "dest": "/api"
     },
     {
-      "source": "/blog/(.*)",
-      "destination": "/api"
+      "src": "/blog/(.*)",
+      "dest": "/api"
     },
     {
-      "source": "/robots.txt",
-      "destination": "/api"
+      "src": "/robots.txt",
+      "dest": "/api"
     },
     {
-      "source": "/sitemap.xml",
-      "destination": "/api"
+      "src": "/sitemap.xml",
+      "dest": "/api"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
