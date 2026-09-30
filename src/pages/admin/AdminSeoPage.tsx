@@ -20,7 +20,8 @@ import {
   Shield,
   Plus,
   Trash2,
-  Check
+  Check,
+  BarChart3
 } from "lucide-react";
 import { SEOSettings, DefaultOgImage, RobotsPolicy, SitemapPolicy, SocialMetadata } from "../../types/seo";
 
@@ -34,7 +35,7 @@ export default function AdminSeoPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Active section tab
-  const [activeTab, setActiveTab] = useState<"global" | "social" | "robots" | "sitemap">("global");
+  const [activeTab, setActiveTab] = useState<"global" | "social" | "robots" | "sitemap" | "google">("global");
 
   // Preview tab & device toggle
   const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
@@ -380,6 +381,18 @@ export default function AdminSeoPage() {
               <FileCode className="w-4 h-4" />
               <span>Sitemap XML</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab("google")}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+                activeTab === "google"
+                  ? "border-blue-600 text-blue-600 font-semibold"
+                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Google & Analytics</span>
+            </button>
           </div>
 
           {/* TAB 1: Global & Meta Settings */}
@@ -435,7 +448,7 @@ export default function AdminSeoPage() {
                     value={settings.canonicalBaseUrl}
                     onChange={e => setSettings({ ...settings, canonicalBaseUrl: e.target.value })}
                     className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-                    placeholder="https://istore.id"
+                    placeholder="https://ist.web.id"
                   />
                 </div>
                 <p className="text-xs text-slate-500 mt-1.5">
@@ -927,6 +940,80 @@ export default function AdminSeoPage() {
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Buka XML</span>
                   </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Google Search Console & Analytics 4 */}
+          {activeTab === "google" && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">Google Search Console & Analytics 4</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Pengaturan verifikasi kepemilikan domain Google Search Console dan Google Analytics 4 (GA4).
+                </p>
+              </div>
+
+              {/* Section 1: Google Search Console Verification */}
+              <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+                  <Search className="w-4 h-4 text-blue-600" />
+                  <span>Google Search Console Verification</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Google Site Verification Token
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.googleSiteVerification || ""}
+                    onChange={e => setSettings({ ...settings, googleSiteVerification: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono text-xs"
+                    placeholder="Contoh: v8aX... (Token HTML Meta Tag)"
+                  />
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Masukkan token verifikasi Search Console untuk metode HTML meta-tag. Token ini akan otomatis diinjeksikan sebagai:
+                    <code className="block mt-1 p-2 bg-slate-200/70 rounded text-slate-800 font-mono text-[11px]">
+                      &lt;meta name="google-site-verification" content="{settings.googleSiteVerification || "TOKEN"}" /&gt;
+                    </code>
+                  </p>
+                </div>
+              </div>
+
+              {/* Section 2: Google Analytics 4 */}
+              <div className="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-800 font-semibold text-sm">
+                    <BarChart3 className="w-4 h-4 text-emerald-600" />
+                    <span>Google Analytics 4 (GA4)</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.ga4Enabled || false}
+                      onChange={e => setSettings({ ...settings, ga4Enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    GA4 Measurement ID {settings.ga4Enabled && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.ga4MeasurementId || ""}
+                    onChange={e => setSettings({ ...settings, ga4MeasurementId: e.target.value.toUpperCase() })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono"
+                    placeholder="G-XXXXXXXXXX"
+                    disabled={!settings.ga4Enabled}
+                  />
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    Format valid: <strong>G-XXXXXXXXXX</strong>. Jika aktif, script gtag.js dan pelacakan event e-commerce (page_view, view_item, begin_checkout, purchase) akan dimuat secara otomatis tanpa mengirimkan data sensitif/PII.
+                  </p>
                 </div>
               </div>
             </div>

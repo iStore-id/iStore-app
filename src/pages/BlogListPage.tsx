@@ -15,7 +15,7 @@ import {
   Gamepad2
 } from "lucide-react";
 import { PublicBlogItem } from "../types/blog";
-import { useSEO } from "../lib/seo";
+import { useSEO, useSEOSettings, buildCanonicalUrl } from "../lib/seo";
 
 export default function BlogListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,7 +30,8 @@ export default function BlogListPage() {
 
   const [searchInput, setSearchInput] = useState(currentSearch);
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const seoSettings = useSEOSettings();
+  const canonicalBase = seoSettings.canonicalBaseUrl || (typeof window !== "undefined" ? window.location.origin : "https://ist.web.id");
 
   useSEO({
     title: currentCategory !== "ALL" ? `Artikel ${currentCategory} - Blog & Berita Game` : "Blog & Berita Game Terkini",
@@ -46,13 +47,13 @@ export default function BlogListPage() {
           "@type": "ListItem",
           "position": 1,
           "name": "Beranda",
-          "item": baseUrl ? `${baseUrl}/` : "/"
+          "item": buildCanonicalUrl(canonicalBase, "/")
         },
         {
           "@type": "ListItem",
           "position": 2,
           "name": "Blog",
-          "item": baseUrl ? `${baseUrl}/blog` : "/blog"
+          "item": buildCanonicalUrl(canonicalBase, "/blog")
         }
       ]
     }

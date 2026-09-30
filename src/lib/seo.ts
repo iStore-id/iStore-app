@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { PageMetadataInput, PublicSEOSettings } from "../types/seo";
+import { initGA4, trackPageView } from "./gtag";
 
 export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
-  siteName: "",
+  siteName: "iStore.id",
   titleSeparator: " | ",
-  defaultTitle: " - Solusi Top Up Game & Voucher Digital Terpercaya",
+  defaultTitle: "Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
   defaultKeywords: [
     "top up game",
@@ -13,10 +14,10 @@ export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
     "voucher ff",
     "istore indonesia"
   ],
-  canonicalBaseUrl: "",
+  canonicalBaseUrl: "https://ist.web.id",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: " - Top Up Game & Voucher Digital Terpercaya",
+    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
@@ -171,6 +172,29 @@ function updateJsonLdScript(data: Record<string, any> | Array<Record<string, any
 }
 
 /**
+ * Hook to retrieve active public SEO settings
+ */
+export function useSEOSettings(): PublicSEOSettings {
+  const [globalSettings, setGlobalSettings] = useState<PublicSEOSettings>(
+    cachedPublicSettings || FALLBACK_SEO_SETTINGS
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!cachedPublicSettings) {
+      fetchPublicSEOSettings().then(settings => {
+        if (isMounted) setGlobalSettings(settings);
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return globalSettings;
+}
+
+/**
  * Custom hook to deterministically resolve and apply page SEO metadata
  */
 export function useSEO(metadata: PageMetadataInput) {
@@ -259,7 +283,21 @@ export function useSEO(metadata: PageMetadataInput) {
     // 8. Canonical Link
     updateCanonicalLink(canonicalUrl);
 
-    // 9. Structured Data (JSON-LD)
+    // 9. Google Search Console Verification Meta Tag
+    if (globalSettings.googleSiteVerification && globalSettings.googleSiteVerification.trim()) {
+      updateMetaTag("name", "google-site-verification", globalSettings.googleSiteVerification.trim());
+    } else {
+      updateMetaTag("name", "google-site-verification", null);
+    }
+
+    // 10. GA4 Analytics Tracking
+    if (globalSettings.ga4Enabled && globalSettings.ga4MeasurementId) {
+      initGA4(globalSettings.ga4MeasurementId, globalSettings.ga4Enabled);
+      const path = metadata.canonicalPath || (typeof window !== "undefined" ? window.location.pathname : "/");
+      trackPageView(path, resolvedTitle);
+    }
+
+    // 11. Structured Data (JSON-LD)
     updateJsonLdScript(metadata.jsonLd);
 
     // Cleanup on unmount (revert to global defaults if needed)

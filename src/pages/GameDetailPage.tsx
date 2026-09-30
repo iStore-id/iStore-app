@@ -5,7 +5,8 @@ import { formatRupiah, loadMidtransSnap } from "../lib/utils";
 import { useAuthStore } from "../store/auth-store";
 import { ShieldCheck, Zap, AlertCircle, AlertTriangle, ChevronRight } from "lucide-react";
 import { Game, Product, ProductVariant } from "../types/core";
-import { useSEO } from "../lib/seo";
+import { useSEO, useSEOSettings, buildCanonicalUrl } from "../lib/seo";
+import { trackViewItem, trackBeginCheckout } from "../lib/gtag";
 import { defaultProducts } from "../lib/seed-data";
 import { ProductReviewsSection } from "../components/game/ProductReviewsSection";
 
@@ -99,6 +100,9 @@ export default function GameDetailPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<ProductVariant[]>([]);
 
+  const seoSettings = useSEOSettings();
+  const canonicalBase = seoSettings.canonicalBaseUrl || (typeof window !== "undefined" ? window.location.origin : "https://ist.web.id");
+
   useSEO({
     title: game ? `${game.name} - Top Up Murah & Instan` : undefined,
     description: game
@@ -108,23 +112,49 @@ export default function GameDetailPage() {
     canonicalPath: slug ? `/games/${slug}` : undefined,
     ogImage: game?.image || undefined,
     ogType: "product",
-    jsonLd: game ? {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "name": `Top Up ${game.name}`,
-      "image": game.image || undefined,
-      "description": `Layanan top up resmi untuk ${game.name} dengan pengiriman instan.`,
-      "brand": {
-        "@type": "Brand",
-        "name": (game as any).publisher || game.name
+    jsonLd: game ? [
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": `Top Up ${game.name}`,
+        "image": game.image || undefined,
+        "description": `Layanan top up resmi untuk ${game.name} dengan pengiriman instan.`,
+        "brand": {
+          "@type": "Brand",
+          "name": (game as any).publisher || game.name
+        },
+        "offers": {
+          "@type": "AggregateOffer",
+          "priceCurrency": "IDR",
+          "offerCount": variants.length || 1,
+          "availability": "https://schema.org/InStock"
+        }
       },
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "IDR",
-        "offerCount": variants.length || 1,
-        "availability": "https://schema.org/InStock"
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Beranda",
+            "item": buildCanonicalUrl(canonicalBase, "/")
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Games",
+            "item": buildCanonicalUrl(canonicalBase, "/games")
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": game.name,
+            "item": buildCanonicalUrl(canonicalBase, `/games/${slug}`)
+          }
+        ]
       }
-    } : undefined
+    ] : undefined
   });
   
   const [loading, setLoading] = useState(true);
@@ -434,6 +464,14 @@ export default function GameDetailPage() {
         setProducts(products || []);
         setLoading(false); // Game detail shell appears immediately!
 
+        if (game) {
+          trackViewItem({
+            id: game.id || game.slug,
+            name: game.name,
+            category: (game as any).category || "Game Voucher"
+          });
+        }
+
         if (products && products.length > 0) {
           const firstProd = products[0];
           setSelectedProduct(firstProd);
@@ -490,6 +528,19 @@ export default function GameDetailPage() {
 
     setProcessing(true);
     setCheckoutError(null);
+
+    // Track begin_checkout event in GA4
+    if (selectedVariant) {
+      const variantPrice = (selectedVariant as any).price || selectedVariant.pricing?.sellingPrice || 0;
+      trackBeginCheckout([
+        {
+          id: selectedVariant.id || selectedVariant.sku,
+          name: selectedVariant.name || game?.name || "Voucher Game",
+          price: variantPrice,
+          quantity: 1
+        }
+      ], variantPrice);
+    }
     try {
       let token = "";
       if ((user as any)?.getIdToken) {

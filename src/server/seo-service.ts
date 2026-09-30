@@ -10,7 +10,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_SEO_SETTINGS: SEOSettings = {
   id: "global",
-  siteName: "",
+  siteName: "iStore.id",
   titleSeparator: " | ",
   defaultTitle: "Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
@@ -22,10 +22,13 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
     "beli diamond game",
     "istore indonesia"
   ],
-  canonicalBaseUrl: "",
+  canonicalBaseUrl: "https://ist.web.id",
+  googleSiteVerification: "",
+  ga4Enabled: false,
+  ga4MeasurementId: "",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: " - Top Up Game & Voucher Digital Terpercaya",
+    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
@@ -110,6 +113,9 @@ class SEOService {
           ? data.defaultKeywords 
           : DEFAULT_SEO_SETTINGS.defaultKeywords,
         canonicalBaseUrl: this.sanitizeBaseUrl(data.canonicalBaseUrl || DEFAULT_SEO_SETTINGS.canonicalBaseUrl),
+        googleSiteVerification: typeof data.googleSiteVerification === "string" ? data.googleSiteVerification.trim() : "",
+        ga4Enabled: typeof data.ga4Enabled === "boolean" ? data.ga4Enabled : false,
+        ga4MeasurementId: typeof data.ga4MeasurementId === "string" ? data.ga4MeasurementId.trim().toUpperCase() : "",
         defaultOgImage: {
           mediaId: data.defaultOgImage?.mediaId || "",
           url: data.defaultOgImage?.url || DEFAULT_SEO_SETTINGS.defaultOgImage.url,
@@ -166,6 +172,9 @@ class SEOService {
       defaultDescription: s.defaultDescription,
       defaultKeywords: s.defaultKeywords,
       canonicalBaseUrl: s.canonicalBaseUrl,
+      googleSiteVerification: s.googleSiteVerification,
+      ga4Enabled: s.ga4Enabled,
+      ga4MeasurementId: s.ga4MeasurementId,
       defaultOgImage: s.defaultOgImage,
       socialMetadata: s.socialMetadata
     };
@@ -195,6 +204,32 @@ class SEOService {
     const rawCanonical = updates.canonicalBaseUrl !== undefined ? updates.canonicalBaseUrl : current.canonicalBaseUrl;
     const cleanCanonical = this.sanitizeBaseUrl(rawCanonical);
 
+    // Validate Google Site Verification
+    const rawGscToken = updates.googleSiteVerification !== undefined ? updates.googleSiteVerification : current.googleSiteVerification;
+    if (rawGscToken !== undefined && typeof rawGscToken !== "string" && rawGscToken !== null) {
+      throw new Error("Token Google Site Verification harus berupa string.");
+    }
+    let cleanGscToken = (rawGscToken || "").trim();
+    cleanGscToken = cleanGscToken.replace(/<[^>]*>/g, "").replace(/["\r\n]+/g, "").trim();
+
+    // Validate GA4 Settings
+    const cleanGa4Enabled = updates.ga4Enabled !== undefined ? Boolean(updates.ga4Enabled) : (current.ga4Enabled ?? false);
+    const rawGa4Id = updates.ga4MeasurementId !== undefined ? updates.ga4MeasurementId : current.ga4MeasurementId;
+    if (rawGa4Id !== undefined && typeof rawGa4Id !== "string" && rawGa4Id !== null) {
+      throw new Error("GA4 Measurement ID harus berupa string.");
+    }
+    let cleanGa4Id = (rawGa4Id || "").trim().toUpperCase();
+    cleanGa4Id = cleanGa4Id.replace(/<[^>]*>/g, "").replace(/["\r\n\s]+/g, "").trim();
+
+    if (cleanGa4Enabled) {
+      if (!cleanGa4Id) {
+        throw new Error("GA4 Measurement ID wajib diisi ketika Google Analytics 4 diaktifkan (contoh: G-XXXXXXXXXX).");
+      }
+      if (!/^G-[A-Z0-9]+$/i.test(cleanGa4Id)) {
+        throw new Error("Format GA4 Measurement ID tidak valid. Harus diawali dengan 'G-' diikuti karakter alfanumerik (contoh: G-XXXXXXXXXX).");
+      }
+    }
+
     // Validate default OG Image
     const ogImageInput = updates.defaultOgImage || current.defaultOgImage;
     if (!ogImageInput.url || !this.isValidHttpUrl(ogImageInput.url)) {
@@ -212,6 +247,9 @@ class SEOService {
         ? updates.defaultKeywords.map(k => k.trim()).filter(Boolean)
         : current.defaultKeywords,
       canonicalBaseUrl: cleanCanonical,
+      googleSiteVerification: cleanGscToken,
+      ga4Enabled: cleanGa4Enabled,
+      ga4MeasurementId: cleanGa4Id,
       defaultOgImage: {
         mediaId: ogImageInput.mediaId || "",
         url: ogImageInput.url,
@@ -508,7 +546,7 @@ class SEOService {
 
   private sanitizeBaseUrl(urlStr: string): string {
     let clean = (urlStr || "").trim();
-    if (!clean) return "";
+    if (!clean) return "https://ist.web.id";
     if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
       clean = `https://${clean}`;
     }

@@ -76,6 +76,7 @@ import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi,
 import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi, restoreBlogApi } from "./src/server/blog-api.js";
 import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api.js";
 import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api.js";
+import { serveGameDetailHtml, serveBlogDetailHtml, serveHomepageHtml } from "./src/server/html-injector.js";
 import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api.js";
 import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service.js";
 import { AuthRepository } from "./src/server/supabase/auth-repository.js";
@@ -713,6 +714,11 @@ export async function initServerLogic() {
   app.get("/api/admin/seo", requirePermission("seo", "view"), getAdminSEOSettings);
   app.put("/api/admin/seo", requirePermission("seo", "edit"), updateAdminSEOSettings);
   app.post("/api/admin/seo/reset", requirePermission("seo", "edit"), resetAdminSEOSettings);
+
+  // SSR Initial HTML Dynamic SEO Routes
+  app.get("/", serveHomepageHtml);
+  app.get("/games/:slug", serveGameDetailHtml);
+  app.get("/blog/:slug", serveBlogDetailHtml);
 
   // Privacy & Legal APIs
   app.get("/api/public/privacy", getPublicPrivacyApi);

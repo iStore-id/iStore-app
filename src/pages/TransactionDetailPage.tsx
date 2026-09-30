@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { formatRupiah, loadMidtransSnap } from "../lib/utils";
 import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Truck } from "lucide-react";
 import { useAuthStore } from "../store/auth-store";
+import { trackPurchase } from "../lib/gtag";
 
 function hexToRgba(hex: string, opacity: number) {
   let c = (hex || "#ffffff").replace('#', '');
@@ -86,6 +87,24 @@ export default function TransactionDetailPage() {
 
         const orderData = json.data;
         setOrder(orderData);
+
+        // Track purchase event in GA4 if paid / settled
+        const txStatus = (orderData.transactionStatus || orderData.status || "").toUpperCase();
+        if (txStatus === "PAID" || txStatus === "SUCCESS" || txStatus === "COMPLETED" || txStatus === "SETTLEMENT") {
+          const totalVal = Number(orderData.grossAmount || orderData.totalAmount || orderData.price || 0);
+          trackPurchase(
+            orderData.id || orderData.orderId || invoice || "",
+            totalVal,
+            [
+              {
+                id: orderData.productId || "item",
+                name: orderData.productName || orderData.gameName || "Voucher Game",
+                price: totalVal,
+                quantity: 1
+              }
+            ]
+          );
+        }
 
         // Fetch Delivery Data if Authorized
         if (user && orderData.userId === user.uid) {

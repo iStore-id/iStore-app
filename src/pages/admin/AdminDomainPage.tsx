@@ -230,12 +230,12 @@ export default function AdminDomainPage() {
                     required
                     value={canonicalBaseUrl}
                     onChange={(e) => setCanonicalBaseUrl(e.target.value)}
-                    placeholder="https://istore.id"
+                    placeholder="https://ist.web.id"
                     className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Alamat URL utama (misal: <code className="font-mono bg-gray-100 px-1 py-0.5 rounded text-indigo-600">https://istore.id</code>) yang digunakan oleh perayap Google, generator sitemap, metadata Open Graph, serta tautan canonical.
+                  Alamat URL utama (misal: <code className="font-mono bg-gray-100 px-1 py-0.5 rounded text-indigo-600">https://ist.web.id</code>) yang digunakan oleh perayap Google, generator sitemap, metadata Open Graph, serta tautan canonical.
                 </p>
               </div>
 
@@ -351,14 +351,14 @@ export default function AdminDomainPage() {
               <div>
                 <span className="text-gray-500 block mb-1">Pratinjau Link Canonical:</span>
                 <div className="bg-slate-50 border rounded-lg p-2 font-mono text-[11px] text-indigo-600 break-all">
-                  &lt;link rel="canonical" href="{canonicalBaseUrl || "https://istore.id"}/games/mobile-legends" /&gt;
+                  &lt;link rel="canonical" href="{canonicalBaseUrl || "https://ist.web.id"}/games/mobile-legends" /&gt;
                 </div>
               </div>
 
               <div>
                 <span className="text-gray-500 block mb-1">Pratinjau Og:Url Metadata:</span>
                 <div className="bg-slate-50 border rounded-lg p-2 font-mono text-[11px] text-gray-700 break-all">
-                  &lt;meta property="og:url" content="{canonicalBaseUrl || "https://istore.id"}/games/mobile-legends" /&gt;
+                  &lt;meta property="og:url" content="{canonicalBaseUrl || "https://ist.web.id"}/games/mobile-legends" /&gt;
                 </div>
               </div>
 

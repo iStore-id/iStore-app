@@ -19,7 +19,7 @@ import {
 import { PublicBlogDetail, PublicBlogItem } from "../types/blog";
 import BlogContentRenderer from "../components/BlogContentRenderer";
 import BlogCard from "../components/blog/BlogCard";
-import { useSEO } from "../lib/seo";
+import { useSEO, useSEOSettings, buildCanonicalUrl } from "../lib/seo";
 
 export default function BlogDetailPage() {
   const { slug, id } = useParams<{ slug?: string; id?: string }>();
@@ -131,6 +131,9 @@ export default function BlogDetailPage() {
     };
   }, [slug, id, isPreviewMode, user]);
 
+  const seoSettings = useSEOSettings();
+  const canonicalBase = seoSettings.canonicalBaseUrl || baseUrl || "https://ist.web.id";
+
   // SEO
   useSEO({
     title: blog ? (blog.seoTitle || blog.title) : undefined,
@@ -143,24 +146,50 @@ export default function BlogDetailPage() {
     modifiedTime: blog?.updatedAt,
     author: blog?.author,
     noindex: isPreviewMode,
-    jsonLd: blog ? {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      "headline": blog.title,
-      "description": blog.excerpt || blog.seoDescription,
-      "image": blog.coverMediaUrl ? [blog.coverMediaUrl] : undefined,
-      "datePublished": blog.publishedAt || blog.createdAt,
-      "dateModified": blog.updatedAt || blog.publishedAt,
-      "author": {
-        "@type": "Person",
-        "name": blog.author || `Tim Redaksi ${storeName}`
+    jsonLd: blog ? [
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": blog.title,
+        "description": blog.excerpt || blog.seoDescription,
+        "image": blog.coverMediaUrl ? [blog.coverMediaUrl] : undefined,
+        "datePublished": blog.publishedAt || blog.createdAt,
+        "dateModified": blog.updatedAt || blog.publishedAt,
+        "author": {
+          "@type": "Person",
+          "name": blog.author || `Tim Redaksi ${storeName}`
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": storeName,
+          "url": buildCanonicalUrl(canonicalBase, "/")
+        }
       },
-      "publisher": {
-        "@type": "Organization",
-        "name": storeName,
-        "url": baseUrl
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Beranda",
+            "item": buildCanonicalUrl(canonicalBase, "/")
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Blog",
+            "item": buildCanonicalUrl(canonicalBase, "/blog")
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": blog.title,
+            "item": buildCanonicalUrl(canonicalBase, `/blog/${blog.slug}`)
+          }
+        ]
       }
-    } : undefined
+    ] : undefined
   });
 
   const handleCopyLink = () => {
