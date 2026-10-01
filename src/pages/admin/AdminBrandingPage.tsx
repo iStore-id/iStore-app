@@ -838,6 +838,7 @@ export default function AdminBrandingPage() {
                         <FolderOpen className="w-3.5 h-3.5" />
                         Pilih dari Media Library
                       </button>
+                      <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">Recommended: 1200 × 400 px · Rasio 3:1 · PNG transparan · Tanpa padding vertikal berlebih</p>
                     </div>
                   </div>
 
@@ -889,6 +890,7 @@ export default function AdminBrandingPage() {
                         <FolderOpen className="w-3.5 h-3.5" />
                         Pilih dari Media Library
                       </button>
+                      <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">Recommended: 512 × 512 px · Rasio 1:1 · PNG / ICO</p>
                     </div>
                   </div>
 
@@ -1168,6 +1170,7 @@ export default function AdminBrandingPage() {
                         </button>
                       )}
                     </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Recommended: 1920 × 1080 px · Rasio 16:9 · JPG atau WebP</p>
                   </div>
                 )}
               </div>
@@ -1242,6 +1245,7 @@ export default function AdminBrandingPage() {
                         className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-orange-500 bg-white"
                       />
                     </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Recommended: 1920 × 1080 px · Rasio 16:9 · JPG atau WebP</p>
                   </div>
                 )}
               </div>
@@ -1316,6 +1320,7 @@ export default function AdminBrandingPage() {
                         className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
                       />
                     </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Recommended: 1920 × 600 px · Rasio 3:1 · JPG atau WebP</p>
                   </div>
                 )}
               </div>

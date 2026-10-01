@@ -439,6 +439,7 @@ export default function AdminBannersPage() {
                     Pilih Asset
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">Recommended: Widescreen (Rasio 16:9 atau 21:9) · JPG / WebP</p>
                 {mediaUrl && (
                   <div
                     className="mt-2 w-32 h-20 rounded-lg overflow-hidden border border-slate-700/60 shadow-inner flex items-center justify-center"

@@ -1130,6 +1130,7 @@ export default function AdminBlogPage() {
                         <p className="text-xs text-slate-500">
                           Cover diambil langsung dari Media Library tanpa duplikasi asset storage.
                         </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Recommended: 1200 × 675 px · Rasio 16:9 · JPG / WebP</p>
                       </div>
                     </div>
                   </div>

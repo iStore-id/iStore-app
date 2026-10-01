@@ -374,6 +374,7 @@ export default function AdminPopupsPage() {
                     Pilih Asset
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">Recommended: 800 × 800 px · Rasio 1:1 (Persegi) · PNG / WebP</p>
                 {mediaUrl && (
                   <div className="mt-2 flex items-center gap-3">
                     <div className="w-20 h-14 rounded-lg overflow-hidden border bg-gray-100">
