@@ -17,6 +17,15 @@ export default function AdminIntegrationsHubPage() {
       badge: "Configured / Secure"
     },
     {
+      id: "ipaymu",
+      title: "iPaymu Integration",
+      description: "Payment gateway alternatif untuk QRIS dan Virtual Account.",
+      icon: Wallet,
+      status: "ACTIVE",
+      href: "/admin/integrations/ipaymu",
+      badge: "Configured / Secure"
+    },
+    {
       id: "apigames",
       title: "API Games Provider",
       description: "Supplier produk top-up game otomatis dengan signature verification v2 dan Secret Manager.",

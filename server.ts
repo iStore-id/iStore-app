@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import { processCheckout } from "./src/server/order-engine.js";
-import { midtransWebhook, tokovoucherWebhook } from "./src/server/webhooks.js";
+import { midtransWebhook, tokovoucherWebhook, ipaymuWebhook } from "./src/server/webhooks.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
 import { performGameAccountInquiry } from "./src/server/inquiry-adapter.js";
@@ -25,6 +25,7 @@ import {
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
 } from "./src/server/admin-api.js";
+import { getIpaymuIntegration, updateIpaymuIntegration, testIpaymuIntegration, removeIpaymuIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
 import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
@@ -386,6 +387,7 @@ export async function initServerLogic() {
   app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
   app.post("/api/webhooks/midtrans", midtransWebhook);
   app.post("/api/webhooks/tokovoucher", tokovoucherWebhook);
+  app.post("/api/webhooks/ipaymu", ipaymuWebhook);
 
   // Admin Routes (Using Permissions instead of just requireAdmin)
   app.post("/api/admin/games", requirePermission("games", "create"), createGame);
@@ -542,6 +544,12 @@ export async function initServerLogic() {
   app.put("/api/admin/integrations/midtrans", requirePermission("system", "edit"), updateMidtransIntegration);
   app.post("/api/admin/integrations/midtrans/test", requirePermission("system", "edit"), testMidtransIntegration);
   app.delete("/api/admin/integrations/midtrans", requirePermission("system", "edit"), removeMidtransIntegration);
+
+  // iPaymu Integration Management
+  app.get("/api/admin/integrations/ipaymu", requirePermission("system", "view"), getIpaymuIntegration);
+  app.put("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), updateIpaymuIntegration);
+  app.post("/api/admin/integrations/ipaymu/test", requirePermission("system", "edit"), testIpaymuIntegration);
+  app.delete("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), removeIpaymuIntegration);
 
   // TokoVoucher Integration Management
   app.get("/api/admin/integrations/tokovoucher", requirePermission("system", "view"), getTokoVoucherIntegration);

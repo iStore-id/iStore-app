@@ -5,6 +5,7 @@ import { transitionOrderState } from "./state-machine.js";
 import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
 import { IncidentService } from "./incident-service.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { PaymentRouter } from "./payment-router.js";
 import * as crypto from "crypto";
 
 export interface ReconcileResult {
@@ -38,84 +39,97 @@ export async function reconcileOrder(
   else if (order.transactionStatus === 'failed' || order.paymentStatus === 'failed') localState = 'FAILED';
   else if (order.paymentStatus === 'expired') localState = 'EXPIRED';
 
-  // 2. Fetch Midtrans Status (Outside transaction)
-  let midtransData: any = null;
+  // 2. Fetch Gateway Status (Outside transaction)
+  const gatewayCode = (order.paymentGatewayCode || "midtrans").toLowerCase().trim();
+  const provider = PaymentRouter.getInstance().getProvider(gatewayCode);
+  let providerData: any = null;
+  let providerState: string | null = null;
+  let actualAmount = 0;
+
   try {
-    midtransData = await checkMidtransStatus(orderId);
+    const statusRes = await provider.getPaymentStatus({ 
+      orderId,
+      transactionId: order.gatewayTransactionId || undefined
+    });
+    providerData = statusRes.rawData || statusRes;
+    providerState = statusRes.transactionStatus || statusRes.status || null;
+    actualAmount = statusRes.grossAmount || 0;
   } catch (err) {
-    console.error(`[Reconciliation] Error fetching Midtrans status for ${orderId}:`, err);
+    console.error(`[Reconciliation] Error fetching ${gatewayCode} status for ${orderId}:`, err);
   }
 
-  const providerState = midtransData ? midtransData.transaction_status : null;
   const expectedAmount = order.totalAmount || 0;
-  const actualAmount = midtransData ? parseFloat(midtransData.gross_amount) : 0;
 
   let resultType: 'MATCHED' | 'STATUS_MISMATCH' | 'AMOUNT_MISMATCH' = 'MATCHED';
   let resolution: 'NO_OP' | 'AUTO_RESOLVED' | 'MANUAL_REVIEW' = 'NO_OP';
   let message = "Order is in sync.";
 
   // 3. Evaluate Status & Amount
-  if (midtransData) {
+  if (providerData && providerState) {
     // Check Amount Mismatch
-    if (actualAmount !== expectedAmount) {
+    if (actualAmount > 0 && Math.abs(actualAmount - expectedAmount) > 1) {
       resultType = 'AMOUNT_MISMATCH';
       resolution = 'MANUAL_REVIEW';
-      message = `Nominal tidak cocok. iStore: ${expectedAmount}, Midtrans: ${actualAmount}`;
+      message = `Nominal tidak cocok. iStore: ${expectedAmount}, ${gatewayCode}: ${actualAmount}`;
     } else {
+      const isPaidState = providerState === 'settlement' || providerState === 'capture' || providerState === 'paid' || providerState === 'berhasil';
+      const isExpireState = providerState === 'expire' || providerState === 'expired';
+      const isCancelState = providerState === 'cancel' || providerState === 'cancelled' || providerState === 'deny' || providerState === 'failed';
+
       // Evaluate Status Match
       if (localState === 'PENDING_PAYMENT') {
-        if (providerState === 'settlement' || providerState === 'capture') {
+        if (isPaidState) {
           // Verify fraud status accept if capture
-          const isAccepted = providerState !== 'capture' || midtransData.fraud_status === 'accept';
+          const isAccepted = providerState !== 'capture' || (providerData && providerData.fraud_status === 'accept');
           if (isAccepted) {
             resultType = 'STATUS_MISMATCH';
             resolution = 'AUTO_RESOLVED';
-            message = "Transaksi lunas di Midtrans, memerlukan Auto-Resolve ke PAID.";
+            message = `Transaksi lunas di ${gatewayCode}, memerlukan Auto-Resolve ke PAID.`;
           } else {
             resultType = 'STATUS_MISMATCH';
             resolution = 'MANUAL_REVIEW';
             message = "Transaksi capture menantang (fraud challenge). Perlu tinjauan manual.";
           }
-        } else if (providerState === 'expire') {
+        } else if (isExpireState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'AUTO_RESOLVED';
-          message = "Transaksi kedaluwarsa di Midtrans, memerlukan Auto-Resolve ke EXPIRED.";
-        } else if (providerState === 'cancel' || providerState === 'deny') {
+          message = `Transaksi kedaluwarsa di ${gatewayCode}, memerlukan Auto-Resolve ke EXPIRED.`;
+        } else if (isCancelState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'MANUAL_REVIEW';
-          message = `Transaksi dibatalkan/ditolak di Midtrans (${providerState}). Perlu resolusi manual.`;
+          message = `Transaksi dibatalkan/ditolak di ${gatewayCode} (${providerState}). Perlu resolusi manual.`;
         }
       } else if (localState === 'PAID') {
-        if (providerState !== 'settlement' && providerState !== 'capture') {
+        if (!isPaidState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'MANUAL_REVIEW';
-          message = `Anomali status: Lokal PAID, Midtrans ${providerState}.`;
+          message = `Anomali status: Lokal PAID, ${gatewayCode} ${providerState}.`;
         }
       } else if (localState === 'PROCESSING') {
-        if (providerState === 'failed' || providerState === 'cancel' || providerState === 'deny') {
+        if (isCancelState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'MANUAL_REVIEW';
-          message = `Transaksi dibatalkan di Midtrans (${providerState}) saat sedang PROCESSING.`;
+          message = `Transaksi dibatalkan di ${gatewayCode} (${providerState}) saat sedang PROCESSING.`;
         }
       } else if (localState === 'SUCCESS' || localState === 'FAILED' || localState === 'EXPIRED') {
         // Terminal states should generally match or stay terminal
-        if (localState === 'FAILED' && (providerState === 'settlement' || providerState === 'capture')) {
+        if (localState === 'FAILED' && isPaidState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'MANUAL_REVIEW';
-          message = "Celah finansial: Pesanan FAILED tetapi Midtrans lunas (settlement).";
-        } else if (localState === 'EXPIRED' && (providerState === 'settlement' || providerState === 'capture')) {
+          message = `Celah finansial: Pesanan FAILED tetapi ${gatewayCode} lunas (${providerState}).`;
+        } else if (localState === 'EXPIRED' && isPaidState) {
           resultType = 'STATUS_MISMATCH';
           resolution = 'MANUAL_REVIEW';
-          message = "Celah finansial: Pesanan EXPIRED tetapi Midtrans lunas (settlement).";
+          message = `Celah finansial: Pesanan EXPIRED tetapi ${gatewayCode} lunas (${providerState}).`;
         }
       }
     }
   } else {
-    // Midtrans returns null (Not found)
+    // Gateway returns null (Not found)
     if (localState !== 'PENDING_PAYMENT') {
       resultType = 'STATUS_MISMATCH';
       resolution = 'MANUAL_REVIEW';
-      message = "Transaksi lunas di iStore tetapi tidak ditemukan di Midtrans.";
+      message = `Transaksi lunas di iStore tetapi tidak ditemukan di ${gatewayCode}.`;
     }
   }
 

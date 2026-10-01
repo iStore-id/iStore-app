@@ -3,7 +3,8 @@ import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { DynamicCatalogService } from "./dynamic-catalog-service.js";
 import { OrderRepository } from "./supabase/order-repository.js";
 import { getStoreConfiguration } from "./core-service.js";
-import { createMidtransTransaction, checkMidtransStatus } from "./midtrans.js";
+import { checkMidtransStatus } from "./midtrans.js";
+import { PaymentRouter } from "./payment-router.js";
 import { AuthenticatedRequest } from "./middleware.js";
 import { ProviderService } from "./provider-service.js";
 import { transitionOrderState } from "./state-machine.js";
@@ -25,6 +26,7 @@ const loyaltyService = LoyaltyService.getInstance();
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
+  let gatewayCode = "midtrans";
   const userId = req.user ? (req.user.uid || req.user.id) : null;
   try {
     // 0. Operational Gate
@@ -41,6 +43,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     const { productId, variantId, customerInput, promoCode, referralCode, paymentMethod, pointsToUse } = req.body;
+    gatewayCode = await PaymentRouter.getInstance().getActiveGateway();
 
     if (!productId || !variantId || !customerInput) {
       return res.status(400).json({ success: false, message: "Incomplete data" });
@@ -237,6 +240,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       totalAmount: finalAmount,
       paymentStatus: "pending",
       transactionStatus: "pending",
+      paymentGatewayCode: gatewayCode,
       idempotencyKey: `${orderId}-INIT`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -273,7 +277,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     ];
     const validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
 
-    const snapResult = await createMidtransTransaction({
+    const provider = PaymentRouter.getInstance().getProvider(gatewayCode);
+    const paymentResult = await provider.createPayment({
       orderId: orderId,
       grossAmount: finalAmount,
       customerDetails: {
@@ -290,18 +295,22 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       paymentMethod: validatedPaymentMethod
     });
 
+    if (!paymentResult.success) {
+      throw new Error(paymentResult.message || "Gagal membuat transaksi pembayaran.");
+    }
+
     // Save token to order for future retries if needed
     await orderRepo.updateOrder(orderId, {
-      snapToken: snapResult.token,
-      paymentUrl: snapResult.redirectUrl,
+      snapToken: paymentResult.token,
+      paymentUrl: paymentResult.redirectUrl,
       updatedAt: new Date().toISOString()
     });
 
     return res.status(200).json({
       success: true,
       orderId,
-      snapToken: snapResult.token,
-      paymentUrl: snapResult.redirectUrl
+      snapToken: paymentResult.token,
+      paymentUrl: paymentResult.redirectUrl
     });
 
   } catch (error: any) {
@@ -313,33 +322,35 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         await loyaltyService.reverseOrderPoints(orderId, userId);
       }
       try {
-        const status = await checkMidtransStatus(orderId);
-        if (status && (status.transaction_status === 'settlement' || status.transaction_status === 'capture')) {
-           let transitionResult = false;
-           try {
-              const res = await transitionOrderState(orderId, 'PAID', {}, "Reconciled after Snap failure");
-              transitionResult = !!res;
-           } catch (stateErr: any) {
-              if (stateErr.message.includes("INVALID_STATE_TRANSITION")) {
-                 console.log(`[Checkout Recovery] Already transitioned to PAID, proceeding to check fulfillment.`);
-              } else {
-                 throw stateErr;
-              }
-           }
+        if (gatewayCode !== 'ipaymu') {
+          const status = await checkMidtransStatus(orderId);
+          if (status && (status.transaction_status === 'settlement' || status.transaction_status === 'capture')) {
+             let transitionResult = false;
+             try {
+                const res = await transitionOrderState(orderId, 'PAID', {}, "Reconciled after Snap failure");
+                transitionResult = !!res;
+             } catch (stateErr: any) {
+                if (stateErr.message.includes("INVALID_STATE_TRANSITION")) {
+                   console.log(`[Checkout Recovery] Already transitioned to PAID, proceeding to check fulfillment.`);
+                } else {
+                   throw stateErr;
+                }
+             }
 
-           // Ensure payment ledger entry is recorded and trigger dispatcher if fulfillment is pending
-           const orderRepo = OrderRepository.getInstance();
-           const refreshedOrderData = await orderRepo.getOrderById(orderId);
-           if (refreshedOrderData) {
-              if (refreshedOrderData.paymentStatus === 'paid') {
-                 await safeRecordPaymentReceived(orderId, refreshedOrderData as any, "SYSTEM", { source: "Checkout Recovery Retry" });
-                 if (refreshedOrderData.transactionStatus === 'pending') {
-                    console.log(`[Checkout Recovery] Triggering fulfillment dispatcher for reconciled order: ${orderId}`);
-                    await dispatchFulfillment(orderId);
-                 }
-              }
-           }
-           return res.status(200).json({ success: true, message: "Order reconciled & dispatch started" });
+             // Ensure payment ledger entry is recorded and trigger dispatcher if fulfillment is pending
+             const orderRepo = OrderRepository.getInstance();
+             const refreshedOrderData = await orderRepo.getOrderById(orderId);
+             if (refreshedOrderData) {
+                if (refreshedOrderData.paymentStatus === 'paid') {
+                   await safeRecordPaymentReceived(orderId, refreshedOrderData as any, "SYSTEM", { source: "Checkout Recovery Retry" });
+                   if (refreshedOrderData.transactionStatus === 'pending') {
+                      console.log(`[Checkout Recovery] Triggering fulfillment dispatcher for reconciled order: ${orderId}`);
+                      await dispatchFulfillment(orderId);
+                   }
+                }
+             }
+             return res.status(200).json({ success: true, message: "Order reconciled & dispatch started" });
+          }
         }
       } catch (recoveryError) {
         console.error("[Recovery Error]", recoveryError);

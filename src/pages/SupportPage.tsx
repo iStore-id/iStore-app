@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth-store';
 import { 
   Headset, 
@@ -11,7 +12,8 @@ import {
   HelpCircle,
   FileText,
   AlertCircle,
-  User
+  User,
+  Mail
 } from 'lucide-react';
 import { SupportCase, SupportCategory } from '../types/support';
 
@@ -20,6 +22,11 @@ export default function SupportPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'LIST' | 'CREATE' | 'DETAIL'>('LIST');
   const [selectedCase, setSelectedCase] = useState<any>(null);
+  const [contactInfo, setContactInfo] = useState<{
+    name?: string;
+    whatsapp?: string;
+    email?: string;
+  }>({});
   const [newCase, setNewCase] = useState({
     subject: '',
     category: 'OTHER' as SupportCategory,
@@ -29,6 +36,21 @@ export default function SupportPage() {
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { user } = useAuthStore();
+
+  useEffect(() => {
+    fetch("/api/public/store-config")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setContactInfo({
+            name: json.data.name || "iStore.id",
+            whatsapp: json.data.contactInformation?.whatsapp || "",
+            email: json.data.contactInformation?.email || ""
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchCases = async () => {
     try {
@@ -120,15 +142,58 @@ export default function SupportPage() {
 
   if (!user) {
     return (
-      <div className="max-w-md mx-auto py-20 px-4 text-center">
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <div className="max-w-md mx-auto py-16 px-4 text-center space-y-6">
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-2">
           <Headset className="w-8 h-8 text-slate-400" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Pusat Bantuan</h2>
-        <p className="text-slate-500 mb-8">Silakan masuk untuk melihat tiket bantuan Anda atau membuat laporan baru.</p>
-        <a href="/login" className="inline-block w-full bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-primary-dark transition-colors">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Pusat Bantuan & Layanan Tiket</h2>
+          <p className="text-slate-500 text-sm">
+            Silakan masuk untuk melihat tiket bantuan Anda atau membuat laporan baru.
+          </p>
+        </div>
+        <Link
+          to="/login"
+          className="inline-block w-full bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-primary-dark transition-colors shadow-sm text-sm"
+        >
           Masuk ke Akun
-        </a>
+        </Link>
+
+        {/* Guest Support Contact Section */}
+        <div className="pt-6 border-t border-slate-200 text-left space-y-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
+            Butuh Bantuan Langsung Tanpa Login?
+          </p>
+          <div className="space-y-2">
+            {contactInfo.whatsapp ? (
+              <a
+                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "iStore.id")},%20saya%20butuh%20bantuan`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold transition"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>Hubungi WhatsApp Support</span>
+              </a>
+            ) : null}
+            {contactInfo.email ? (
+              <a
+                href={`mailto:${contactInfo.email}?subject=Permohonan%20Bantuan%20Pelanggan`}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition"
+              >
+                <Mail className="w-4 h-4 text-slate-500" />
+                <span>Hubungi Email Support</span>
+              </a>
+            ) : null}
+            <Link
+              to="/faq"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition"
+            >
+              <HelpCircle className="w-4 h-4 text-brand-600" />
+              <span>Lihat Pertanyaan Umum (FAQ)</span>
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
 import { transitionOrderState } from "./state-machine.js";
 import { safeRecordPaymentReceived } from "./ledger-service.js";
 import { logSystem } from "./system-log-service.js";
+import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import * as crypto from "crypto";
 
 export async function midtransWebhook(req: any, res: any) {
@@ -287,3 +288,88 @@ export async function tokovoucherWebhook(req: any, res: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
 }
+
+export async function ipaymuWebhook(req: any, res: any) {
+  try {
+    const adapter = IpaymuProviderAdapter.getInstance();
+    const event = await adapter.verifyWebhook({
+      body: req.body,
+      headers: req.headers,
+      ip: req.ip
+    });
+
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = await orderRepo.getOrderById(event.orderId);
+    if (!orderData) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (Math.abs(event.amount - orderData.totalAmount) > 1) {
+      logSystem("CRITICAL", "PAYMENT", "IPAYMU_AMOUNT_MISMATCH", `Nominal tidak cocok: order ${event.orderId} expected ${orderData.totalAmount} != webhook ${event.amount}`, "ipaymu-webhook", {
+        orderId: event.orderId,
+        httpStatus: 400,
+        outcome: "BLOCKED"
+      });
+      return res.status(400).json({ success: false, message: "Amount mismatch" });
+    }
+
+    let targetState: any = null;
+    if (event.status === 'PAID') {
+      targetState = 'PAID';
+    } else if (event.status === 'EXPIRED') {
+      targetState = 'EXPIRED';
+    } else if (event.status === 'CANCELLED' || event.status === 'FAILED') {
+      targetState = 'FAILED';
+    } else if (event.status === 'REFUNDED') {
+      targetState = 'REFUNDED';
+    }
+
+    if (!targetState) {
+      return res.status(200).json({ status: "ok", message: "Ignored status" });
+    }
+
+    try {
+      await transitionOrderState(event.orderId, targetState, {}, `iPaymu Webhook: ${event.status}`);
+      if (targetState === 'PAID') {
+        await safeRecordPaymentReceived(event.orderId, orderData, "SYSTEM", { source: "iPaymu Webhook" });
+        try {
+          const { JobService } = await import("./job-service.js");
+          await JobService.getInstance().enqueue({
+            type: 'FULFILLMENT',
+            payload: { orderId: event.orderId },
+            priority: 'HIGH',
+            referenceId: event.orderId,
+            idempotencyKey: `fulfillment_${event.orderId}`
+          });
+        } catch (e) {
+          console.error("[Queue] Failed to enqueue fulfillment job", e);
+        }
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes("INVALID_STATE_TRANSITION")) {
+        return res.status(200).json({ status: "ok", message: "Already processed" });
+      }
+      throw err;
+    }
+
+    return res.status(200).json({ status: "ok" });
+  } catch (error: any) {
+    console.error("[iPaymu Webhook Error]", error);
+    const isSignatureError = error.message && (error.message.includes("signature") || error.message.includes("Signature"));
+
+    if (isSignatureError) {
+      logSystem("WARN", "PAYMENT", "IPAYMU_INVALID_SIGNATURE", `Tanda tangan callback iPaymu tidak valid: ${error.message}`, "ipaymu-webhook", {
+        httpStatus: 200,
+        outcome: "BLOCKED"
+      });
+      return res.status(200).json({ success: false, message: "Invalid callback signature" });
+    }
+
+    logSystem("ERROR", "PAYMENT", "IPAYMU_WEBHOOK_FAILED", `Kesalahan saat memproses webhook iPaymu: ${error.message}`, "ipaymu-webhook", {
+      httpStatus: 500,
+      outcome: "FAILURE"
+    });
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+

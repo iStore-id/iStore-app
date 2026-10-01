@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatRupiah, loadMidtransSnap } from "../lib/utils";
 import { useAuthStore } from "../store/auth-store";
@@ -1080,7 +1080,7 @@ export default function GameDetailPage() {
                 )}
               </button>
               <p className="text-[11px] text-center text-slate-400 leading-relaxed">
-                Dengan melanjutkan, Anda menyetujui <span className="text-brand-600 underline">Syarat & Ketentuan</span> Toko Kami
+                Dengan melanjutkan, Anda menyetujui <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline hover:text-brand-700">Syarat & Ketentuan</Link> Toko Kami
               </p>
             </div>
           </>

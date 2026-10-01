@@ -6,7 +6,10 @@ let ENCRYPTION_KEY: Buffer | null = null;
 function getEncryptionKey(): Buffer {
   if (ENCRYPTION_KEY) return ENCRYPTION_KEY;
 
-  const secret = process.env.SESSION_SECRET || "istore-secure-midtrans-secret-key-2026";
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET environment variable is required for encryption");
+  }
 
   ENCRYPTION_KEY = crypto.scryptSync(secret, "salt", 32);
   return ENCRYPTION_KEY;

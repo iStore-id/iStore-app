@@ -22,6 +22,8 @@ import BlogListPage from "./pages/BlogListPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
 import FaqPage from "./pages/FaqPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
+import RefundPolicyPage from "./pages/RefundPolicyPage";
 import NotificationPage from "./pages/NotificationPage";
 import MembershipStatusPage from "./pages/MembershipStatusPage";
 import SupportPage from "./pages/SupportPage";
@@ -76,6 +78,7 @@ const AdminFeatureFlagsPage = lazy(() => import("./pages/admin/AdminFeatureFlags
 const AdminSystemConfigPage = lazy(() => import("./pages/admin/AdminSystemConfigPage").then(m => ({ default: m.AdminSystemConfigPage })));
 const AdminIntegrationsHubPage = lazy(() => import("./pages/admin/AdminIntegrationsHubPage"));
 const AdminMidtransIntegrationPage = lazy(() => import("./pages/admin/AdminMidtransIntegrationPage"));
+const AdminIpaymuIntegrationPage = lazy(() => import("./pages/admin/AdminIpaymuIntegrationPage"));
 const AdminApiGamesIntegrationPage = lazy(() => import("./pages/admin/AdminApiGamesIntegrationPage"));
 const AdminTokoVoucherIntegrationPage = lazy(() => import("./pages/admin/AdminTokoVoucherIntegrationPage"));
 const AdminBackupPage = lazy(() => import("./pages/admin/AdminBackupPage").then(m => ({ default: m.AdminBackupPage })));
@@ -202,6 +205,10 @@ export default function App() {
             <Route path="/blog/:slug" element={<BlogDetailPage />} />
             <Route path="/faq" element={<FaqPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/syarat-ketentuan" element={<TermsPage />} />
+            <Route path="/refund" element={<RefundPolicyPage />} />
+            <Route path="/kebijakan-pengembalian" element={<RefundPolicyPage />} />
             <Route path="/notifications" element={<NotificationPage />} />
             <Route path="/membership" element={<MembershipStatusPage />} />
             <Route path="/support" element={<SupportPage />} />
@@ -269,6 +276,7 @@ export default function App() {
             <Route path="system-config" element={<AdminSystemConfigPage />} />
             <Route path="integrations" element={<AdminIntegrationsHubPage />} />
             <Route path="integrations/midtrans" element={<AdminMidtransIntegrationPage />} />
+            <Route path="integrations/ipaymu" element={<AdminIpaymuIntegrationPage />} />
             <Route path="integrations/apigames" element={<AdminApiGamesIntegrationPage />} />
             <Route path="integrations/tokovoucher" element={<AdminTokoVoucherIntegrationPage />} />
             <Route path="backup" element={<AdminBackupPage />} />

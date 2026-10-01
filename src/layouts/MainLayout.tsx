@@ -1453,7 +1453,9 @@ export default function MainLayout() {
             <div className="col-span-2 md:col-span-1">
               <h3 className="text-white font-semibold mb-4 text-sm">Legal</h3>
               <ul className="space-y-2 text-sm">
+                <li><Link to="/terms" className="hover:text-white transition-colors">Syarat & Ketentuan</Link></li>
                 <li><Link to="/privacy" className="hover:text-white transition-colors">Kebijakan Privasi</Link></li>
+                <li><Link to="/refund" className="hover:text-white transition-colors">Kebijakan Refund</Link></li>
               </ul>
             </div>
           </div>

@@ -27,17 +27,19 @@ export interface PaymentGatewayData {
   updatedAt?: string;
 }
 
-const ENCRYPTION_KEY = crypto.scryptSync(
-  process.env.SESSION_SECRET || "istore-secure-midtrans-secret-key-2026",
-  "salt",
-  32
-);
+function getEncryptionKey(): Buffer {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    throw new Error("SESSION_SECRET environment variable is required for encryption");
+  }
+  return crypto.scryptSync(secret, "salt", 32);
+}
 const IV_LENGTH = 16;
 
 function encryptSecret(text: string): string {
   if (!text) return "";
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  const cipher = crypto.createCipheriv("aes-256-cbc", getEncryptionKey(), iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   return iv.toString("hex") + ":" + encrypted;
@@ -50,7 +52,7 @@ function decryptSecret(text: string): string {
     if (parts.length !== 2) return text;
     const iv = Buffer.from(parts[0], "hex");
     const encryptedText = parts[1];
-    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+    const decipher = crypto.createDecipheriv("aes-256-cbc", getEncryptionKey(), iv);
     let decrypted = decipher.update(encryptedText, "hex", "utf8");
     decrypted += decipher.final("utf8");
     return decrypted;
