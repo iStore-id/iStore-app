@@ -129,6 +129,7 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       cancelUrl: input.returnUrl || `https://istore.id/transactions/${input.orderId}`,
       notifyUrl: config.callbackUrl || `https://ist.web.id/api/webhooks/ipaymu`,
       paymentMethod: mapped.paymentMethod,
+      paymentChannel: mapped.channel,
       channel: mapped.channel
     };
 
@@ -150,17 +151,23 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
 
       const data = await response.json();
 
-      if (!response.ok || data.status !== 200) {
+      const status = data.Status ?? data.status;
+      const message = data.Message ?? data.message;
+      const resData = data.Data ?? data.data ?? {};
+
+      if (!response.ok || (status !== 200 && status !== "200")) {
         return {
           success: false,
-          message: data.message || `iPaymu Error (${response.status})`
+          message: message || `iPaymu Error (${response.status})`
         };
       }
 
-      const resData = data.data || {};
+      const redirectUrl = resData.Url || resData.QrImage || resData.paymentUrl || resData.url;
+
       return {
         success: true,
-        redirectUrl: resData.url || resData.paymentUrl,
+        token: String(resData.TransactionId || resData.SessionId || ""),
+        redirectUrl: redirectUrl,
         rawResponse: data
       };
     } catch (err: any) {
@@ -198,14 +205,14 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       });
 
       const data = await response.json();
-      const trx = data.data || {};
+      const trx = data.Data ?? data.data ?? {};
 
-      let strStatus = String(trx.status || "").toLowerCase().trim();
-      let statusCode = trx.status_code !== undefined ? parseInt(String(trx.status_code), 10) : undefined;
-      let numStatus = typeof trx.status === "number" ? trx.status : undefined;
+      let strStatus = String(trx.Status || trx.status || "").toLowerCase().trim();
+      let statusCode = trx.status_code !== undefined ? parseInt(String(trx.status_code), 10) : (trx.StatusCode !== undefined ? parseInt(String(trx.StatusCode), 10) : undefined);
+      let numStatus = typeof trx.status === "number" ? trx.status : (typeof trx.Status === "number" ? trx.Status : undefined);
 
       let normalized = "pending";
-      if (strStatus === "berhasil" || strStatus === "paid" || statusCode === 1 || numStatus === 1) {
+      if (strStatus === "berhasil" || strStatus === "paid" || strStatus === "success" || statusCode === 1 || numStatus === 1) {
         normalized = "settlement";
       } else if (strStatus === "expired" || statusCode === -2 || numStatus === -2) {
         normalized = "expire";
@@ -218,7 +225,7 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       return {
         status: normalized,
         transactionStatus: normalized,
-        grossAmount: parseFloat(trx.total || trx.amount || "0"),
+        grossAmount: parseFloat(trx.Total || trx.total || trx.amount || trx.Amount || "0"),
         rawData: data
       };
     } catch (err: any) {
@@ -351,13 +358,17 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       });
 
       const data = await response.json();
-      if (!response.ok || data.status !== 200) {
-        return { success: false, message: data.message || "iPaymu refund rejected" };
+      const status = data.Status ?? data.status;
+      const message = data.Message ?? data.message;
+      const resData = data.Data ?? data.data ?? {};
+
+      if (!response.ok || (status !== 200 && status !== "200")) {
+        return { success: false, message: message || "iPaymu refund rejected" };
       }
 
       return {
         success: true,
-        refundId: data.data?.refundId || input.transactionId,
+        refundId: resData.refundId || resData.RefundId || input.transactionId,
         message: "Refund berhasil diproses oleh iPaymu"
       };
     } catch (err: any) {
