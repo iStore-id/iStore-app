@@ -21,6 +21,7 @@ export interface PaymentResult {
   success: boolean;
   token?: string;
   redirectUrl?: string;
+  qrImage?: string;
   rawResponse?: any;
   message?: string;
 }

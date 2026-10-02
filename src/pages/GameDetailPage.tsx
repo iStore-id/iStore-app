@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { formatRupiah, loadMidtransSnap } from "../lib/utils";
 import { useAuthStore } from "../store/auth-store";
-import { ShieldCheck, Zap, AlertCircle, AlertTriangle, ChevronRight } from "lucide-react";
+import { ShieldCheck, Zap, AlertCircle, AlertTriangle, ChevronRight, Clock } from "lucide-react";
 import { Game, Product, ProductVariant } from "../types/core";
 import { useSEO, useSEOSettings, buildCanonicalUrl } from "../lib/seo";
 import { trackViewItem, trackBeginCheckout } from "../lib/gtag";
@@ -277,6 +277,7 @@ export default function GameDetailPage() {
   const [inquiryResult, setInquiryResult] = useState<{ isValid: boolean; username: string | null; message?: string } | null>(null);
 
   const [snapToken, setSnapToken] = useState<string | null>(null);
+  const [qrImage, setQrImage] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const hasEmbeddedRef = useRef(false);
   const snapContainerRef = useRef<HTMLDivElement>(null);
@@ -579,8 +580,15 @@ export default function GameDetailPage() {
 
       setOrderId(data.orderId);
       setSnapToken(data.snapToken);
+      setQrImage(data.qrImage);
       
-      // If we have a paymentUrl but NO snapToken, it's iPaymu/Redirect provider
+      // If we have a QR image, we show it in-page (step 3)
+      if (data.qrImage) {
+        setCheckoutStep(3);
+        return;
+      }
+
+      // Fallback: If we have a paymentUrl but NO snapToken and NO qrImage, it's a Redirect provider
       if (!data.snapToken && data.paymentUrl) {
         window.location.href = data.paymentUrl;
         return;
@@ -1090,7 +1098,27 @@ export default function GameDetailPage() {
 
         {checkoutStep === 3 && (
           <div className="space-y-4">
-            {checkoutError ? (
+            {qrImage ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
+                  <p className="text-sm text-slate-500">Silakan scan kode QR di bawah ini menggunakan aplikasi pembayaran Anda</p>
+                </div>
+                
+                <div className="bg-white p-4 rounded-2xl border-2 border-brand-100 shadow-inner">
+                  <img src={qrImage} alt="QRIS" className="w-64 h-64 md:w-80 md:h-80 object-contain" />
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-brand-600 font-bold bg-brand-50 px-4 py-2 rounded-full animate-pulse">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Menunggu Pembayaran...</span>
+                </div>
+
+                <p className="text-[11px] text-slate-400 text-center max-w-xs">
+                  Sistem akan mendeteksi pembayaran Anda secara otomatis. Mohon jangan menutup halaman ini sampai transaksi selesai.
+                </p>
+              </div>
+            ) : checkoutError ? (
               <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
                 <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-4">
                   <AlertCircle className="w-8 h-8" />

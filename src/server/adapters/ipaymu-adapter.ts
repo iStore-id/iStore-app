@@ -182,6 +182,7 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
         success: true,
         token: String(resData.TransactionId || resData.SessionId || ""),
         redirectUrl: redirectUrl,
+        qrImage: resData.QrImage || undefined,
         rawResponse: data
       };
     } catch (err: any) {

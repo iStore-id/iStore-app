@@ -194,32 +194,48 @@ export default function TransactionDetailPage() {
           <p className="text-slate-600 font-medium">{formatRupiah(order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
-            <div className="mt-6 flex flex-col items-center">
-              <button 
-                onClick={async () => {
-                  setActionError(null);
-                  let snapReady = !!window.snap;
-                  if (!snapReady) {
-                    snapReady = await loadMidtransSnap();
-                  }
+            <div className="mt-6 flex flex-col items-center gap-6">
+              {order.qrImage ? (
+                <div className="flex flex-col items-center space-y-4 w-full">
+                  <div className="text-center space-y-1">
+                    <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
+                    <p className="text-[11px] text-slate-500">Silakan scan kode QR di bawah ini</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                    <img src={order.qrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
+                    <Clock className="w-3 h-3" />
+                    <span>MENUNGGU PEMBAYARAN</span>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={async () => {
+                    setActionError(null);
+                    let snapReady = !!window.snap;
+                    if (!snapReady) {
+                      snapReady = await loadMidtransSnap();
+                    }
 
-                  if (snapReady && window.snap && order.snapToken) {
-                    window.snap.pay(order.snapToken, {
-                      onSuccess: () => window.location.reload(),
-                      onPending: () => window.location.reload(),
-                      onError: () => setActionError("Pembayaran gagal. Silakan coba lagi."),
-                      onClose: () => {}
-                    });
-                  } else if (order.paymentUrl) {
-                    window.location.href = order.paymentUrl;
-                  } else {
-                    setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
-                  }
-                }}
-                className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
-              >
-                Lanjutkan Pembayaran
-              </button>
+                    if (snapReady && window.snap && order.snapToken) {
+                      window.snap.pay(order.snapToken, {
+                        onSuccess: () => window.location.reload(),
+                        onPending: () => window.location.reload(),
+                        onError: () => setActionError("Pembayaran gagal. Silakan coba lagi."),
+                        onClose: () => {}
+                      });
+                    } else if (order.paymentUrl) {
+                      window.location.href = order.paymentUrl;
+                    } else {
+                      setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
+                    }
+                  }}
+                  className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  Lanjutkan Pembayaran
+                </button>
+              )}
 
               {actionError && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 max-w-sm">

@@ -313,7 +313,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       orderId,
       gatewayCode,
       snapToken: isMidtrans ? paymentResult.token : null,
-      paymentUrl: paymentResult.redirectUrl
+      paymentUrl: paymentResult.redirectUrl,
+      qrImage: paymentResult.qrImage
     });
 
   } catch (error: any) {
