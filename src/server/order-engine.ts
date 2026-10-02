@@ -295,8 +295,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       paymentMethod: validatedPaymentMethod
     });
 
-    if (!paymentResult.success) {
-      throw new Error(paymentResult.message || "Gagal membuat transaksi pembayaran.");
+    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage)) {
+      throw new Error(paymentResult.message || "Payment initialization failed: No presentation URL or QR.");
     }
 
     const isMidtrans = gatewayCode === "midtrans";
@@ -355,6 +355,12 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
              }
              return res.status(200).json({ success: true, message: "Order reconciled & dispatch started" });
           }
+        } else if (gatewayCode === 'ipaymu') {
+             await OrderRepository.getInstance().updateOrder(orderId, {
+                paymentStatus: 'FAILED',
+                transactionStatus: 'FAILED',
+                updatedAt: new Date().toISOString()
+             }).catch(console.error);
         }
       } catch (recoveryError) {
         console.error("[Recovery Error]", recoveryError);

@@ -176,13 +176,14 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
         };
       }
 
-      const redirectUrl = resData.Url || resData.QrImage || resData.paymentUrl || resData.url;
+      const redirectUrl = resData.Url || undefined;
+      const qrImage = resData.QrImage || undefined;
 
       return {
         success: true,
         token: String(resData.TransactionId || resData.SessionId || ""),
         redirectUrl: redirectUrl,
-        qrImage: resData.QrImage || undefined,
+        qrImage: qrImage,
         rawResponse: data
       };
     } catch (err: any) {
