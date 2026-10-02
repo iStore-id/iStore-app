@@ -63,7 +63,7 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
   private mapPaymentMethodAndChannel(paymentMethod?: string): { paymentMethod: string; channel: string } {
     const method = (paymentMethod || "qris").toLowerCase().trim();
     if (method === "qris") {
-      return { paymentMethod: "qris", channel: "qris" };
+      return { paymentMethod: "qris", channel: "mpm" };
     }
     if (method === "bca_va" || method === "bca") {
       return { paymentMethod: "va", channel: "bca" };
@@ -84,7 +84,7 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       return { paymentMethod: "va", channel: "cimb" };
     }
     // Default supported direct payment fallback
-    return { paymentMethod: "qris", channel: "qris" };
+    return { paymentMethod: "qris", channel: "mpm" };
   }
 
   private getTimestamp(): string {
