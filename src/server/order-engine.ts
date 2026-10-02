@@ -299,9 +299,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       throw new Error(paymentResult.message || "Gagal membuat transaksi pembayaran.");
     }
 
+    const isMidtrans = gatewayCode === "midtrans";
+
     // Save token to order for future retries if needed
     await orderRepo.updateOrder(orderId, {
-      snapToken: paymentResult.token,
+      snapToken: isMidtrans ? paymentResult.token : null,
       paymentUrl: paymentResult.redirectUrl,
       updatedAt: new Date().toISOString()
     });
@@ -309,7 +311,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     return res.status(200).json({
       success: true,
       orderId,
-      snapToken: paymentResult.token,
+      gatewayCode,
+      snapToken: isMidtrans ? paymentResult.token : null,
       paymentUrl: paymentResult.redirectUrl
     });
 

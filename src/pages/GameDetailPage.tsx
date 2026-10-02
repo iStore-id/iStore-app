@@ -579,13 +579,15 @@ export default function GameDetailPage() {
 
       setOrderId(data.orderId);
       setSnapToken(data.snapToken);
-      setCheckoutStep(3);
-      hasEmbeddedRef.current = false;
-
-      // Fallback if snapToken is missing but paymentUrl exists
+      
+      // If we have a paymentUrl but NO snapToken, it's iPaymu/Redirect provider
       if (!data.snapToken && data.paymentUrl) {
         window.location.href = data.paymentUrl;
+        return;
       }
+      
+      setCheckoutStep(3);
+      hasEmbeddedRef.current = false;
     } catch (err: any) {
       console.error(err);
       setCheckoutError(err.message || "Terjadi kesalahan saat checkout");
