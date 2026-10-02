@@ -1106,7 +1106,11 @@ export default function GameDetailPage() {
                 </div>
                 
                 <div className="bg-white p-4 rounded-2xl border-2 border-brand-100 shadow-inner">
-                  <img src={qrImage} alt="QRIS" className="w-64 h-64 md:w-80 md:h-80 object-contain" />
+                  <img 
+                    src={qrImage.startsWith('data:') ? qrImage : `data:image/png;base64,${qrImage}`} 
+                    alt="QRIS" 
+                    className="w-64 h-64 md:w-80 md:h-80 object-contain" 
+                  />
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-brand-600 font-bold bg-brand-50 px-4 py-2 rounded-full animate-pulse">

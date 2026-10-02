@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { processCheckout } from "./src/server/order-engine.js";
 import { midtransWebhook, tokovoucherWebhook, ipaymuWebhook } from "./src/server/webhooks.js";
+import { getPaymentStatusHandler } from "./src/server/payment-status-api.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
 import { performGameAccountInquiry } from "./src/server/inquiry-adapter.js";
@@ -383,6 +384,8 @@ export async function initServerLogic() {
       return res.status(500).json({ success: false, message: error.message });
     }
   });
+
+  app.get("/api/orders/:invoice/payment-status", optionalAuth, getPaymentStatusHandler);
 
   app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
   app.post("/api/webhooks/midtrans", midtransWebhook);

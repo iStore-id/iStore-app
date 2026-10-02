@@ -227,6 +227,18 @@ export default function TransactionDetailPage() {
                       });
                     } else if (order.paymentUrl) {
                       window.location.href = order.paymentUrl;
+                    } else if (order.paymentGatewayCode === 'ipaymu') {
+                      try {
+                        const res = await fetch(`/api/orders/${order.invoice || order.id}/payment-status`);
+                        const result = await res.json();
+                        if (result.success && result.data.status !== 'pending') {
+                          window.location.reload();
+                        } else {
+                          setActionError("Sesi pembayaran tidak tersedia. Transaksi masih tertunda.");
+                        }
+                      } catch (e) {
+                        setActionError("Gagal memeriksa status pembayaran.");
+                      }
                     } else {
                       setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
                     }
