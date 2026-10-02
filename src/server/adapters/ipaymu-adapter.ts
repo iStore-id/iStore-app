@@ -113,8 +113,13 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: "iPaymu Virtual Account atau API Key belum dikonfigurasi." };
     }
 
-    const baseUrl = config.isProduction ? "https://my.ipaymu.com/api/v2" : "https://sandbox.ipaymu.com/api/v2";
-    const endpoint = `${baseUrl}/payment/direct`;
+    const proxyUrl = process.env.IPAYMU_PROXY_URL;
+    const proxyToken = process.env.IPAYMU_PROXY_TOKEN;
+    const useProxy = !!proxyUrl;
+
+    const baseUrl = useProxy ? proxyUrl : (config.isProduction ? "https://my.ipaymu.com" : "https://sandbox.ipaymu.com");
+    const sanitizedBaseUrl = (baseUrl || '').replace(/\/$/, '').replace(/\/api\/v2$/, '');
+    const endpoint = `${sanitizedBaseUrl}/api/v2/payment/direct`;
 
     const mapped = this.mapPaymentMethodAndChannel(input.paymentMethod);
 
@@ -134,18 +139,27 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
     };
 
     const bodyString = JSON.stringify(payload);
-    const signature = this.generateSignature(bodyString, config.va, config.apiKey);
+    
+    // Headers setup
+    const headers: Record<string, string> = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "va": config.va
+    };
+
+    if (useProxy) {
+      // VPS Proxy Authentication
+      headers["Authorization"] = `Bearer ${proxyToken}`;
+    } else {
+      // Legacy Direct Signature
+      headers["signature"] = this.generateSignature(bodyString, config.va, config.apiKey);
+      headers["timestamp"] = this.getTimestamp();
+    }
 
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "va": config.va,
-          "signature": signature,
-          "timestamp": this.getTimestamp()
-        },
+        headers: headers,
         body: bodyString
       });
 
@@ -180,8 +194,14 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
 
   async getPaymentStatus(input: PaymentStatusInput): Promise<PaymentStatusResult> {
     const config = await this.getConfig();
-    const baseUrl = config.isProduction ? "https://my.ipaymu.com/api/v2" : "https://sandbox.ipaymu.com/api/v2";
-    const endpoint = `${baseUrl}/transaction`;
+    
+    const proxyUrl = process.env.IPAYMU_PROXY_URL;
+    const proxyToken = process.env.IPAYMU_PROXY_TOKEN;
+    const useProxy = !!proxyUrl;
+
+    const baseUrl = useProxy ? proxyUrl : (config.isProduction ? "https://my.ipaymu.com" : "https://sandbox.ipaymu.com");
+    const sanitizedBaseUrl = (baseUrl || '').replace(/\/$/, '').replace(/\/api\/v2$/, '');
+    const endpoint = `${sanitizedBaseUrl}/api/v2/transaction`;
 
     const payload = {
       transactionId: input.transactionId || undefined,
@@ -189,18 +209,25 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
     };
 
     const bodyString = JSON.stringify(payload);
-    const signature = this.generateSignature(bodyString, config.va, config.apiKey);
+    
+    // Headers setup
+    const headers: Record<string, string> = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "va": config.va
+    };
+
+    if (useProxy) {
+      headers["Authorization"] = `Bearer ${proxyToken}`;
+    } else {
+      headers["signature"] = this.generateSignature(bodyString, config.va, config.apiKey);
+      headers["timestamp"] = this.getTimestamp();
+    }
 
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "va": config.va,
-          "signature": signature,
-          "timestamp": this.getTimestamp()
-        },
+        headers: headers,
         body: bodyString
       });
 
@@ -332,8 +359,14 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
 
   async refundPayment(input: RefundPaymentInput): Promise<RefundResult> {
     const config = await this.getConfig();
-    const baseUrl = config.isProduction ? "https://my.ipaymu.com/api/v2" : "https://sandbox.ipaymu.com/api/v2";
-    const endpoint = `${baseUrl}/payment/refund`;
+    
+    const proxyUrl = process.env.IPAYMU_PROXY_URL;
+    const proxyToken = process.env.IPAYMU_PROXY_TOKEN;
+    const useProxy = !!proxyUrl;
+
+    const baseUrl = useProxy ? proxyUrl : (config.isProduction ? "https://my.ipaymu.com" : "https://sandbox.ipaymu.com");
+    const sanitizedBaseUrl = (baseUrl || '').replace(/\/$/, '').replace(/\/api\/v2$/, '');
+    const endpoint = `${sanitizedBaseUrl}/api/v2/payment/refund`;
 
     const payload = {
       transactionId: input.transactionId,
@@ -342,18 +375,25 @@ export class IpaymuProviderAdapter implements PaymentProviderAdapter {
     };
 
     const bodyString = JSON.stringify(payload);
-    const signature = this.generateSignature(bodyString, config.va, config.apiKey);
+    
+    // Headers setup
+    const headers: Record<string, string> = {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      "va": config.va
+    };
+
+    if (useProxy) {
+      headers["Authorization"] = `Bearer ${proxyToken}`;
+    } else {
+      headers["signature"] = this.generateSignature(bodyString, config.va, config.apiKey);
+      headers["timestamp"] = this.getTimestamp();
+    }
 
     try {
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "va": config.va,
-          "signature": signature,
-          "timestamp": this.getTimestamp()
-        },
+        headers: headers,
         body: bodyString
       });
 

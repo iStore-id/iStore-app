@@ -1,0 +1,15 @@
+[Unit]
+Description=iPaymu Proxy Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ipaymu-proxy
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+Environment=NODE_ENV=production
+EnvironmentFile=/home/ubuntu/ipaymu-proxy/.env
+
+[Install]
+WantedBy=multi-user.target
