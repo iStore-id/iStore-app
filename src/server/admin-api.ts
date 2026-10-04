@@ -1009,7 +1009,7 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
 
     await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", newData);
 
-    // Single active gateway enforcement: If Midtrans is explicitly set to active, deactivate iPaymu
+    // Single active gateway enforcement: If Midtrans is explicitly set to active, deactivate iPaymu and Doit
     if (isActive === true || isActive === "true") {
       const existingIpaymu = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration");
       if (existingIpaymu && existingIpaymu.isActive) {
@@ -1019,7 +1019,16 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
+      const existingDoit = await SystemConfigRepository.getInstance().getConfig("doit_integration");
+      if (existingDoit && existingDoit.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
+          ...existingDoit,
+          isActive: false,
+          updatedAt: now
+        });
+      }
       process.env.IPAYMU_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
     }
 
     if (serverKey && !serverKey.includes("****")) {
@@ -2249,7 +2258,7 @@ export async function updateIpaymuIntegration(req: AuthenticatedRequest, res: Re
 
     await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", newData);
 
-    // Single active gateway enforcement: If iPaymu is explicitly set to active, deactivate Midtrans
+    // Single active gateway enforcement: If iPaymu is explicitly set to active, deactivate Midtrans and Doit
     if (isActive === true || isActive === "true") {
       const existingMidtrans = await SystemConfigRepository.getInstance().getConfig("midtrans_integration");
       if (existingMidtrans && existingMidtrans.isActive) {
@@ -2259,7 +2268,16 @@ export async function updateIpaymuIntegration(req: AuthenticatedRequest, res: Re
           updatedAt: now
         });
       }
+      const existingDoit = await SystemConfigRepository.getInstance().getConfig("doit_integration");
+      if (existingDoit && existingDoit.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
+          ...existingDoit,
+          isActive: false,
+          updatedAt: now
+        });
+      }
       process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
       process.env.IPAYMU_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.IPAYMU_IS_ACTIVE = "false";
@@ -2357,4 +2375,326 @@ export async function removeIpaymuIntegration(req: AuthenticatedRequest, res: Re
     return res.status(500).json({ success: false, message: err.message || "Gagal menghapus konfigurasi iPaymu." });
   }
 }
+
+const ALLOWED_DOIT_HOSTS = new Set([
+  "pay.doit.id"
+]);
+
+function sanitizeAndValidateDoitBaseUrl(rawUrl?: string): string {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return "https://pay.doit.id";
+  }
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return "https://pay.doit.id";
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error("Format Base API URL tidak valid.");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("Base API URL harus menggunakan protokol HTTPS (https://).");
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  if (!ALLOWED_DOIT_HOSTS.has(hostname)) {
+    throw new Error(`Host '${hostname}' tidak diizinkan. Base URL Doit.id harus menggunakan domain resmi (pay.doit.id).`);
+  }
+
+  if (parsed.port && parsed.port !== "443" && parsed.port !== "") {
+    throw new Error("Port kustom tidak diizinkan pada Base URL.");
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error("Userinfo credentials tidak diizinkan pada Base URL.");
+  }
+
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
+export async function getDoitIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("doit_integration") || {};
+    const hasApiKey = !!config.encryptedApiKey || !!config.apiKey || !!process.env.DOIT_API_KEY;
+    const hasWebhookSecret = !!config.encryptedWebhookSecret || !!config.webhookSecret || !!process.env.DOIT_WEBHOOK_SECRET;
+    
+    // Masking without revealing length, prefix, suffix, or plaintext
+    const apiKeyMasked = hasApiKey ? "••••••••••••••••" : "";
+    const webhookSecretMasked = hasWebhookSecret ? "••••••••••••••••" : "";
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        apiKeyMasked,
+        webhookSecretMasked,
+        isProduction: config.isProduction || false,
+        isActive: config.isActive === true,
+        baseUrl: config.baseUrl || "https://pay.doit.id",
+        callbackUrl: config.callbackUrl || "https://ist.web.id/api/webhooks/doit",
+        configured: hasApiKey,
+        hasWebhookSecret,
+        lastTestedAt: config.lastTestedAt || null,
+        lastTestResult: config.lastTestResult || null
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: "Gagal mengambil konfigurasi Doit.id." });
+  }
+}
+
+export async function updateDoitIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { apiKey, webhookSecret, baseUrl, isProduction, isActive, callbackUrl } = req.body;
+    const actor = {
+      uid: req.user.uid,
+      email: req.user.email || req.user.uid
+    };
+    const role = req.user.role || "pemilik";
+
+    const existingData = await SystemConfigRepository.getInstance().getConfig("doit_integration") || {};
+
+    // Validate and sanitize base URL with strict allowlist (SSRF Protection)
+    const safeBaseUrl = sanitizeAndValidateDoitBaseUrl(baseUrl !== undefined ? String(baseUrl) : existingData.baseUrl);
+
+    // Secure secret preservation & migration of legacy plaintext fields
+    let encryptedApiKey = existingData.encryptedApiKey || "";
+    if (apiKey && typeof apiKey === "string" && apiKey.trim() && !apiKey.includes("****") && !apiKey.includes("••••")) {
+      encryptedApiKey = encryptSecret(apiKey.trim());
+    } else if (!encryptedApiKey && existingData.apiKey && typeof existingData.apiKey === "string" && existingData.apiKey.trim()) {
+      encryptedApiKey = encryptSecret(existingData.apiKey.trim());
+    }
+
+    let encryptedWebhookSecret = existingData.encryptedWebhookSecret || "";
+    if (webhookSecret && typeof webhookSecret === "string" && webhookSecret.trim() && !webhookSecret.includes("****") && !webhookSecret.includes("••••")) {
+      encryptedWebhookSecret = encryptSecret(webhookSecret.trim());
+    } else if (!encryptedWebhookSecret && existingData.webhookSecret && typeof existingData.webhookSecret === "string" && existingData.webhookSecret.trim()) {
+      encryptedWebhookSecret = encryptSecret(existingData.webhookSecret.trim());
+    }
+
+    const now = new Date().toISOString();
+    const newData = {
+      key: "doit_integration",
+      encryptedApiKey,
+      encryptedWebhookSecret,
+      baseUrl: safeBaseUrl,
+      isProduction: isProduction !== undefined ? !!isProduction : (existingData.isProduction || false),
+      isActive: isActive !== undefined ? !!isActive : (existingData.isActive === true),
+      callbackUrl: callbackUrl !== undefined ? String(callbackUrl).trim() : (existingData.callbackUrl || "https://ist.web.id/api/webhooks/doit"),
+      lastTestedAt: existingData.lastTestedAt || null,
+      lastTestResult: existingData.lastTestResult || null,
+      updatedBy: actor.uid,
+      updatedAt: now,
+      createdAt: existingData.createdAt || now
+    };
+
+    await SystemConfigRepository.getInstance().upsertConfig("doit_integration", newData);
+
+    // Single active gateway enforcement: If Doit.id is explicitly set to active, deactivate Midtrans & iPaymu
+    if (isActive === true || isActive === "true") {
+      const existingMidtrans = await SystemConfigRepository.getInstance().getConfig("midtrans_integration");
+      if (existingMidtrans && existingMidtrans.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", {
+          ...existingMidtrans,
+          isActive: false,
+          updatedAt: now
+        });
+      }
+      const existingIpaymu = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration");
+      if (existingIpaymu && existingIpaymu.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", {
+          ...existingIpaymu,
+          isActive: false,
+          updatedAt: now
+        });
+      }
+      process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.IPAYMU_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "true";
+    } else if (isActive === false || isActive === "false") {
+      process.env.DOIT_IS_ACTIVE = "false";
+    }
+
+    await logCoreAudit(actor, role, "UPDATE_DOIT_INTEGRATION", "systemConfigs/doit_integration", {
+      isProduction: existingData.isProduction,
+      isActive: existingData.isActive,
+      callbackUrl: existingData.callbackUrl || null
+    }, {
+      isProduction: newData.isProduction,
+      isActive: newData.isActive,
+      callbackUrl: newData.callbackUrl || null
+    }, "Updated Doit.id configuration");
+
+    const apiKeyMasked = newData.encryptedApiKey ? "••••••••••••••••" : "";
+    const webhookSecretMasked = newData.encryptedWebhookSecret ? "••••••••••••••••" : "";
+
+    return res.status(200).json({
+      success: true,
+      message: "Konfigurasi Doit.id berhasil disimpan.",
+      data: {
+        isProduction: newData.isProduction,
+        isActive: newData.isActive,
+        baseUrl: newData.baseUrl,
+        callbackUrl: newData.callbackUrl || "https://ist.web.id/api/webhooks/doit",
+        configured: !!newData.encryptedApiKey,
+        hasWebhookSecret: !!newData.encryptedWebhookSecret,
+        apiKeyMasked,
+        webhookSecretMasked
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi Doit.id." });
+  }
+}
+
+export async function testDoitIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const actor = {
+      uid: req.user.uid,
+      email: req.user.email || req.user.uid
+    };
+    const role = req.user.role || "pemilik";
+
+    const config = await SystemConfigRepository.getInstance().getConfig("doit_integration") || {};
+    const encryptedKey = config.encryptedApiKey || "";
+    const apiKey = encryptedKey ? decryptSecret(encryptedKey) : (config.apiKey || process.env.DOIT_API_KEY || "");
+
+    if (!apiKey) {
+      return res.status(400).json({ success: false, message: "Doit.id API Key belum dikonfigurasi." });
+    }
+
+    // SSRF-validated base URL
+    const safeBaseUrl = sanitizeAndValidateDoitBaseUrl(config.baseUrl || process.env.DOIT_BASE_URL);
+    
+    // Official Doit.id GET payments listing/status query by reference (non-transactional read contract)
+    const testEndpoint = `${safeBaseUrl}/v1/payments?reference=TEST_CONN_PING`;
+
+    try {
+      const response = await fetch(testEndpoint, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Accept": "application/json"
+        }
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Autentikasi gagal: API Key Doit.id tidak valid (401/403 Unauthorized).");
+      }
+
+      if (response.status === 429) {
+        throw new Error("Uji koneksi Doit.id gagal (HTTP 429 Too Many Requests): Batas frekuensi request terlampaui.");
+      }
+
+      if (response.status === 404) {
+        throw new Error("Uji koneksi Doit.id gagal (HTTP 404): Endpoint atau resource tidak ditemukan.");
+      }
+
+      if (response.status >= 500) {
+        throw new Error(`Uji koneksi Doit.id gagal (HTTP ${response.status}): Server Doit.id mengalami gangguan internal.`);
+      }
+
+      if (response.status !== 200) {
+        throw new Error(`Uji koneksi Doit.id gagal (HTTP ${response.status}): Server mengembalikan status tidak terduga.`);
+      }
+
+      // Validate JSON response payload structure strictly matching doit-adapter.ts contract
+      const data = await response.json().catch(() => null);
+      if (!data || typeof data !== "object") {
+        throw new Error("Uji koneksi Doit.id gagal: Respons server bukan format JSON yang valid.");
+      }
+
+      let isValidStructure = false;
+
+      if (Array.isArray(data)) {
+        // Direct array format: [] (empty probe reference) or [{ ...payment fields... }]
+        if (data.length === 0) {
+          isValidStructure = true;
+        } else {
+          const first = data[0];
+          isValidStructure = typeof first === "object" && first !== null && 
+            (typeof first.id === "string" || typeof first.reference === "string" || typeof first.amount === "number" || typeof first.status === "string");
+        }
+      } else if (Array.isArray(data.data)) {
+        // Standard Doit API envelope format: { data: [] } or { data: [{ ...payment fields... }] }
+        if (data.data.length === 0) {
+          isValidStructure = true;
+        } else {
+          const first = data.data[0];
+          isValidStructure = typeof first === "object" && first !== null && 
+            (typeof first.id === "string" || typeof first.reference === "string" || typeof first.amount === "number" || typeof first.status === "string");
+        }
+      } else if (typeof data.id === "string" || typeof data.reference === "string") {
+        // Direct single payment object with Doit payment contract fields
+        isValidStructure = typeof data.status === "string" && (typeof data.amount === "number" || typeof data.amount === "string");
+      }
+
+      if (!isValidStructure) {
+        throw new Error("Uji koneksi Doit.id gagal: Struktur payload respons Doit.id tidak sesuai kontrak API GET payments.");
+      }
+    } catch (fetchErr: any) {
+      if (fetchErr.message && (fetchErr.message.includes("Autentikasi gagal") || fetchErr.message.includes("Uji koneksi Doit.id gagal"))) {
+        throw fetchErr;
+      }
+      throw new Error("Gagal menghubungi server Doit.id: Koneksi jaringan terputus atau timeout.");
+    }
+
+    const now = new Date().toISOString();
+    await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
+      ...config,
+      lastTestedAt: now,
+      lastTestResult: "SUCCESS",
+      lastTestMessage: "Koneksi Doit.id berhasil diuji"
+    });
+
+    await logCoreAudit(actor, role, "TEST_DOIT_CONNECTION", "systemConfigs/doit_integration", null, {
+      success: true,
+      message: "Connection OK"
+    }, "Tested Doit.id connection");
+
+    return res.status(200).json({
+      success: true,
+      message: "Koneksi ke Doit.id berhasil terverifikasi!",
+      data: { success: true, testedAt: now }
+    });
+  } catch (err: any) {
+    const now = new Date().toISOString();
+    try {
+      const config = await SystemConfigRepository.getInstance().getConfig("doit_integration") || {};
+      await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
+        ...config,
+        lastTestedAt: now,
+        lastTestResult: "FAILED",
+        lastTestMessage: err.message || "Tes koneksi Doit.id gagal"
+      });
+    } catch {
+      // Ignore background state save failure
+    }
+    return res.status(500).json({ success: false, message: err.message || "Tes koneksi Doit.id gagal." });
+  }
+}
+
+export async function removeDoitIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const actor = {
+      uid: req.user.uid,
+      email: req.user.email || req.user.uid
+    };
+    const role = req.user.role || "pemilik";
+
+    await SystemConfigRepository.getInstance().deleteConfig("doit_integration");
+    process.env.DOIT_IS_ACTIVE = "false";
+    await logCoreAudit(actor, role, "REMOVE_DOIT_INTEGRATION", "systemConfigs/doit_integration", null, null, "Removed Doit.id configuration");
+
+    return res.status(200).json({
+      success: true,
+      message: "Konfigurasi Doit.id berhasil dihapus."
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menghapus konfigurasi Doit.id." });
+  }
+}
+
 

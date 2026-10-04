@@ -1107,7 +1107,7 @@ export default function GameDetailPage() {
                 
                 <div className="bg-white p-4 rounded-2xl border-2 border-brand-100 shadow-inner">
                   <img 
-                    src={qrImage.startsWith('data:') ? qrImage : `data:image/png;base64,${qrImage}`} 
+                    src={qrImage.startsWith('data:') || qrImage.startsWith('http://') || qrImage.startsWith('https://') || qrImage.startsWith('/') ? qrImage : `data:image/png;base64,${qrImage}`} 
                     alt="QRIS" 
                     className="w-64 h-64 md:w-80 md:h-80 object-contain" 
                   />

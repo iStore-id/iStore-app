@@ -1,6 +1,7 @@
 import { PaymentProviderAdapter } from "./adapters/payment-provider-interface.js";
 import { MidtransProviderAdapter } from "./adapters/midtrans-adapter.js";
 import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
+import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 export class PaymentRouter {
@@ -17,9 +18,10 @@ export class PaymentRouter {
 
   public async getActiveGateway(): Promise<string> {
     const repo = SystemConfigRepository.getInstance();
-    const [midtransConfig, ipaymuConfig] = await Promise.all([
+    const [midtransConfig, ipaymuConfig, doitConfig] = await Promise.all([
       repo.getConfig("midtrans_integration").catch(() => null),
-      repo.getConfig("ipaymu_integration").catch(() => null)
+      repo.getConfig("ipaymu_integration").catch(() => null),
+      repo.getConfig("doit_integration").catch(() => null)
     ]);
 
     const isMidtransActive = midtransConfig
@@ -30,8 +32,17 @@ export class PaymentRouter {
       ? ipaymuConfig.isActive === true
       : process.env.IPAYMU_IS_ACTIVE === "true";
 
-    if (isMidtransActive && isIpaymuActive) {
+    const isDoitActive = doitConfig
+      ? doitConfig.isActive === true
+      : process.env.DOIT_IS_ACTIVE === "true";
+
+    const activeCount = [isMidtransActive, isIpaymuActive, isDoitActive].filter(Boolean).length;
+    if (activeCount > 1) {
       throw new Error("Konfigurasi payment gateway tidak valid: lebih dari satu gateway aktif");
+    }
+
+    if (isDoitActive) {
+      return "doit";
     }
 
     if (isMidtransActive) {
@@ -47,6 +58,9 @@ export class PaymentRouter {
 
   public getProvider(gatewayCode?: string | null): PaymentProviderAdapter {
     const code = (gatewayCode || "").toLowerCase().trim();
+    if (code === "doit") {
+      return DoitProviderAdapter.getInstance();
+    }
     if (code === "ipaymu") {
       return IpaymuProviderAdapter.getInstance();
     }

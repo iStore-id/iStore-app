@@ -7,7 +7,7 @@ import multer from "multer";
 const mediaService = MediaService.getInstance();
 const upload = multer({ storage: multer.memoryStorage() });
 
-export const uploadMiddleware = upload.single("file");
+export const uploadMiddleware: any = upload.single("file");
 
 async function logAudit(req: AuthenticatedRequest, action: string, resource: string, resourceId: string, payload: any) {
   await AuditLogRepository.getInstance().createLog({

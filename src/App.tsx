@@ -79,6 +79,7 @@ const AdminSystemConfigPage = lazy(() => import("./pages/admin/AdminSystemConfig
 const AdminIntegrationsHubPage = lazy(() => import("./pages/admin/AdminIntegrationsHubPage"));
 const AdminMidtransIntegrationPage = lazy(() => import("./pages/admin/AdminMidtransIntegrationPage"));
 const AdminIpaymuIntegrationPage = lazy(() => import("./pages/admin/AdminIpaymuIntegrationPage"));
+const AdminDoitIntegrationPage = lazy(() => import("./pages/admin/AdminDoitIntegrationPage"));
 const AdminApiGamesIntegrationPage = lazy(() => import("./pages/admin/AdminApiGamesIntegrationPage"));
 const AdminTokoVoucherIntegrationPage = lazy(() => import("./pages/admin/AdminTokoVoucherIntegrationPage"));
 const AdminBackupPage = lazy(() => import("./pages/admin/AdminBackupPage").then(m => ({ default: m.AdminBackupPage })));
@@ -277,6 +278,7 @@ export default function App() {
             <Route path="integrations" element={<AdminIntegrationsHubPage />} />
             <Route path="integrations/midtrans" element={<AdminMidtransIntegrationPage />} />
             <Route path="integrations/ipaymu" element={<AdminIpaymuIntegrationPage />} />
+            <Route path="integrations/doit" element={<AdminDoitIntegrationPage />} />
             <Route path="integrations/apigames" element={<AdminApiGamesIntegrationPage />} />
             <Route path="integrations/tokovoucher" element={<AdminTokoVoucherIntegrationPage />} />
             <Route path="backup" element={<AdminBackupPage />} />

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { CreditCard, Gamepad2, Wallet, ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
+import { CreditCard, Gamepad2, Wallet, ShieldCheck, ArrowRight, CheckCircle2, QrCode } from "lucide-react";
 import { useAuthStore } from "../../store/auth-store";
 
 export default function AdminIntegrationsHubPage() {
@@ -24,6 +24,15 @@ export default function AdminIntegrationsHubPage() {
       status: "ACTIVE",
       href: "/admin/integrations/ipaymu",
       badge: "Configured / Secure"
+    },
+    {
+      id: "doit",
+      title: "Doit.id Integration",
+      description: "Payment gateway QRIS dinamis berizin Bank Indonesia dengan settlement instan.",
+      icon: QrCode,
+      status: "STANDBY",
+      href: "/admin/integrations/doit",
+      badge: "Standby / Configurable"
     },
     {
       id: "apigames",

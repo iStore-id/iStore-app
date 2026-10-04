@@ -326,7 +326,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         await loyaltyService.reverseOrderPoints(orderId, userId);
       }
       try {
-        if (gatewayCode !== 'ipaymu') {
+        if (gatewayCode === 'midtrans') {
           const status = await checkMidtransStatus(orderId);
           if (status && (status.transaction_status === 'settlement' || status.transaction_status === 'capture')) {
              let transitionResult = false;
@@ -355,6 +355,34 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
              }
              return res.status(200).json({ success: true, message: "Order reconciled & dispatch started" });
           }
+        } else if (gatewayCode === 'doit') {
+          try {
+            const doitProvider = PaymentRouter.getInstance().getProvider('doit');
+            const doitStatus = await doitProvider.getPaymentStatus({ orderId });
+            if (doitStatus && doitStatus.transactionStatus === 'settlement') {
+              try {
+                await transitionOrderState(orderId, 'PAID', { gatewayTransactionId: doitStatus.rawData?.id }, "Reconciled after Doit create failure");
+              } catch (stateErr: any) {
+                if (!stateErr.message.includes("INVALID_STATE_TRANSITION")) throw stateErr;
+              }
+              const orderRepo = OrderRepository.getInstance();
+              const refreshedOrderData = await orderRepo.getOrderById(orderId);
+              if (refreshedOrderData && refreshedOrderData.paymentStatus === 'paid') {
+                await safeRecordPaymentReceived(orderId, refreshedOrderData as any, "SYSTEM", { source: "Checkout Recovery Retry (Doit)" });
+                if (refreshedOrderData.transactionStatus === 'pending') {
+                  await dispatchFulfillment(orderId);
+                }
+              }
+              return res.status(200).json({ success: true, message: "Order reconciled & dispatch started" });
+            }
+          } catch (doitRecErr) {
+            console.error("[Doit Recovery Error]", doitRecErr);
+          }
+          await OrderRepository.getInstance().updateOrder(orderId, {
+            paymentStatus: 'FAILED',
+            transactionStatus: 'FAILED',
+            updatedAt: new Date().toISOString()
+          }).catch(console.error);
         } else if (gatewayCode === 'ipaymu') {
              await OrderRepository.getInstance().updateOrder(orderId, {
                 paymentStatus: 'FAILED',
