@@ -22,6 +22,7 @@ export interface DoitConfig {
   isActive: boolean;
   isProduction: boolean;
   baseUrl?: string;
+  decryptResult?: "NONEMPTY_NONCIPHERTEXT" | "FALLBACK_CIPHERTEXT" | "PLAIN_FALLBACK" | "ENV_FALLBACK" | "EMPTY";
 }
 
 export class DoitProviderAdapter implements PaymentProviderAdapter {
@@ -45,21 +46,46 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
           const encryptedKey = config.encryptedApiKey || "";
           const apiKey = encryptedKey ? decryptSecret(encryptedKey) : (config.apiKey || process.env.DOIT_API_KEY || "");
           const encryptedSecret = config.encryptedWebhookSecret || "";
-          const webhookSecret = encryptedSecret ? decryptSecret(encryptedSecret) : (config.webhookSecret || process.env.DOIT_WEBHOOK_SECRET || "");
+
+          let webhookSecret = "";
+          let decryptResult: DoitConfig["decryptResult"] = "EMPTY";
+
+          if (encryptedSecret) {
+            const decrypted = decryptSecret(encryptedSecret);
+            if (decrypted === encryptedSecret && encryptedSecret.includes(":")) {
+              decryptResult = "FALLBACK_CIPHERTEXT";
+              webhookSecret = decrypted;
+            } else if (decrypted) {
+              decryptResult = "NONEMPTY_NONCIPHERTEXT";
+              webhookSecret = decrypted;
+            } else {
+              decryptResult = "EMPTY";
+              webhookSecret = "";
+            }
+          } else if (config.webhookSecret) {
+            decryptResult = "PLAIN_FALLBACK";
+            webhookSecret = config.webhookSecret;
+          } else if (process.env.DOIT_WEBHOOK_SECRET) {
+            decryptResult = "ENV_FALLBACK";
+            webhookSecret = process.env.DOIT_WEBHOOK_SECRET;
+          }
+
           const isActive = config.isActive === true || process.env.DOIT_IS_ACTIVE === "true";
           const isProduction = config.isProduction === true || process.env.DOIT_IS_PRODUCTION === "true";
           const baseUrl = config.baseUrl || process.env.DOIT_BASE_URL || "https://pay.doit.id";
 
-          return { apiKey, webhookSecret, isActive, isProduction, baseUrl };
+          return { apiKey, webhookSecret, isActive, isProduction, baseUrl, decryptResult };
         }
       }
     } catch (e) {
       // Fallback to environment variables
     }
 
+    const envSecret = process.env.DOIT_WEBHOOK_SECRET || "";
     return {
       apiKey: process.env.DOIT_API_KEY || "",
-      webhookSecret: process.env.DOIT_WEBHOOK_SECRET || "",
+      webhookSecret: envSecret,
+      decryptResult: envSecret ? "ENV_FALLBACK" : "EMPTY",
       isActive: process.env.DOIT_IS_ACTIVE === "true",
       isProduction: process.env.DOIT_IS_PRODUCTION === "true",
       baseUrl: process.env.DOIT_BASE_URL || "https://pay.doit.id"
@@ -294,23 +320,33 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
     // Replay attack prevention: verify timestamp within 5 minutes (300 seconds)
     const eventTimeSec = parseInt(timestamp, 10);
     const currentTimeSec = Math.floor(Date.now() / 1000);
-    if (isNaN(eventTimeSec) || Math.abs(currentTimeSec - eventTimeSec) > 300) {
+    const timestampDiff = Math.abs(currentTimeSec - eventTimeSec);
+    const timestampStatus = isNaN(eventTimeSec) ? "INVALID" : (timestampDiff > 300 ? "EXPIRED" : "VALID");
+
+    if (timestampStatus !== "VALID") {
       throw new Error("Webhook timestamp expired or out of allowed tolerance window (300s)");
     }
 
     // Obtain exact raw request body string
     let rawBodyString = "";
+    let rawBodySource: "BUFFER" | "STRING" | "JSON_FALLBACK" | "EMPTY" = "EMPTY";
+
     if (typeof request.body === "string") {
       rawBodyString = request.body;
+      rawBodySource = "STRING";
     } else if (Buffer.isBuffer(request.body)) {
       rawBodyString = request.body.toString("utf8");
+      rawBodySource = "BUFFER";
     } else if ((request as any).rawBody) {
       const rb = (request as any).rawBody;
       rawBodyString = Buffer.isBuffer(rb) ? rb.toString("utf8") : String(rb);
-    } else {
+      rawBodySource = Buffer.isBuffer(rb) ? "BUFFER" : "STRING";
+    } else if (request.body) {
       rawBodyString = JSON.stringify(request.body);
+      rawBodySource = "JSON_FALLBACK";
     }
 
+    const rawBodyByteLength = Buffer.byteLength(rawBodyString, "utf8");
     const payloadToSign = `${timestamp}.${rawBodyString}`;
     const expectedSignature = crypto
       .createHmac("sha256", config.webhookSecret)
@@ -321,7 +357,26 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
     const sigBuf = Buffer.from(receivedSignature.toLowerCase(), "hex");
     const calcBuf = Buffer.from(expectedSignature, "hex");
 
-    if (sigBuf.length !== calcBuf.length || !crypto.timingSafeEqual(sigBuf, calcBuf)) {
+    const sigLengthCheck = sigBuf.length === calcBuf.length ? "PASS" : "FAIL";
+    const sigMatch = sigLengthCheck === "PASS" && crypto.timingSafeEqual(sigBuf, calcBuf);
+
+    const diagnosticLog = {
+      tag: "DOIT_SIGNATURE_DIAGNOSTIC",
+      decryptResult: config.decryptResult || "EMPTY",
+      rawBodySource,
+      rawBodyByteLength,
+      timestampStatus,
+      sigLengthCheck,
+      sigMatch: sigMatch ? "PASS" : "FAIL"
+    };
+
+    if (sigMatch) {
+      console.info("[DOIT_SIGNATURE_DIAGNOSTIC]", JSON.stringify(diagnosticLog));
+    } else {
+      console.warn("[DOIT_SIGNATURE_DIAGNOSTIC]", JSON.stringify(diagnosticLog));
+    }
+
+    if (!sigMatch) {
       throw new Error("Invalid Doit.id webhook signature");
     }
 
