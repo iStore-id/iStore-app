@@ -10,23 +10,57 @@ import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
-const PROCESSED_WEBHOOK_EVENTS = new Map<string, number>();
+export type WebhookEventStatus = "PROCESSING" | "COMPLETED";
+
+interface WebhookEventRecord {
+  status: WebhookEventStatus;
+  timestamp: number;
+}
+
+const PROCESSED_WEBHOOK_EVENTS = new Map<string, WebhookEventRecord>();
 const EVENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-export function isWebhookEventProcessed(eventId: string): boolean {
-  if (!eventId) return false;
-  const now = Date.now();
+function cleanExpiredWebhookEvents(now: number) {
   if (PROCESSED_WEBHOOK_EVENTS.size > 5000) {
-    for (const [id, time] of PROCESSED_WEBHOOK_EVENTS.entries()) {
-      if (now - time > EVENT_TTL_MS) PROCESSED_WEBHOOK_EVENTS.delete(id);
+    for (const [id, rec] of PROCESSED_WEBHOOK_EVENTS.entries()) {
+      if (now - rec.timestamp > EVENT_TTL_MS) PROCESSED_WEBHOOK_EVENTS.delete(id);
     }
   }
-  return PROCESSED_WEBHOOK_EVENTS.has(eventId);
+}
+
+export function getWebhookEventStatus(eventId: string): WebhookEventStatus | null {
+  if (!eventId) return null;
+  const now = Date.now();
+  cleanExpiredWebhookEvents(now);
+  const rec = PROCESSED_WEBHOOK_EVENTS.get(eventId);
+  if (!rec) return null;
+  // If stuck in PROCESSING for more than 30 seconds (transient process failure), allow re-processing
+  if (rec.status === "PROCESSING" && now - rec.timestamp > 30000) {
+    PROCESSED_WEBHOOK_EVENTS.delete(eventId);
+    return null;
+  }
+  return rec.status;
+}
+
+export function setWebhookEventStatus(eventId: string, status: WebhookEventStatus): void {
+  if (!eventId) return;
+  PROCESSED_WEBHOOK_EVENTS.set(eventId, {
+    status,
+    timestamp: Date.now()
+  });
+}
+
+export function clearWebhookEventStatus(eventId: string): void {
+  if (!eventId) return;
+  PROCESSED_WEBHOOK_EVENTS.delete(eventId);
+}
+
+export function isWebhookEventProcessed(eventId: string): boolean {
+  return getWebhookEventStatus(eventId) === "COMPLETED";
 }
 
 export function markWebhookEventProcessed(eventId: string): void {
-  if (!eventId) return;
-  PROCESSED_WEBHOOK_EVENTS.set(eventId, Date.now());
+  setWebhookEventStatus(eventId, "COMPLETED");
 }
 
 export async function midtransWebhook(req: any, res: any) {
@@ -395,6 +429,7 @@ export async function ipaymuWebhook(req: any, res: any) {
 }
 
 export async function doitWebhook(req: any, res: any) {
+  let eventId = "";
   try {
     const adapter = DoitProviderAdapter.getInstance();
 
@@ -405,8 +440,8 @@ export async function doitWebhook(req: any, res: any) {
       ip: req.ip
     });
 
-    const eventId = String(event.rawPayload?.id || event.transactionId || "");
-    const eventType = String(event.rawPayload?.type || "");
+    eventId = String(event.rawPayload?.id || event.transactionId || "").trim();
+    const eventType = String(event.rawPayload?.type || "").trim();
 
     logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_RECEIVED", `Webhook Doit.id diterima: ${eventType || event.status} (Order: ${event.orderId}, Trx: ${event.transactionId})`, "doit-webhook", {
       orderId: event.orderId,
@@ -414,17 +449,10 @@ export async function doitWebhook(req: any, res: any) {
       metadata: { eventId, eventType, status: event.status, amount: event.amount }
     });
 
-    // 2. Handle Test Webhook Ping
-    if (eventType === "webhook.test") {
-      logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_TEST_RECEIVED", `Webhook test ping dari Doit.id berhasil diverifikasi`, "doit-webhook", {
-        outcome: "SUCCESS"
-      });
-      return res.status(200).json({ success: true, message: "Webhook test received successfully" });
-    }
-
-    // 3. Webhook Deduplication (At-least-once delivery protection)
-    if (eventId && isWebhookEventProcessed(eventId)) {
-      logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_DUPLICATE_IGNORED", `Mengabaikan event duplikat Doit.id: ${eventId}`, "doit-webhook", {
+    // 2. Webhook Deduplication Check (COMPLETED & PROCESSING States)
+    const currentStatus = getWebhookEventStatus(eventId);
+    if (currentStatus === "COMPLETED") {
+      logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_DUPLICATE_IGNORED", `Mengabaikan event duplikat Doit.id (COMPLETED): ${eventId}`, "doit-webhook", {
         orderId: event.orderId,
         outcome: "SUCCESS",
         metadata: { eventId }
@@ -432,140 +460,171 @@ export async function doitWebhook(req: any, res: any) {
       return res.status(200).json({ status: "ok", message: "Event already processed" });
     }
 
-    // 4. Fetch Order & Validate Gateway Identity
-    const orderRepo = OrderRepository.getInstance();
-    let orderData = await orderRepo.getOrderByInvoice(event.orderId);
-    if (!orderData) {
-      orderData = await orderRepo.getOrderById(event.orderId);
-    }
-
-    if (!orderData) {
-      logSystem("WARN", "WEBHOOK", "DOIT_ORDER_NOT_FOUND", `Order tidak ditemukan pada webhook Doit.id: ${event.orderId}`, "doit-webhook", {
+    if (currentStatus === "PROCESSING") {
+      logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_CONCURRENT_IGNORED", `Mengabaikan event konkuren Doit.id (PROCESSING): ${eventId}`, "doit-webhook", {
         orderId: event.orderId,
-        httpStatus: 404,
-        outcome: "FAILURE"
+        outcome: "SUCCESS",
+        metadata: { eventId }
       });
-      return res.status(404).json({ success: false, message: "Order not found" });
+      return res.status(200).json({ status: "ok", message: "Event currently being processed" });
     }
 
-    const orderId = orderData.id;
-
-    // Validate gateway assignment
-    if (orderData.paymentGatewayCode && orderData.paymentGatewayCode !== "doit") {
-      logSystem("WARN", "WEBHOOK", "DOIT_GATEWAY_MISMATCH", `Gateway mismatch: Order ${orderId} gateway is ${orderData.paymentGatewayCode}, received doit webhook`, "doit-webhook", {
-        orderId,
-        httpStatus: 400,
-        outcome: "BLOCKED"
-      });
-      return res.status(400).json({ success: false, message: "Gateway mismatch for order" });
+    // Set in-flight processing lock
+    if (eventId) {
+      setWebhookEventStatus(eventId, "PROCESSING");
     }
 
-    // 5. Durable Order-State Idempotency Check
-    if (
-      orderData.paymentStatus === 'paid' &&
-      event.status === 'PAID'
-    ) {
-      return res.status(200).json({
-        status: "ok",
-        message: "Order already paid"
-      });
-    }
-
-    // 6. STRICT SECURITY: Validate Amount (Exact integer equality)
-    if (Number(event.amount) !== Number(orderData.totalAmount)) {
-      logSystem("CRITICAL", "PAYMENT", "DOIT_AMOUNT_MISMATCH", `Ketidaksesuaian nominal Doit.id: order ${orderId} expected ${orderData.totalAmount} != webhook ${event.amount}`, "doit-webhook", {
-        orderId,
-        httpStatus: 400,
-        outcome: "BLOCKED",
-        metadata: { expectedAmount: orderData.totalAmount, receivedAmount: event.amount }
-      });
-      return res.status(400).json({ success: false, message: "Amount mismatch" });
-    }
-
-    // 7. Determine Target State
-    let targetState: 'PAID' | 'EXPIRED' | 'FAILED' | 'REFUNDED' | null = null;
-    if (event.status === 'PAID') {
-      targetState = 'PAID';
-    } else if (event.status === 'EXPIRED') {
-      targetState = 'EXPIRED';
-    } else if (event.status === 'CANCELLED' || event.status === 'FAILED') {
-      targetState = 'FAILED';
-    } else if (event.status === 'REFUNDED') {
-      targetState = 'REFUNDED';
-    }
-
-    if (!targetState) {
-      if (eventId) markWebhookEventProcessed(eventId);
-      return res.status(200).json({ status: "ok", message: "Ignored status" });
-    }
-
-    // 7. Atomic State Transition
     try {
-      await transitionOrderState(
-        orderId,
-        targetState as any,
-        {
-          gatewayTransactionId: event.transactionId,
-          gatewayPaymentType: "qris",
-          gatewayResponse: event.rawPayload
-        },
-        `Doit.id Webhook: ${eventType || event.status}`
-      );
-
-      if (targetState === 'PAID') {
-        logSystem("INFO", "PAYMENT", "DOIT_PAYMENT_PAID", `Pembayaran Doit.id untuk order ${orderId} terkonfirmasi PAID`, "doit-webhook", {
-          orderId,
-          outcome: "SUCCESS",
-          metadata: { transactionId: event.transactionId, amount: event.amount }
-        });
-      } else if (targetState === 'EXPIRED') {
-        logSystem("INFO", "PAYMENT", "DOIT_PAYMENT_EXPIRED", `Pembayaran Doit.id untuk order ${orderId} tercatat EXPIRED`, "doit-webhook", {
-          orderId,
-          outcome: "SUCCESS",
-          metadata: { transactionId: event.transactionId }
-        });
-      }
-    } catch (err: any) {
-      if (err.message && err.message.includes("INVALID_STATE_TRANSITION")) {
-        // Special case: Doit.id specifies that expired orders can later become paid.
-        // If order was in EXPIRED or PAID and a PAID webhook arrives, ensure fulfillment and ledger are in place.
-        if (targetState === 'PAID') {
-          const refreshedOrder = await orderRepo.getOrderById(orderId);
-          if (refreshedOrder && refreshedOrder.paymentStatus !== 'paid') {
-            // Update paymentStatus to paid safely
-            await orderRepo.updateOrder(orderId, {
-              paymentStatus: 'paid',
-              gatewayTransactionId: event.transactionId,
-              updatedAt: new Date().toISOString()
-            });
-            await safeRecordPaymentReceived(orderId, refreshedOrder, "SYSTEM", { source: "Doit Late Payment Webhook" });
-            try {
-              const { JobService } = await import("./job-service.js");
-              await JobService.getInstance().enqueue({
-                type: 'FULFILLMENT',
-                payload: { orderId },
-                priority: 'HIGH',
-                referenceId: orderId,
-                idempotencyKey: `fulfillment_${orderId}`
-              });
-            } catch (jobErr) {
-              console.error("[Doit Webhook] Failed to enqueue fulfillment job:", jobErr);
-            }
-          }
-        }
-        logSystem("INFO", "WEBHOOK", "DOIT_IDEMPOTENT_IGNORED", `Idempotensi webhook: Mengabaikan transisi status ${targetState} untuk ${orderId}`, "doit-webhook", {
-          orderId,
+      // 3. Handle Test Webhook Ping
+      if (eventType === "webhook.test") {
+        if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+        logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_TEST_RECEIVED", `Webhook test ping dari Doit.id berhasil diverifikasi`, "doit-webhook", {
           outcome: "SUCCESS"
         });
-        if (eventId) markWebhookEventProcessed(eventId);
-        return res.status(200).json({ status: "ok", message: "Already processed" });
+        return res.status(200).json({ success: true, message: "Webhook test received successfully" });
       }
-      throw err;
-    }
 
-    if (eventId) markWebhookEventProcessed(eventId);
-    return res.status(200).json({ status: "ok" });
+      // 4. Fetch Order & Validate Gateway Identity
+      const orderRepo = OrderRepository.getInstance();
+      let orderData = await orderRepo.getOrderByInvoice(event.orderId);
+      if (!orderData) {
+        orderData = await orderRepo.getOrderById(event.orderId);
+      }
+
+      if (!orderData) {
+        if (eventId) clearWebhookEventStatus(eventId);
+        logSystem("WARN", "WEBHOOK", "DOIT_ORDER_NOT_FOUND", `Order tidak ditemukan pada webhook Doit.id: ${event.orderId}`, "doit-webhook", {
+          orderId: event.orderId,
+          httpStatus: 404,
+          outcome: "FAILURE"
+        });
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      const orderId = orderData.id;
+
+      // Validate gateway assignment
+      if (orderData.paymentGatewayCode && orderData.paymentGatewayCode !== "doit") {
+        if (eventId) clearWebhookEventStatus(eventId);
+        logSystem("WARN", "WEBHOOK", "DOIT_GATEWAY_MISMATCH", `Gateway mismatch: Order ${orderId} gateway is ${orderData.paymentGatewayCode}, received doit webhook`, "doit-webhook", {
+          orderId,
+          httpStatus: 400,
+          outcome: "BLOCKED"
+        });
+        return res.status(400).json({ success: false, message: "Gateway mismatch for order" });
+      }
+
+      // 5. Durable Order-State Idempotency Check
+      if (
+        orderData.paymentStatus === 'paid' &&
+        event.status === 'PAID'
+      ) {
+        if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+        return res.status(200).json({
+          status: "ok",
+          message: "Order already paid"
+        });
+      }
+
+      // 6. STRICT SECURITY: Validate Amount (Exact integer equality)
+      if (Number(event.amount) !== Number(orderData.totalAmount)) {
+        if (eventId) clearWebhookEventStatus(eventId);
+        logSystem("CRITICAL", "PAYMENT", "DOIT_AMOUNT_MISMATCH", `Ketidaksesuaian nominal Doit.id: order ${orderId} expected ${orderData.totalAmount} != webhook ${event.amount}`, "doit-webhook", {
+          orderId,
+          httpStatus: 400,
+          outcome: "BLOCKED",
+          metadata: { expectedAmount: orderData.totalAmount, receivedAmount: event.amount }
+        });
+        return res.status(400).json({ success: false, message: "Amount mismatch" });
+      }
+
+      // 7. Determine Target State
+      let targetState: 'PAID' | 'EXPIRED' | 'FAILED' | 'REFUNDED' | null = null;
+      if (event.status === 'PAID') {
+        targetState = 'PAID';
+      } else if (event.status === 'EXPIRED') {
+        targetState = 'EXPIRED';
+      } else if (event.status === 'CANCELLED' || event.status === 'FAILED') {
+        targetState = 'FAILED';
+      } else if (event.status === 'REFUNDED') {
+        targetState = 'REFUNDED';
+      }
+
+      if (!targetState) {
+        if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+        return res.status(200).json({ status: "ok", message: "Ignored status" });
+      }
+
+      // 8. Atomic State Transition
+      try {
+        await transitionOrderState(
+          orderId,
+          targetState as any,
+          {
+            gatewayTransactionId: event.transactionId,
+            gatewayPaymentType: "qris",
+            gatewayResponse: event.rawPayload
+          },
+          `Doit.id Webhook: ${eventType || event.status}`
+        );
+
+        if (targetState === 'PAID') {
+          logSystem("INFO", "PAYMENT", "DOIT_PAYMENT_PAID", `Pembayaran Doit.id untuk order ${orderId} terkonfirmasi PAID`, "doit-webhook", {
+            orderId,
+            outcome: "SUCCESS",
+            metadata: { transactionId: event.transactionId, amount: event.amount }
+          });
+        } else if (targetState === 'EXPIRED') {
+          logSystem("INFO", "PAYMENT", "DOIT_PAYMENT_EXPIRED", `Pembayaran Doit.id untuk order ${orderId} tercatat EXPIRED`, "doit-webhook", {
+            orderId,
+            outcome: "SUCCESS",
+            metadata: { transactionId: event.transactionId }
+          });
+        }
+      } catch (err: any) {
+        if (err.message && err.message.includes("INVALID_STATE_TRANSITION")) {
+          // Special case: Doit.id specifies that expired orders can later become paid.
+          if (targetState === 'PAID') {
+            const refreshedOrder = await orderRepo.getOrderById(orderId);
+            if (refreshedOrder && refreshedOrder.paymentStatus !== 'paid') {
+              await orderRepo.updateOrder(orderId, {
+                paymentStatus: 'paid',
+                gatewayTransactionId: event.transactionId,
+                updatedAt: new Date().toISOString()
+              });
+              await safeRecordPaymentReceived(orderId, refreshedOrder, "SYSTEM", { source: "Doit Late Payment Webhook" });
+              try {
+                const { JobService } = await import("./job-service.js");
+                await JobService.getInstance().enqueue({
+                  type: 'FULFILLMENT',
+                  payload: { orderId },
+                  priority: 'HIGH',
+                  referenceId: orderId,
+                  idempotencyKey: `fulfillment_${orderId}`
+                });
+              } catch (jobErr) {
+                console.error("[Doit Webhook] Failed to enqueue fulfillment job:", jobErr);
+              }
+            }
+          }
+          logSystem("INFO", "WEBHOOK", "DOIT_IDEMPOTENT_IGNORED", `Idempotensi webhook: Mengabaikan transisi status ${targetState} untuk ${orderId}`, "doit-webhook", {
+            orderId,
+            outcome: "SUCCESS"
+          });
+          if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+          return res.status(200).json({ status: "ok", message: "Already processed" });
+        }
+        throw err;
+      }
+
+      if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+      return res.status(200).json({ status: "ok" });
+    } catch (innerErr: any) {
+      if (eventId) clearWebhookEventStatus(eventId);
+      throw innerErr;
+    }
   } catch (error: any) {
+    if (eventId) clearWebhookEventStatus(eventId);
     console.error("[Doit.id Webhook Error]", error);
     const isSignatureError = error.message && (
       error.message.includes("Signature") ||
