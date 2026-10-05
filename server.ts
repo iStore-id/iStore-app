@@ -28,7 +28,7 @@ import {
 } from "./src/server/admin-api.js";
 import { getIpaymuIntegration, updateIpaymuIntegration, testIpaymuIntegration, removeIpaymuIntegration, getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
-import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig } from "./src/server/config-api.js";
+import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
 import { getCustomerProfileApi, getCustomerOrdersApi } from "./src/server/customer-api.js";
 import { getRoles, createRoleApi, updateRoleApi, deleteRoleApi, assignRoleApi, getUserPermissionsApi, checkPermissionApi, getAdminUsersApi, updateProfileApi } from "./src/server/auth-api.js";
@@ -740,6 +740,7 @@ export async function initServerLogic() {
   app.get("/sitemap.xml", getSitemapXml);
   app.get("/api/public/store-config", getPublicStoreConfig);
   app.get("/api/public/config/midtrans", getPublicMidtransConfig);
+  app.get("/api/public/payment-gateway", getPublicPaymentGateway);
   app.get("/api/public/seo", getPublicSEOSettings);
   app.get("/api/admin/seo", requirePermission("seo", "view"), getAdminSEOSettings);
   app.put("/api/admin/seo", requirePermission("seo", "edit"), updateAdminSEOSettings);

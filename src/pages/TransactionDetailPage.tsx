@@ -5,6 +5,33 @@ import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Tr
 import { useAuthStore } from "../store/auth-store";
 import { trackPurchase } from "../lib/gtag";
 
+async function loadDoitEmbed(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (window.doit) return true;
+
+  const scriptId = "doit-embed-script";
+  const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+  if (existingScript) {
+    if (window.doit) return true;
+    return new Promise((resolve) => {
+      existingScript.addEventListener("load", () => resolve(!!window.doit), { once: true });
+      existingScript.addEventListener("error", () => resolve(false), { once: true });
+      setTimeout(() => resolve(!!window.doit), 3000);
+    });
+  }
+
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.id = scriptId;
+    script.src = "https://doit.id/embed.js";
+    script.async = true;
+    script.onload = () => resolve(!!window.doit);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+    setTimeout(() => resolve(!!window.doit), 5000);
+  });
+}
+
 function hexToRgba(hex: string, opacity: number) {
   let c = (hex || "#ffffff").replace('#', '');
   if (c.length === 3) {
@@ -56,6 +83,7 @@ export default function TransactionDetailPage() {
 
   useEffect(() => {
     loadMidtransSnap();
+    loadDoitEmbed();
   }, []);
 
   useEffect(() => {
@@ -197,8 +225,25 @@ export default function TransactionDetailPage() {
             <div className="mt-6 flex flex-col items-center gap-6">
               {order.paymentGatewayCode === 'doit' && order.paymentUrl ? (
                 <button 
-                  onClick={() => {
-                    window.location.href = order.paymentUrl!;
+                  onClick={async () => {
+                    setActionError(null);
+                    await loadDoitEmbed();
+                    if (window.doit && typeof window.doit.open === "function") {
+                      window.doit.open(order.paymentUrl!, {
+                        closeDelay: 1500,
+                        onPaid: () => {
+                          window.location.reload();
+                        },
+                        onExpired: () => {
+                          setActionError("Sesi pembayaran telah kedaluwarsa.");
+                        },
+                        onClose: () => {
+                          // Customer remains in iStore
+                        }
+                      });
+                    } else {
+                      setActionError("Checkout Doit gagal dimuat. Silakan refresh halaman.");
+                    }
                   }}
                   className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
                 >

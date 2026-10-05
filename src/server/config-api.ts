@@ -54,6 +54,24 @@ export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Re
 }
 
 import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans.js";
+import { PaymentRouter } from "./payment-router.js";
+
+export async function getPublicPaymentGateway(req: Request, res: Response) {
+  try {
+    const gatewayCode = await PaymentRouter.getInstance().getActiveGateway();
+    return res.status(200).json({
+      success: true,
+      gatewayCode
+    });
+  } catch (error: any) {
+    console.error("[Config API Error] getPublicPaymentGateway:", error);
+    return res.status(200).json({
+      success: false,
+      gatewayCode: null,
+      message: "Tidak ada gateway pembayaran aktif"
+    });
+  }
+}
 
 export async function getPublicMidtransConfig(req: Request, res: Response) {
   try {
