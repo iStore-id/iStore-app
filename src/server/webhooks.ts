@@ -443,6 +443,26 @@ export async function doitWebhook(req: any, res: any) {
     eventId = String(event.rawPayload?.id || event.transactionId || "").trim();
     const eventType = String(event.rawPayload?.type || "").trim();
 
+    let rawPayloadByteLength = 0;
+    if (req.rawBody) {
+      rawPayloadByteLength = Buffer.isBuffer(req.rawBody)
+        ? req.rawBody.length
+        : Buffer.byteLength(typeof req.rawBody === "string" ? req.rawBody : JSON.stringify(req.rawBody), "utf8");
+    } else if (event.rawPayload) {
+      rawPayloadByteLength = Buffer.byteLength(JSON.stringify(event.rawPayload), "utf8");
+    }
+
+    console.info("[DOIT_WEBHOOK_DIAGNOSTIC]", JSON.stringify({
+      tag: "DOIT_WEBHOOK_DIAGNOSTIC",
+      eventId,
+      eventType,
+      orderId: event.orderId,
+      transactionId: event.transactionId,
+      status: event.status,
+      amount: event.amount,
+      rawPayloadByteLength
+    }));
+
     logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_RECEIVED", `Webhook Doit.id diterima: ${eventType || event.status} (Order: ${event.orderId}, Trx: ${event.transactionId})`, "doit-webhook", {
       orderId: event.orderId,
       outcome: "SUCCESS",
@@ -498,6 +518,18 @@ export async function doitWebhook(req: any, res: any) {
           httpStatus: 404,
           outcome: "FAILURE"
         });
+        console.warn("[DOIT_WEBHOOK_404_DIAGNOSTIC]", JSON.stringify({
+          tag: "DOIT_WEBHOOK_404_DIAGNOSTIC",
+          eventId,
+          eventType,
+          orderId: event.orderId,
+          transactionId: event.transactionId,
+          status: event.status,
+          amount: event.amount,
+          rawPayloadByteLength,
+          lookupByInvoice: "FAILED",
+          lookupById: "FAILED"
+        }));
         return res.status(404).json({ success: false, message: "Order not found" });
       }
 
