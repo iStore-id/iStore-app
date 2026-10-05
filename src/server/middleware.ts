@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { can, isOwnerIdentity } from './auth-service.js';
+import { can } from './auth-service.js';
 import { verifySupabaseAccessToken } from './supabase-auth-verifier.js';
 import { supabaseAdmin } from './supabase-admin.js';
 
@@ -86,11 +86,6 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
 };
 
 export const requireAuth = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  if (req.headers['x-test-bypass'] === 'supersecret') {
-    req.user = { uid: "test-uid", email: "test@example.com", role: "pemilik" };
-    return next();
-  }
-
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Unauthorized. Token required.' });
@@ -113,40 +108,27 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
 export const requireAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   await requireAuth(req, res, async () => {
     try {
-      const userEmail = (req.user?.email || "").toLowerCase();
-      // Optimization: Owner bypasses DB check
-      if (userEmail && isOwnerIdentity(userEmail)) {
-        return next();
+      // Check role strictly from trusted server-side DB profile source (fail closed)
+      const { data: userDoc, error } = await supabaseAdmin!.from('profiles').select('role').eq('id', req.user.uid).maybeSingle();
+      if (error || !userDoc) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
       }
-
-      // Check role from identity (metadata)
-      if (req.user.role && req.user.role !== 'customer') {
-        return next();
-      }
-
-      // Fallback: check DB
-      const { data: userDoc } = await supabaseAdmin!.from('profiles').select('role').eq('id', req.user.uid).maybeSingle();
       const role = userDoc?.role;
       
       if (role && role !== 'customer') {
-        next();
+        return next();
       } else {
-        res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
+        return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
       }
     } catch (error) {
       console.error("[Auth Error]", error);
-      res.status(500).json({ success: false, message: 'Server error during authorization' });
+      return res.status(500).json({ success: false, message: 'Server error during authorization' });
     }
   });
 };
 
 export const requirePermission = (resource: string, action: string, scope: string = "global") => {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.headers['x-test-bypass'] === 'supersecret') {
-      req.user = { uid: "test-uid", email: "test@example.com", role: "pemilik" };
-      return next();
-    }
-
     await requireAuth(req, res, async () => {
       try {
         const userEmail = (req.user?.email || "").toLowerCase();

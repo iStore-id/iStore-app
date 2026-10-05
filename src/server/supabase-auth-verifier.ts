@@ -83,7 +83,7 @@ export async function verifySupabaseAccessToken(
       uid: user.id,
       email,
       phone: user.phone || (user.user_metadata?.phone as string) || undefined,
-      role: (user.user_metadata?.role as string) || (user.app_metadata?.role as string) || 'customer',
+      role: 'customer',
       user,
       source: 'supabase',
     };

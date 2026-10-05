@@ -170,6 +170,8 @@ import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
 import { safeRecordRefundExecuted, getOrderSettlementContext } from "./ledger-service.js";
 import { PromoService } from "./promo-service.js";
 import { FlashSaleService } from "./flash-sale-service.js";
+import { LoyaltyService } from "./loyalty-service.js";
+import { ReferralService } from "./referral-service.js";
 import { BusinessCalendarService } from "./business-calendar-service.js";
 import { JobService } from "./job-service.js";
 import { NotificationService } from "./notification-service.js";
@@ -180,6 +182,8 @@ const providerRepo = SupabaseProviderRepository.getInstance();
 const paymentGatewayService = PaymentGatewayService.getInstance();
 const promoService = PromoService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
+const loyaltyService = LoyaltyService.getInstance();
+const referralService = ReferralService.getInstance();
 const notificationService = NotificationService.getInstance();
 
 export async function createPaymentGateway(req: AuthenticatedRequest, res: Response) {
@@ -844,20 +848,6 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
         req.user?.email || req.user?.uid || "ADMIN",
         { providerRefundId, reason }
       );
-
-      // Post-commit Commission Hook (Phase 4: Refund & Clawback)
-      // Executes only after refund status is persisted as SUCCEEDED
-      try {
-        const { CommissionService } = await import("./commission-service");
-        await CommissionService.getInstance().handleOrderRefund(
-          orderId,
-          refundKey,
-          amount,
-          { uid: req.user?.uid || "ADMIN", email: req.user?.email || "admin@istore.co.id" }
-        );
-      } catch (commErr) {
-        console.error(`[Commission Refund Hook Error] Failed to handle commission clawback for order ${orderId}, refund ${refundKey}:`, commErr);
-      }
 
       return res.status(200).json({
         success: true,

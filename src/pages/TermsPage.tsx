@@ -11,7 +11,7 @@ export default function TermsPage() {
 
   useSEO({
     title: privacyData?.termsOfService.title || "Syarat & Ketentuan Layanan",
-    description: "Syarat & Ketentuan resmi layanan top up game, voucher digital, dan pemrosesan transaksi di iStore.id.",
+    description: "Syarat & Ketentuan resmi layanan top up game, voucher digital, dan pemrosesan transaksi di ist.web.id.",
     keywords: ["syarat dan ketentuan", "terms of service istore", "aturan transaksi istore id", "ketentuan top up game"],
     canonicalPath: "/terms",
     ogType: "website"

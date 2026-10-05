@@ -8,9 +8,9 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   id: "global",
   privacyPolicy: {
-    title: "Kebijakan Privasi iStore.id",
+    title: "Kebijakan Privasi ist.web.id",
     content: `## 1. Pendahuluan
-Selamat datang di iStore.id. Kami menghargai dan berkomitmen untuk melindungi privasi serta keamanan data pribadi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi pribadi yang Anda berikan saat menggunakan layanan top-up game dan voucher digital kami.
+Selamat datang di ist.web.id. Kami menghargai dan berkomitmen untuk melindungi privasi serta keamanan data pribadi Anda. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi pribadi yang Anda berikan saat menggunakan layanan top-up game dan voucher digital kami.
 
 ## 2. Informasi yang Kami Kumpulkan
 Kami hanya mengumpulkan informasi yang diperlukan untuk memproses transaksi Anda secara aman dan cepat:
@@ -42,12 +42,12 @@ Jika Anda memiliki pertanyaan mengenai kebijakan privasi atau perlakuan data And
     version: "1.0.0"
   },
   termsOfService: {
-    title: "Syarat & Ketentuan Layanan iStore.id",
+    title: "Syarat & Ketentuan Layanan ist.web.id",
     content: `## 1. Ketentuan Umum
-Dengan mengakses atau menggunakan platform iStore.id, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh Syarat & Ketentuan yang berlaku. Jika Anda tidak menyetujui salah satu poin ketentuan, mohon untuk tidak melanjutkan penggunaan layanan ini.
+Dengan mengakses atau menggunakan platform ist.web.id, Anda menyatakan telah membaca, memahami, dan menyetujui seluruh Syarat & Ketentuan yang berlaku. Jika Anda tidak menyetujui salah satu poin ketentuan, mohon untuk tidak melanjutkan penggunaan layanan ini.
 
 ## 2. Layanan Top-Up & Pembelian Voucher
-- iStore.id bertindak sebagai penyedia platform perantara resmi untuk pembelian mata uang game dan voucher digital dari penyedia layanan terdaftar.
+- ist.web.id bertindak sebagai penyedia platform perantara resmi untuk pembelian mata uang game dan voucher digital dari penyedia layanan terdaftar.
 - Pengguna bertanggung jawab penuh atas keakuratan User ID, Server ID, atau data akun game yang dimasukkan saat checkout. Kesalahan input data dari pihak pengguna tidak dapat dibatalkan atau direfund setelah voucher berhasil terkirim.
 
 ## 3. Pembayaran & Konfirmasi
@@ -56,16 +56,16 @@ Dengan mengakses atau menggunakan platform iStore.id, Anda menyatakan telah memb
 
 ## 4. Kebijakan Refund & Komplain
 - Refund hanya dapat diajukan jika terjadi kegagalan sistem pada provider yang mengakibatkan item tidak terkirim dalam batas SLA resmi dan pembayaran telah berhasil dipotong.
-- Komplain kendala transaksi wajib menyertakan nomor Invoice resmi iStore.id dan bukti pembayaran yang valid maksimal 1x24 jam sejak transaksi dilakukan.
+- Komplain kendala transaksi wajib menyertakan nomor Invoice resmi ist.web.id dan bukti pembayaran yang valid maksimal 1x24 jam sejak transaksi dilakukan.
 
 ## 5. Perubahan Ketentuan
-iStore.id berhak sewaktu-waktu memperbarui Syarat & Ketentuan ini untuk menyesuaikan regulasi dan peningkatan keamanan operasional. Perubahan akan berlaku seketika sejak diumumkan pada halaman ini.`,
+ist.web.id berhak sewaktu-waktu memperbarui Syarat & Ketentuan ini untuk menyesuaikan regulasi dan peningkatan keamanan operasional. Perubahan akan berlaku seketika sejak diumumkan pada halaman ini.`,
     lastUpdated: new Date().toISOString(),
     version: "1.0.0"
   },
   dpoContact: {
     name: "Data Protection Officer",
-    email: "privacy@istore.co.id",
+    email: "privacy@ist.web.id",
     phone: "",
     address: ""
   },
@@ -145,28 +145,12 @@ export async function getPrivacySettings(): Promise<PrivacySettings> {
 }
 
 export function getPublicPrivacySettings(settings: PrivacySettings): PublicPrivacySettings {
-  const sanitizeBrand = (text: string) => {
-    if (!text) return "";
-    return text
-      .replace(/di Platform\./g, "di iStore.id.")
-      .replace(/platform Platform/g, "platform iStore.id")
-      .replace(/resmi Platform/g, "resmi iStore.id")
-      .replace(/Platform bertindak/g, "iStore.id bertindak")
-      .replace(/Platform berhak/g, "iStore.id berhak")
-      .replace(/Layanan Platform/g, "Layanan iStore.id")
-      .replace(/Privasi Platform/g, "Privasi iStore.id");
-  };
-
   return {
     privacyPolicy: {
-      ...settings.privacyPolicy,
-      title: sanitizeBrand(settings.privacyPolicy.title),
-      content: sanitizeBrand(settings.privacyPolicy.content)
+      ...settings.privacyPolicy
     },
     termsOfService: {
-      ...settings.termsOfService,
-      title: sanitizeBrand(settings.termsOfService.title),
-      content: sanitizeBrand(settings.termsOfService.content)
+      ...settings.termsOfService
     },
     dpoContact: {
       name: settings.dpoContact.name,

@@ -78,7 +78,7 @@ import { getPublicLandingPageApi, getPublicLandingsApi, getAdminLandingPagesApi,
 import { getPublicBlogsApi, getPublicBlogBySlugApi, getAdminBlogsApi, getAdminBlogComponentsApi, getAdminBlogByIdApi, getAdminBlogPreviewApi, createBlogApi, updateBlogApi, publishBlogApi, archiveBlogApi, deleteBlogApi, restoreBlogApi } from "./src/server/blog-api.js";
 import { getPublicFaqsApi, getPublicFaqByIdApi, getAdminFaqsApi, getAdminFaqComponentsApi, getAdminFaqByIdApi, createFaqApi, updateFaqApi, publishFaqApi, toggleEnableFaqApi, archiveFaqApi, reorderFaqsApi, deleteFaqApi } from "./src/server/faq-api.js";
 import { getPublicSEOSettings, getAdminSEOSettings, updateAdminSEOSettings, resetAdminSEOSettings, getRobotsTxt, getSitemapXml } from "./src/server/seo-api.js";
-import { serveGameDetailHtml, serveBlogDetailHtml, serveHomepageHtml } from "./src/server/html-injector.js";
+import { serveGameDetailHtml, serveBlogDetailHtml, serveHomepageHtml, serveLegalHtml } from "./src/server/html-injector.js";
 import { getLedgerEntriesApi, getLedgerOverviewApi, getLedgerEntryDetailApi, exportLedgerCsvApi } from "./src/server/ledger-api.js";
 import { migrateInitialRoles, isOwnerIdentity, OWNER_EMAIL } from "./src/server/auth-service.js";
 import { AuthRepository } from "./src/server/supabase/auth-repository.js";
@@ -390,7 +390,7 @@ export async function initServerLogic() {
     }
   });
 
-  app.get("/api/orders/:invoice/payment-status", optionalAuth, getPaymentStatusHandler);
+  app.get("/api/orders/:invoice/payment-status", requireAuth, getPaymentStatusHandler);
 
   app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
   app.post("/api/webhooks/midtrans", midtransWebhook);
@@ -523,7 +523,7 @@ export async function initServerLogic() {
   app.get("/api/admin/variants/:variantId/reservations", requirePermission("stock", "view"), getReservations);
 
   // Digital Delivery Routes
-  app.get("/api/customer/orders", requireAuth, getCustomerOrdersApi); app.get("/api/customer/profile/:uid", requireAuth, getCustomerProfileApi); app.get("/api/customer/orders/:orderId/delivery", optionalAuth, getCustomerDelivery); // Inside API, we check if customerId matches, wait, optionalAuth won't throw on missing user. So we must use authenticated. Let's create an auth-required version or just check in getCustomerDelivery.
+  app.get("/api/customer/orders", requireAuth, getCustomerOrdersApi); app.get("/api/customer/profile/:uid", requireAuth, getCustomerProfileApi); app.get("/api/customer/orders/:orderId/delivery", requireAuth, getCustomerDelivery);
   app.post("/api/customer/games/inquiry", optionalAuth, async (req: any, res: any) => {
     try {
       const { gameCode, userId, zoneId } = req.body || {};
@@ -750,6 +750,10 @@ export async function initServerLogic() {
   app.get("/", serveHomepageHtml);
   app.get("/games/:slug", serveGameDetailHtml);
   app.get("/blog/:slug", serveBlogDetailHtml);
+  app.get("/terms", serveLegalHtml);
+  app.get("/privacy", serveLegalHtml);
+  app.get("/refund", serveLegalHtml);
+  app.get("/faq", serveLegalHtml);
 
   // Privacy & Legal APIs
   app.get("/api/public/privacy", getPublicPrivacyApi);

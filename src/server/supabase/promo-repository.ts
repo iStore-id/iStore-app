@@ -137,20 +137,32 @@ export class SupabasePromoRepository {
     if (error) throw new Error(`Supabase deletePromo error: ${error.message}`);
   }
 
-  async incrementUsage(promoId: string): Promise<void> {
+  async incrementUsage(promoId: string, userId?: string, orderId?: string): Promise<void> {
     const client = this.ensureClient();
-    const promo = await this.getPromo(promoId);
-    if (!promo) return;
-    const currentCount = promo.usageCount || 0;
-    const { error } = await client
-      .from("promos")
-      .update({
-        usage_count: currentCount + 1,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", promoId);
+    
+    const { data, error } = await client.rpc('atomic_increment_promo_usage', {
+      p_promo_id: promoId,
+      p_user_id: userId || null,
+      p_order_id: orderId || null
+    });
 
-    if (error) throw new Error(`Supabase incrementUsage error: ${error.message}`);
+    if (error) throw new Error(`Supabase atomic incrementUsage error: ${error.message}`);
+    
+    if (data && data.success === false) {
+      throw new Error(`Promo usage failed: ${data.error}`);
+    }
+  }
+
+  async releaseUsage(orderId: string): Promise<void> {
+    const client = this.ensureClient();
+    const { data, error } = await client.rpc('atomic_release_promo_usage', {
+      p_order_id: orderId
+    });
+
+    if (error) {
+      console.error(`[PromoRepository] releaseUsage error for ${orderId}:`, error.message);
+      return; // Non-blocking
+    }
   }
 
   async getUserPromoUsageCount(userId: string, promoId: string): Promise<number> {

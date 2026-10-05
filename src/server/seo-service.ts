@@ -3,7 +3,7 @@ import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
 import { SEOSettings, PublicSEOSettings } from "../types/seo.js";
-import { logCoreAudit } from "./core-service.js";
+import { logCoreAudit, getStoreConfiguration } from "./core-service.js";
 
 const SEO_DOC_PATH = "system_configs/seo_settings";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -167,6 +167,13 @@ class SEOService {
    */
   async getPublicSettings(): Promise<PublicSEOSettings> {
     const s = await this.getSettings();
+    let favicon = "";
+    try {
+      const storeConfig = await getStoreConfiguration();
+      favicon = storeConfig?.favicon?.trim() || "";
+    } catch {
+      favicon = "";
+    }
     return {
       siteName: s.siteName,
       titleSeparator: s.titleSeparator,
@@ -174,7 +181,7 @@ class SEOService {
       defaultDescription: s.defaultDescription,
       defaultKeywords: s.defaultKeywords,
       canonicalBaseUrl: s.canonicalBaseUrl,
-      favicon: s.favicon,
+      favicon: s.favicon || favicon,
       googleSiteVerification: s.googleSiteVerification,
       ga4Enabled: s.ga4Enabled,
       ga4MeasurementId: s.ga4MeasurementId,
@@ -250,9 +257,7 @@ class SEOService {
         ? updates.defaultKeywords.map(k => k.trim()).filter(Boolean)
         : current.defaultKeywords,
       canonicalBaseUrl: cleanCanonical,
-      favicon: typeof updates.favicon === "string"
-        ? updates.favicon.trim()
-        : (current.favicon || ""),
+      favicon: typeof updates.favicon === "string" ? updates.favicon.trim() : current.favicon,
       googleSiteVerification: cleanGscToken,
       ga4Enabled: cleanGa4Enabled,
       ga4MeasurementId: cleanGa4Id,

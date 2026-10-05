@@ -11,7 +11,7 @@ export interface ProviderFulfillmentRequest {
 export interface ProviderFulfillmentResponse {
   success: boolean;
   providerReference?: string;
-  status: 'pending' | 'success' | 'failed' | 'ambiguous';
+  status: 'pending' | 'success' | 'failed' | 'ambiguous' | 'not_found';
   rawResponse?: any;
   message?: string;
 }

@@ -11,8 +11,8 @@ export default function RefundPolicyPage() {
   }>({});
 
   useSEO({
-    title: "Kebijakan Pengembalian Dana (Refund) - iStore.id",
-    description: "Kebijakan resmi pengembalian dana, pembatalan pesanan, dan prosedur garansi transaksi produk digital di iStore.id.",
+    title: "Kebijakan Pengembalian Dana (Refund) - ist.web.id",
+    description: "Kebijakan resmi pengembalian dana, pembatalan pesanan, dan prosedur garansi transaksi produk digital di ist.web.id.",
     keywords: ["kebijakan refund", "pengembalian dana istore", "garansi top up game", "komplain transaksi istore id"],
     canonicalPath: "/refund",
     ogType: "website"
@@ -24,7 +24,7 @@ export default function RefundPolicyPage() {
       .then((json) => {
         if (json.success && json.data) {
           setContactInfo({
-            name: json.data.name || "iStore.id",
+            name: json.data.name || "ist.web.id",
             whatsapp: json.data.contactInformation?.whatsapp || "",
             email: json.data.contactInformation?.email || ""
           });
@@ -81,7 +81,7 @@ export default function RefundPolicyPage() {
           </div>
 
           <p className="text-slate-600 text-xs sm:text-sm leading-relaxed pt-2 border-t border-slate-100">
-            Kami berkomitmen memberikan pengalaman transaksi produk digital yang aman, transparan, dan terpercaya. Halaman ini menjelaskan syarat, batasan, serta prosedur resmi pengembalian dana (*refund*) atas transaksi di iStore.id.
+            Kami berkomitmen memberikan pengalaman transaksi produk digital yang aman, transparan, dan terpercaya. Halaman ini menjelaskan syarat, batasan, serta prosedur resmi pengembalian dana (*refund*) atas transaksi di ist.web.id.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default function RefundPolicyPage() {
               Sifat Produk Digital & Ketentuan Umum
             </h2>
             <p className="text-slate-600 text-xs sm:text-sm">
-              Seluruh produk yang dipasarkan di iStore.id merupakan produk digital (mata uang game, voucher digital, pulsa, dan token listrik) yang diproses dan dikirimkan secara otomatis melalui koneksi server resmi publisher/distributor:
+              Seluruh produk yang dipasarkan di ist.web.id merupakan produk digital (mata uang game, voucher digital, pulsa, dan token listrik) yang diproses dan dikirimkan secara otomatis melalui koneksi server resmi publisher/distributor:
             </p>
             <ul className="list-disc pl-5 text-xs sm:text-sm text-slate-600 space-y-1.5">
               <li>Karena sifat pengiriman produk digital yang instan dan langsung terikat ke akun game penerima, seluruh transaksi yang telah berhasil terkirim (*DELIVERED*) dinyatakan <strong>final dan tidak dapat dibatalkan atau dikembalikan</strong>.</li>
@@ -181,7 +181,7 @@ export default function RefundPolicyPage() {
                   <strong>Batas Waktu Komplain:</strong> Pengajuan komplain wajib dilakukan maksimal <strong>1x24 jam</strong> terhitung sejak transaksi dilakukan.
                 </li>
                 <li>
-                  <strong>Nomor Invoice Resmi:</strong> Sertakan nomor pesanan resmi iStore.id (contoh: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-brand-700 font-mono text-xs">INV-YYYYMMDD-XXXX</code>).
+                  <strong>Nomor Invoice Resmi:</strong> Sertakan nomor pesanan resmi ist.web.id (contoh: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-brand-700 font-mono text-xs">INV-YYYYMMDD-XXXX</code>).
                 </li>
                 <li>
                   <strong>Bukti Pembayaran Valid:</strong> Lampirkan bukti transfer perbankan, mutasi rekening, atau receipt e-wallet/QRIS yang memperlihatkan tanggal, jam, nominal, dan nomor referensi transaksi.
@@ -228,7 +228,7 @@ export default function RefundPolicyPage() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             {contactInfo.whatsapp ? (
               <a
-                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "iStore.id")},%20saya%20ingin%20mengajukan%20komplain%20pesanan`}
+                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "ist.web.id")},%20saya%20ingin%20mengajukan%20komplain%20pesanan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-sm"

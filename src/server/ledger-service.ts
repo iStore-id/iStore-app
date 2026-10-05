@@ -271,7 +271,8 @@ export async function safeRecordPaymentReceived(
   orderId: string,
   orderData: Record<string, any>,
   createdBy: string = "SYSTEM",
-  metadata?: Record<string, any>
+  metadata?: Record<string, any>,
+  options: { isWorker?: boolean } = {}
 ): Promise<CreateJournalEntryResult | null> {
   try {
     const grossAmount = orderData.totalAmount || orderData.totalPrice || orderData.price || 0;
@@ -289,8 +290,22 @@ export async function safeRecordPaymentReceived(
     }
     return result;
   } catch (error: any) {
-    // Non-blocking error handling: Preserve PAID state, log error safely for retry
-    console.error(`[Ledger Error] Failed to record PAYMENT_RECEIVED for order ${orderId}:`, error?.message || error);
+    if (options.isWorker) throw error; // Re-throw for JobService retry mechanism
+
+    // Non-blocking error handling for standard flow: Enqueue a durable retry job
+    console.error(`[Ledger Error] Failed to record PAYMENT_RECEIVED for order ${orderId}. Enqueueing durable retry.`, error?.message || error);
+    
+    try {
+      const { JobService } = await import("./job-service.js");
+      await JobService.getInstance().enqueue({
+        type: 'PAYMENT_LEDGER_RETRY',
+        payload: { orderId, orderData, createdBy, metadata },
+        idempotencyKey: `payment_ledger_${orderId}`
+      });
+    } catch (enqueueErr: any) {
+      console.error(`[Ledger Critical] Failed to enqueue retry for ${orderId}:`, enqueueErr.message);
+    }
+
     return null;
   }
 }

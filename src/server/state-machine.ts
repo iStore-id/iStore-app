@@ -10,7 +10,7 @@ const notificationService = NotificationService.getInstance();
 export const VALID_TRANSITIONS: Record<string, string[]> = {
   'PENDING_PAYMENT': ['PAID', 'EXPIRED'],
   'PAID': ['PROCESSING', 'FAILED'], // Failed if provider permanently rejects immediately
-  'PROCESSING': ['SUCCESS', 'FAILED'], // FAILED includes timeout/manual abort
+  'PROCESSING': ['SUCCESS', 'FAILED', 'PAID'], // FAILED includes timeout/manual abort, PAID for recovery/retry
   'SUCCESS': [], // Terminal
   'FAILED': [], // Terminal
   'EXPIRED': [] // Terminal
@@ -226,6 +226,21 @@ export async function transitionOrderState(
       } catch (e) {
          console.error("[Inventory] Failed to release reservation for order", orderId, e);
       }
+
+      // Release Promo & Flash Sale usage
+      try {
+         const { PromoService } = await import('./promo-service.js');
+         await PromoService.getInstance().releaseUsage(orderId);
+      } catch (e) {
+         console.error("[Promo] Failed to release usage for order", orderId, e);
+      }
+
+      try {
+         const { FlashSaleService } = await import('./flash-sale-service.js');
+         await FlashSaleService.getInstance().releaseQuota(orderId);
+      } catch (e) {
+         console.error("[FlashSale] Failed to release quota for order", orderId, e);
+      }
    }
 
    if (newState === 'EXPIRED') {
@@ -239,6 +254,21 @@ export async function transitionOrderState(
          await inventoryService.releaseReservation(orderId);
       } catch (e) {
          console.error("[Inventory] Failed to release reservation for order", orderId, e);
+      }
+
+      // Release Promo & Flash Sale usage
+      try {
+         const { PromoService } = await import('./promo-service.js');
+         await PromoService.getInstance().releaseUsage(orderId);
+      } catch (e) {
+         console.error("[Promo] Failed to release usage for order", orderId, e);
+      }
+
+      try {
+         const { FlashSaleService } = await import('./flash-sale-service.js');
+         await FlashSaleService.getInstance().releaseQuota(orderId);
+      } catch (e) {
+         console.error("[FlashSale] Failed to release quota for order", orderId, e);
       }
    }
 

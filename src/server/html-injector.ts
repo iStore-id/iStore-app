@@ -4,6 +4,7 @@ import { Request, Response, NextFunction } from "express";
 import { DynamicCatalogService } from "./dynamic-catalog-service.js";
 import { BlogService } from "./blog-service.js";
 import { seoService } from "./seo-service.js";
+import { getPrivacySettings } from "./privacy-service.js";
 
 let cachedIndexHtmlTemplate = "";
 
@@ -420,6 +421,67 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
     return res.status(200).send(injectedHtml);
   } catch (error) {
     console.warn("[HTML Injector] Homepage render fallback to SPA:", error);
+    return next();
+  }
+}
+
+/**
+  SSR Handler for GET /terms, /privacy, /refund, /faq
+ */
+export async function serveLegalHtml(req: Request, res: Response, next: NextFunction) {
+  try {
+    const path = req.path;
+    const template = getIndexHtmlTemplate();
+
+    if (!template) {
+      return next();
+    }
+
+    const seoSettings = await seoService.getPublicSettings();
+    const hostHeader = req.get("host") || "";
+    const protocol = req.protocol || "https";
+    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
+    const siteName = seoSettings.siteName || "ist.web.id";
+
+    let title = "";
+    let description = "";
+
+    if (path === "/terms") {
+      const privacyData = await getPrivacySettings();
+      title = privacyData.termsOfService.title || "Syarat & Ketentuan Layanan";
+      description = `Syarat & Ketentuan resmi layanan top up game, voucher digital, dan pemrosesan transaksi di ${siteName}.`;
+    } else if (path === "/privacy") {
+      const privacyData = await getPrivacySettings();
+      title = privacyData.privacyPolicy.title || "Kebijakan Privasi";
+      description = `Kebijakan Privasi resmi terkait pengumpulan dan penggunaan data pengguna di ${siteName}.`;
+    } else if (path === "/refund") {
+      title = `Kebijakan Pengembalian Dana (Refund) - ${siteName}`;
+      description = `Kebijakan resmi pengembalian dana, pembatalan pesanan, dan prosedur garansi transaksi produk digital di ${siteName}.`;
+    } else if (path === "/faq") {
+      title = `Pertanyaan Umum (FAQ) - ${siteName}`;
+      description = `Temukan jawaban atas pertanyaan umum terkait transaksi produk digital di ${siteName}.`;
+    } else {
+      return next();
+    }
+
+    const canonicalUrl = `${baseUrl.replace(/\/+$/, "")}${path}`;
+
+    const injectedHtml = injectMetaToHtml(template, {
+      title,
+      description,
+      canonicalUrl,
+      ogType: "website",
+      googleSiteVerification: seoSettings.googleSiteVerification,
+      ga4Enabled: seoSettings.ga4Enabled,
+      ga4MeasurementId: seoSettings.ga4MeasurementId,
+      favicon: seoSettings.favicon
+    });
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return res.status(200).send(injectedHtml);
+  } catch (error) {
+    console.warn(`[HTML Injector] Legal SSR render fallback for ${req.path}:`, error);
     return next();
   }
 }

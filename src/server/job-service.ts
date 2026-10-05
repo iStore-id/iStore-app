@@ -87,13 +87,36 @@ export class JobService {
       if (error) {
         // Unique constraint violation on idempotency_key (Postgres error code 23505)
         if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique') || error.message?.includes('idempotency_key')) {
-          console.log(`[JobService] Job with idempotency key '${idempotencyKey}' already enqueued. Treating as idempotent success.`);
           const { data: existing } = await supabaseAdmin
             .from("jobs")
-            .select("id")
+            .select("id, status")
             .eq("idempotency_key", idempotencyKey)
             .maybeSingle();
-          return existing?.id || id;
+          
+          if (existing) {
+            const terminalStates = ['FAILED', 'DEAD_LETTER', 'CANCELLED'];
+            const isPeriodic = type === 'INVENTORY_CLEANUP';
+            
+            if (terminalStates.includes(existing.status) || (isPeriodic && existing.status === 'SUCCEEDED')) {
+              console.log(`[JobService] Reviving ${isPeriodic ? 'periodic ' : ''}job '${existing.id}' with key '${idempotencyKey}' (current status: ${existing.status})`);
+              // Atomic update: only update if status is still terminal/succeeded to prevent racing workers from resetting a processing job
+              await supabaseAdmin
+                .from("jobs")
+                .update({ 
+                  status: 'QUEUED', 
+                  attempts: 0, 
+                  last_error: null,
+                  scheduled_at: now, // Run now on revival
+                  updated_at: now 
+                })
+                .eq("id", existing.id)
+                .in("status", [...terminalStates, 'SUCCEEDED']);
+            } else {
+              console.log(`[JobService] Job with idempotency key '${idempotencyKey}' already enqueued (status: ${existing.status}). Skipping revival.`);
+            }
+            return existing.id;
+          }
+          return id;
         }
         console.error(`[JobService] Failed to insert job '${type}':`, error.message);
         throw new Error(`Failed to enqueue job: ${error.message}`);
@@ -202,6 +225,49 @@ export class JobService {
             const responseMsg = (updatedOrder?.fulfillmentResponse as any)?.message || 'Pending provider verification';
             throw new Error(`FULFILLMENT_NOT_FINALIZED: Order ${orderId} remains in ${txStatus} (${responseMsg})`);
           }
+        } else if (jobType === 'QUOTA_RELEASE') {
+          const orderId = String(job.payload?.orderId || job.reference_id || job.referenceId || '').trim();
+          if (!orderId) throw new Error("QUOTA_RELEASE job missing orderId");
+
+          const { PromoService } = await import("./promo-service.js");
+          const { FlashSaleService } = await import("./flash-sale-service.js");
+
+          // Attempt both - RPCs are idempotent. Pass isWorker: true to avoid recursion.
+          await PromoService.getInstance().releaseUsage(orderId, { isWorker: true });
+          await FlashSaleService.getInstance().releaseQuota(orderId, { isWorker: true });
+
+          success = true;
+        } else if (jobType === 'PAYMENT_LEDGER_RETRY') {
+          const orderId = job.payload?.orderId || job.reference_id;
+          const orderData = job.payload?.orderData;
+          const createdBy = job.payload?.createdBy || 'SYSTEM_RETRY';
+          const metadata = job.payload?.metadata;
+          
+          if (!orderId || !orderData) {
+            throw new Error(`PAYMENT_LEDGER_RETRY job ${jobId} missing orderId or orderData in payload.`);
+          }
+
+          const { safeRecordPaymentReceived } = await import("./ledger-service.js");
+          await safeRecordPaymentReceived(orderId, orderData, createdBy, metadata, { isWorker: true });
+          
+          success = true;
+        } else if (jobType === 'PROCESS_REFERRAL') {
+          const orderId = job.payload?.payload?.orderId;
+          if (!orderId) throw new Error("PROCESS_REFERRAL job missing orderId");
+          
+          const { OrderRepository } = await import("./supabase/order-repository.js");
+          const orderData = await OrderRepository.getInstance().getOrderById(orderId);
+          if (!orderData) throw new Error(`Order ${orderId} not found`);
+
+          const { ReferralService } = await import("./referral-service.js");
+          await ReferralService.getInstance().qualifyReferral(orderId, orderData, { isWorker: true });
+
+          success = true;
+        } else if (jobType === 'INVENTORY_CLEANUP') {
+          const { InventoryService } = await import("./inventory-service.js");
+          const result = await InventoryService.getInstance().releaseExpiredReservations();
+          console.log(`[JobService] Inventory cleanup processed ${result.processedCount} expired reservations.`);
+          success = true;
         } else if (
           jobType === 'PROCESS_COMMISSION' ||
           jobType === 'COMMISSION_LEDGER_POST' ||
@@ -271,35 +337,74 @@ export class JobService {
       const now = new Date().toISOString();
 
       if (success) {
-        await supabaseAdmin!
-          .from("jobs")
-          .update({
-            status: 'SUCCEEDED',
-            completed_at: now,
-            locked_at: null,
-            locked_by: null,
-            updated_at: now
-          })
-          .eq("id", jobId);
-
-        console.log(`[JobService] Job ${jobId} (type: ${jobType}) marked as SUCCEEDED.`);
-      } else {
-        const errorMsg = executionError?.message || 'Unknown execution error';
-        const isPermanent = Boolean(executionError?.isPermanent) || attempts >= maxAttempts;
-
-        if (isPermanent) {
+        const isPeriodic = jobType === 'INVENTORY_CLEANUP';
+        
+        if (isPeriodic) {
+          // Durable Rescheduling: Instead of SUCCEEDED, move back to QUEUED with future scheduled_at
           await supabaseAdmin!
             .from("jobs")
             .update({
-              status: 'DEAD_LETTER',
-              last_error: errorMsg,
+              status: 'QUEUED',
+              attempts: 0,
+              scheduled_at: new Date(Date.now() + 60000).toISOString(), // 1 minute interval
+              last_error: null,
+              locked_at: null,
+              locked_by: null,
+              updated_at: now
+            })
+            .eq("id", jobId);
+          
+          console.log(`[JobService] Periodic job ${jobId} (${jobType}) rescheduled for 1 minute later.`);
+        } else {
+          await supabaseAdmin!
+            .from("jobs")
+            .update({
+              status: 'SUCCEEDED',
+              completed_at: now,
               locked_at: null,
               locked_by: null,
               updated_at: now
             })
             .eq("id", jobId);
 
-          console.error(`[JobService] Job ${jobId} moved to DEAD_LETTER (permanent failure or exceeded max attempts ${maxAttempts}): ${errorMsg}`);
+          console.log(`[JobService] Job ${jobId} (type: ${jobType}) marked as SUCCEEDED.`);
+        }
+      } else {
+        const errorMsg = executionError?.message || 'Unknown execution error';
+        const isPermanent = Boolean(executionError?.isPermanent) || attempts >= maxAttempts;
+        const isPeriodic = jobType === 'INVENTORY_CLEANUP';
+
+        if (isPermanent) {
+          if (isPeriodic) {
+            // Periodic jobs must never truly die. Reschedule for next cycle even on permanent failure.
+            await supabaseAdmin!
+              .from("jobs")
+              .update({
+                status: 'QUEUED',
+                attempts: 0,
+                scheduled_at: new Date(Date.now() + 60000).toISOString(),
+                last_error: `Permanent Failure: ${errorMsg}`,
+                locked_at: null,
+                locked_by: null,
+                updated_at: now
+              })
+              .eq("id", jobId);
+            
+            console.error(`[JobService] Periodic job ${jobId} reached max attempts. Rescheduled for next cycle.`);
+          } else {
+            await supabaseAdmin!
+              .from("jobs")
+              .update({
+                status: 'DEAD_LETTER',
+                last_error: errorMsg,
+                locked_at: null,
+                locked_by: null,
+                updated_at: now
+              })
+              .eq("id", jobId);
+
+            console.error(`[JobService] Job ${jobId} moved to DEAD_LETTER (permanent failure or exceeded max attempts ${maxAttempts}): ${errorMsg}`);
+          }
         } else {
           // Exponential backoff: 60s, 300s, 900s, 1800s
           const backoffIntervals = [60, 300, 900, 1800];
@@ -347,6 +452,17 @@ export class JobService {
     if (this.workerTimer) return;
 
     console.log(`[JobService] Starting background queue worker loop (interval: ${intervalMs}ms)...`);
+    
+    // Durable Cleanup Bootstrapper: Ensure the periodic job exists in the queue.
+    // It will self-perpetuate upon successful execution.
+    this.enqueue({
+      type: 'INVENTORY_CLEANUP',
+      priority: 'LOW',
+      idempotencyKey: 'inventory_cleanup_periodic_singleton'
+    }).catch(err => {
+      console.error("[JobService] Failed to bootstrap periodic inventory cleanup:", err.message);
+    });
+
     this.workerTimer = setInterval(() => {
       this.processBatch(3).catch(err => {
         console.warn("[JobService] Periodic worker loop error:", err?.message || err);

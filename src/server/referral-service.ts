@@ -232,7 +232,7 @@ export class ReferralService {
   /**
    * Qualify a referral when an order reaches SUCCESS state
    */
-  async qualifyReferral(orderId: string, orderData: any): Promise<void> {
+  async qualifyReferral(orderId: string, orderData: any, options?: { isWorker?: boolean }): Promise<void> {
     if (!supabaseAdmin) return;
 
     const referredUid = orderData.userId;
@@ -347,7 +347,28 @@ export class ReferralService {
           );
         }
       } else {
-        console.warn(`[ReferralService] Reward distribution was partially successful or failed. Status remains PENDING for retry.`);
+        console.warn(`[ReferralService] Reward distribution was partially successful for order ${orderId}.`);
+        
+        if (options?.isWorker) {
+          // Requirement 4: Throw error to trigger durable retry
+          throw new Error("REFERRAL_REWARD_DISTRIBUTION_FAILED");
+        }
+
+        // Requirement 3: Enqueue durable retry
+        try {
+          const { JobService } = await import("./job-service.js");
+          await JobService.getInstance().enqueue({
+            type: 'PROCESS_REFERRAL',
+            payload: {
+              type: "REFERRAL_REWARD_DISTRIBUTION",
+              payload: { orderId }
+            },
+            idempotencyKey: `referral_reward_${orderId}`,
+            priority: "HIGH"
+          });
+        } catch (queueErr) {
+          console.error(`[ReferralService] Critical: Failed to enqueue durable retry for ${orderId}:`, queueErr);
+        }
       }
     }
   }

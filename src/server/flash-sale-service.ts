@@ -116,8 +116,37 @@ export class FlashSaleService {
     await this.flashSaleRepo.deleteFlashSale(id);
   }
 
-  async consumeQuotaAndLimit(flashSaleId: string, userId: string): Promise<FlashSaleData> {
-    return this.flashSaleRepo.consumeQuotaAndLimit(flashSaleId, userId);
+  async consumeQuotaAndLimit(flashSaleId: string, userId: string, orderId?: string): Promise<FlashSaleData> {
+    return this.flashSaleRepo.consumeQuotaAndLimit(flashSaleId, userId, orderId);
+  }
+
+  async releaseQuota(orderId: string, options: { isWorker?: boolean } = {}): Promise<void> {
+    try {
+      await this.flashSaleRepo.releaseQuota(orderId);
+    } catch (err: any) {
+      if (options.isWorker) {
+        // If already in worker, just rethrow to trigger job retry logic
+        throw err;
+      }
+
+      console.error(`[FlashSaleService] Immediate release failed for ${orderId}, attempting durable recovery:`, err.message);
+      
+      try {
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: 'QUOTA_RELEASE',
+          payload: { orderId },
+          priority: 'NORMAL',
+          referenceId: orderId,
+          idempotencyKey: `quota_release_${orderId}`
+        });
+        console.log(`[FlashSaleService] Durable recovery job scheduled for ${orderId}`);
+      } catch (jobErr: any) {
+        console.error(`[FlashSaleService] CRITICAL: Failed to enqueue recovery job for ${orderId}:`, jobErr.message);
+        // Propagate failure as recovery couldn't be guaranteed
+        throw new Error(`QUOTA_RELEASE_FAILED: RPC failed and recovery enqueue failed: ${jobErr.message}`);
+      }
+    }
   }
 }
 

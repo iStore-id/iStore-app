@@ -182,45 +182,37 @@ export class SupabaseFlashSaleRepository {
     return count;
   }
 
-  async consumeQuotaAndLimit(flashSaleId: string, userId: string): Promise<FlashSaleData> {
-    const fsData = await this.getFlashSale(flashSaleId);
-    if (!fsData) {
-      throw new Error("Flash sale tidak ditemukan.");
-    }
-
-    const now = new Date();
-    if (fsData.status !== "active" || now < new Date(fsData.startAt) || now > new Date(fsData.endAt)) {
-      throw new Error("Flash sale sudah berakhir atau tidak aktif.");
-    }
-
-    if (fsData.remainingQuota !== null && fsData.remainingQuota !== undefined) {
-      if (fsData.remainingQuota <= 0) {
-        throw new Error("Kuota flash sale telah habis.");
-      }
-    }
-
-    if (fsData.perCustomerLimit && userId && userId !== "guest") {
-      const userUsage = await this.getUserFlashSaleUsageCount(userId, fsData.id!);
-      if (userUsage >= fsData.perCustomerLimit) {
-        throw new Error(`Anda telah mencapai batas maksimal pembelian flash sale ini (${fsData.perCustomerLimit}x).`);
-      }
-    }
-
-    const newRemaining = fsData.remainingQuota !== null && fsData.remainingQuota !== undefined
-      ? fsData.remainingQuota - 1
-      : null;
-    const newUsageCount = (fsData.usageCount || 0) + 1;
-
-    await this.updateFlashSale(fsData.id!, {
-      remainingQuota: newRemaining,
-      usageCount: newUsageCount
+  async consumeQuotaAndLimit(flashSaleId: string, userId: string, orderId?: string): Promise<FlashSaleData> {
+    const client = this.ensureClient();
+    
+    const { data, error } = await client.rpc('atomic_consume_flash_sale_quota', {
+      p_flash_sale_id: parseInt(flashSaleId),
+      p_user_id: userId === "guest" ? null : userId,
+      p_order_id: orderId || null
     });
 
-    return {
-      ...fsData,
-      remainingQuota: newRemaining,
-      usageCount: newUsageCount
-    };
+    if (error) throw new Error(`Supabase atomic consumeQuotaAndLimit error: ${error.message}`);
+
+    if (data && data.success === false) {
+      throw new Error(`Flash sale quota failed: ${data.error}`);
+    }
+
+    // Refresh data to return the latest state
+    const updated = await this.getFlashSale(flashSaleId);
+    if (!updated) throw new Error("Flash sale not found after update");
+    return updated;
+  }
+
+  async releaseQuota(orderId: string): Promise<void> {
+    const client = this.ensureClient();
+    const { data, error } = await client.rpc('atomic_release_flash_sale_quota', {
+      p_order_id: orderId
+    });
+
+    if (error) {
+      console.error(`[FlashSaleRepository] releaseQuota error for ${orderId}:`, error.message);
+      return; // Non-blocking
+    }
   }
 
   private mapRowToFlashSale(row: any): FlashSaleData {

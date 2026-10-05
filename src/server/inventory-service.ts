@@ -110,38 +110,39 @@ export class InventoryService {
   }
 
   async reserveStock(orderId: string, variantId: string, quantity: number): Promise<boolean> {
-    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", variantId).limit(1).maybeSingle();
-    if (!stockData) return false;
-    
-    const currentQty = stockData.quantity || 0;
-    if (currentQty < quantity) return false;
-    
-    const newQty = currentQty - quantity;
-    
-    await supabaseAdmin!.from("stocks").update({
-      quantity: newQty,
-      updated_at: new Date().toISOString()
-    }).eq("id", stockData.id);
-    
-    await supabaseAdmin!.from("reservations").insert({
-      id: orderId,
-      variant_id: variantId,
-      quantity,
-      expires_at: new Date(Date.now() + 15 * 60000).toISOString(),
-      created_at: new Date().toISOString()
+    const { data, error } = await supabaseAdmin!.rpc('atomic_reserve_stock', {
+      p_order_id: orderId,
+      p_variant_id: variantId,
+      p_quantity: quantity
     });
-    
-    await supabaseAdmin!.from("stock_movements").insert({
-      id: crypto.randomUUID(),
-      stock_id: stockData.id,
-      variant_id: variantId,
-      delta: -quantity,
-      reason: "RESERVE",
-      reference_id: orderId,
-      created_at: new Date().toISOString()
-    });
-    
+
+    if (error) {
+      console.error("[InventoryService] atomic_reserve_stock error:", error.message);
+      throw new Error(`Failed to reserve stock: ${error.message}`);
+    }
+
+    if (data && data.success === false) {
+      if (data.error === 'INSUFFICIENT_STOCK') return false;
+      throw new Error(`Stock reservation failed: ${data.error}`);
+    }
+
     return true;
+  }
+
+  async releaseExpiredReservations(): Promise<{ success: boolean; processedCount: number }> {
+    if (!supabaseAdmin) return { success: false, processedCount: 0 };
+    
+    const { data, error } = await supabaseAdmin.rpc('release_expired_reservations_v1');
+    
+    if (error) {
+      console.error("[InventoryService] release_expired_reservations_v1 error:", error.message);
+      throw new Error(`Failed to release expired reservations: ${error.message}`);
+    }
+
+    return {
+      success: data?.success || false,
+      processedCount: data?.processed_count || 0
+    };
   }
 
   async consumeReservation(orderId: string): Promise<void> {

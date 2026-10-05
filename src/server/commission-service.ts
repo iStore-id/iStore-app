@@ -398,8 +398,20 @@ export class CommissionService {
             });
             existingRecord.ledgerStatus = "POSTED";
             existingRecord.ledgerJournalId = ledgerResult.docId;
-          } catch (retryErr) {
-            console.error(`[Commission Ledger Retry Error] Failed to post ledger on duplicate invocation:`, retryErr);
+          } catch (retryErr: any) {
+            console.error(`[Commission Ledger Retry Error] Failed to post ledger for ${commissionId} on duplicate invocation. Enqueueing durable retry.`, retryErr?.message || retryErr);
+            
+            try {
+              const { JobService } = await import("./job-service.js");
+              await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
+                type: "COMMISSION_LEDGER_POST",
+                payload: { commissionId },
+                idempotencyKey: `comm_ledger_job_${commissionId}`,
+                priority: "HIGH"
+              });
+            } catch (queueErr: any) {
+              console.error(`[Commission Ledger Critical] Failed to enqueue retry job for ${commissionId} on duplicate path:`, queueErr.message);
+            }
           }
         }
 
@@ -541,15 +553,15 @@ export class CommissionService {
         createdRecord.ledgerJournalId = ledgerResult.docId;
         createdRecord.ledgerPostedAt = new Date().toISOString();
       } catch (ledgerErr: any) {
-        console.error(`[Commission Ledger Error] Failed to post commission ${commissionId} to ledger:`, ledgerErr);
+        console.error(`[Commission Ledger Error] Failed to post commission ${commissionId} to ledger. Enqueueing durable retry.`, ledgerErr?.message || ledgerErr);
 
         try {
           await repo.updateRecord(commissionId, {
             ledgerStatus: "FAILED"
           });
           createdRecord.ledgerStatus = "FAILED";
-        } catch (updateErr) {
-          console.error(`[Commission Ledger Error] Failed to update ledgerStatus for ${commissionId}:`, updateErr);
+        } catch (updateErr: any) {
+          console.error(`[Commission Ledger Error] Failed to set ledgerStatus to FAILED for ${commissionId}:`, updateErr.message);
         }
 
         try {
@@ -560,8 +572,9 @@ export class CommissionService {
             idempotencyKey: `comm_ledger_job_${commissionId}`,
             priority: "HIGH"
           });
-        } catch (queueErr) {
-          console.error(`[Commission Ledger Error] Failed to enqueue retry job for ${commissionId}:`, queueErr);
+        } catch (queueErr: any) {
+          // Requirement 3: Surface/log the failure clearly if enqueueing fails
+          console.error(`[Commission Ledger Critical] CRITICAL: Failed to enqueue durable retry for ${commissionId}. This record requires manual recovery.`, queueErr.message);
         }
       }
 
@@ -1227,13 +1240,26 @@ export class CommissionService {
       });
     } catch (ledgerErr: any) {
       console.error("[Ledger Payout Posting Failed - Enqueueing Retry]", ledgerErr);
-      const { JobService } = await import("./job-service.js");
-      await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
-        type: "COMMISSION_PAYOUT_LEDGER_POST" as any,
-        payload: { payoutBatchId: batchId },
-        priority: "HIGH",
-        idempotencyKey: `retry_payout_ledger_${batchId}`
-      });
+      try {
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
+          type: "COMMISSION_PAYOUT_LEDGER_POST" as any,
+          payload: { payoutBatchId: batchId },
+          priority: "HIGH",
+          idempotencyKey: `retry_payout_ledger_${batchId}`
+        });
+      } catch (queueErr: any) {
+        console.error(`[CRITICAL] Payout Ledger Recovery Lost for Batch ${batchId}`, {
+          batchId,
+          transferReference: cleanTransferRef,
+          ledgerError: ledgerErr?.message || ledgerErr,
+          queueError: queueErr?.message || queueErr
+        });
+        return { 
+          success: false, 
+          message: `Payout berhasil dikonfirmasi PAID, namun posting ledger gagal dan antrian retry gagal dijadwalkan. Batch ${batchId} memerlukan pemulihan manual.` 
+        };
+      }
     }
 
     // Audit Log

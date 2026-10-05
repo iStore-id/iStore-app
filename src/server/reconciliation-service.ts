@@ -112,6 +112,18 @@ export async function reconcileOrder(
           message = `Transaksi dibatalkan di ${gatewayCode} (${providerState}) saat sedang PROCESSING.`;
         }
       } else if (localState === 'SUCCESS' || localState === 'FAILED' || localState === 'EXPIRED') {
+        // 6.1 Terminal State Quota Recovery (Durable retry via safe service calls)
+        if (localState === 'FAILED' || localState === 'EXPIRED') {
+          try {
+            const { PromoService } = await import("./promo-service.js");
+            const { FlashSaleService } = await import("./flash-sale-service.js");
+            await PromoService.getInstance().releaseUsage(orderId);
+            await FlashSaleService.getInstance().releaseQuota(orderId);
+          } catch (e: any) {
+            console.error(`[Reconciliation Quota Recovery] Non-blocking failure for ${orderId}:`, e.message);
+          }
+        }
+
         // Terminal states should generally match or stay terminal
         if (localState === 'FAILED' && isPaidState) {
           resultType = 'STATUS_MISMATCH';
@@ -335,6 +347,46 @@ export async function reconcileOrder(
        }
     } catch (tvErr: any) {
        console.error(`[Reconciliation TokoVoucher Error] Error checking status for ${orderId}:`, tvErr?.message || tvErr);
+    }
+  }
+
+  // APIGames Reconciliation Check:
+  // If order is PAID and in PROCESSING state, check APIGames provider status
+  if (localState === 'PROCESSING' && (providerCode === 'apigames' || providerCode.toLowerCase().includes('apigames'))) {
+    try {
+       const registry = (await import("./provider-adapters.js")).ProviderAdapterRegistry.getInstance();
+       const apigamesAdapter = registry.getAdapter('apigames');
+       if (apigamesAdapter) {
+          const checkResult = await apigamesAdapter.queryStatus(order.providerReferenceId || "", orderId);
+          
+          if (checkResult.status === 'success') {
+             console.log(`[Reconciliation APIGames] Order ${orderId} confirmed SUCCESS. Transitioning...`);
+             await transitionOrderState(orderId, 'SUCCESS', { 
+                providerReference: checkResult.providerReference,
+                fulfillmentResponse: checkResult.rawResponse 
+             }, "Reconciliation: Confirmed success at APIGames");
+             resolution = 'AUTO_RESOLVED';
+             message = "Transaksi APIGames dikonfirmasi sukses oleh provider.";
+          } else if (checkResult.status === 'failed') {
+             console.log(`[Reconciliation APIGames] Order ${orderId} confirmed FAILED. Transitioning...`);
+             await transitionOrderState(orderId, 'FAILED', { 
+                failureReason: checkResult.message || "Provider reported failure" 
+             }, "Reconciliation: Confirmed failure at APIGames");
+             resolution = 'AUTO_RESOLVED';
+             message = "Transaksi APIGames dikonfirmasi gagal oleh provider.";
+          } else if (checkResult.status === 'not_found') {
+             console.log(`[Reconciliation APIGames] Order ${orderId} NOT FOUND at provider. Recovery initiated...`);
+             // Transition back to PAID (Retryable state)
+             // This will also re-enqueue the FULFILLMENT job via state-machine.ts hook
+             await transitionOrderState(orderId, 'PAID', {
+                fulfillmentResponse: { message: "Reconciliation: Transaction not found at provider, recovering for retry." }
+             }, "Reconciliation: Transaction NOT FOUND at APIGames, recovering to retryable state.");
+             resolution = 'AUTO_RESOLVED';
+             message = "Transaksi tidak ditemukan di APIGames. Pesanan dikembalikan ke antrean pemenuhan.";
+          }
+       }
+    } catch (agErr: any) {
+       console.error(`[Reconciliation APIGames Error] Error checking status for ${orderId}:`, agErr?.message || agErr);
     }
   }
 

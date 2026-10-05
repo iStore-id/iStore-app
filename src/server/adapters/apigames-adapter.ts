@@ -119,15 +119,61 @@ export class ApiGamesAdapter extends BaseProviderAdapter {
       return { success: false, status: 'failed', message: 'APIGames not configured' };
     }
 
-    const signature = await this.generateSignature(orderId);
+    // The ref_id to query. The new adapter uses orderId-REQ, legacy uses orderId.
+    // We prefer providerReference if available (which should be the ref_id we sent).
+    const refId = providerReference || `${orderId}-REQ`;
+    const signature = await this.generateSignature(refId);
+
     try {
-      const response = await fetch(`https://v1.apigames.id/v2/transaksi/status?merchant_id=${merchantId}&ref_id=${orderId}&signature=${signature}`, {
+      const response = await fetch(`https://v1.apigames.id/v2/transaksi/status?merchant_id=${merchantId}&ref_id=${refId}&signature=${signature}`, {
         method: "GET"
       });
+
+      if (response.status === 404) {
+        return { success: false, status: 'not_found', message: 'Transaction not found at provider (404)' };
+      }
+
+      if (!response.ok) {
+        return { success: false, status: 'ambiguous', message: `HTTP Error ${response.status}` };
+      }
+
       const data = await response.json();
-      return { success: true, status: 'success' };
-    } catch (err) {
-      return { success: false, status: 'ambiguous', message: 'Status check failed' };
+      
+      // APIGames status mapping based on observed provider behavior
+      const statusMap: Record<string, 'pending' | 'success' | 'failed' | 'ambiguous'> = {
+        'Sukses': 'success',
+        'Gagal': 'failed',
+        'Pending': 'pending',
+        'Proses': 'pending',
+        'Sukses Sebagian': 'pending',
+        'Validasi Provider': 'pending'
+      };
+
+      // Extract status from either top-level or data object
+      const rawProviderStatus = data.status || (data.data && data.data.status);
+      
+      // Explicit NOT_FOUND check in response body
+      const isNotFound = !rawProviderStatus && (
+        (data.error_msg && data.error_msg.toLowerCase().includes('tidak ditemukan')) ||
+        (data.message && data.message.toLowerCase().includes('tidak ditemukan')) ||
+        (data.status === 0 && data.error_msg?.includes('Invalid'))
+      );
+
+      if (isNotFound) {
+        return { success: false, status: 'not_found', message: data.error_msg || data.message || 'Transaction not found' };
+      }
+
+      const status = statusMap[rawProviderStatus] || 'ambiguous';
+      
+      return {
+        success: status === 'success',
+        status: status,
+        providerReference: data.ref_id || (data.data && data.data.ref_id) || providerReference,
+        message: data.message || data.error_msg,
+        rawResponse: data
+      };
+    } catch (err: any) {
+      return { success: false, status: 'ambiguous', message: `Status check failed: ${err.message}` };
     }
   }
 

@@ -87,19 +87,36 @@ export class TokoVoucherAdapter extends BaseProviderAdapter {
 
       const data = await response.json();
       
-      if (data.status === 0 || data.status === "0" || data.error_msg) {
+      const rawStatus = data?.status !== undefined ? data.status : (data?.data?.status !== undefined ? data.data.status : (data?.code !== undefined ? data.code : ""));
+      const statusStr = String(rawStatus).toLowerCase().trim();
+      const sn = data?.sn || data?.data?.sn || data?.catatan || data?.data?.catatan || "";
+      
+      // 1. Explicit failure check
+      if (data.error_msg || statusStr === "2" || statusStr === "gagal" || statusStr === "failed") {
         return { 
           success: false, 
           status: 'failed', 
-          message: data.error_msg || "Transaction failed at provider" 
+          message: data.error_msg || data.message || "Transaction failed at provider" 
         };
       }
       
+      // 2. Explicit success check: Map to 'success' if provider returns 1, sukses, or success.
+      if (statusStr === "1" || statusStr === "sukses" || statusStr === "success") {
+        return {
+          success: true,
+          status: 'success',
+          providerReference: data.trx_id || data.data?.trx_id || `TV-${refId}`,
+          message: sn || data.message
+        };
+      }
+      
+      // 3. All other cases (status 0, unknown status) are PENDING.
+      // This ensures reconciliation will verify the final state asynchronously.
       return {
-        success: true,
-        status: 'success', // TokoVoucher usually means submitted to queue or direct success
-        providerReference: data.trx_id || `TV-${refId}`,
-        message: data.message
+        success: false,
+        status: 'pending',
+        providerReference: data.trx_id || data.data?.trx_id || `TV-${refId}`,
+        message: data.message || "Awaiting provider confirmation"
       };
     } catch (err) {
       return { success: false, status: 'pending', message: 'Network failure - Pending reconciliation' };

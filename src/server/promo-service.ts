@@ -183,7 +183,36 @@ export class PromoService {
     };
   }
 
-  async incrementUsage(promoId: string): Promise<void> {
-    await this.promoRepo.incrementUsage(promoId);
+  async incrementUsage(promoId: string, userId?: string, orderId?: string): Promise<void> {
+    await this.promoRepo.incrementUsage(promoId, userId, orderId);
+  }
+
+  async releaseUsage(orderId: string, options: { isWorker?: boolean } = {}): Promise<void> {
+    try {
+      await this.promoRepo.releaseUsage(orderId);
+    } catch (err: any) {
+      if (options.isWorker) {
+        // If already in worker, just rethrow to trigger job retry logic
+        throw err;
+      }
+
+      console.error(`[PromoService] Immediate release failed for ${orderId}, attempting durable recovery:`, err.message);
+      
+      try {
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: 'QUOTA_RELEASE',
+          payload: { orderId },
+          priority: 'NORMAL',
+          referenceId: orderId,
+          idempotencyKey: `quota_release_${orderId}`
+        });
+        console.log(`[PromoService] Durable recovery job scheduled for ${orderId}`);
+      } catch (jobErr: any) {
+        console.error(`[PromoService] CRITICAL: Failed to enqueue recovery job for ${orderId}:`, jobErr.message);
+        // Propagate failure as recovery couldn't be guaranteed
+        throw new Error(`QUOTA_RELEASE_FAILED: RPC failed and recovery enqueue failed: ${jobErr.message}`);
+      }
+    }
   }
 }

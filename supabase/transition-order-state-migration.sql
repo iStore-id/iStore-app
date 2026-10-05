@@ -89,7 +89,7 @@ BEGIN
     v_is_transition_valid := TRUE;
   ELSIF v_current_logical_state = 'PAID' AND p_new_state IN ('PROCESSING', 'FAILED') THEN
     v_is_transition_valid := TRUE;
-  ELSIF v_current_logical_state = 'PROCESSING' AND p_new_state IN ('SUCCESS', 'FAILED') THEN
+  ELSIF v_current_logical_state = 'PROCESSING' AND p_new_state IN ('SUCCESS', 'FAILED', 'PAID') THEN
     v_is_transition_valid := TRUE;
   END IF;
 
@@ -108,6 +108,7 @@ BEGIN
 
   IF p_new_state = 'PAID' THEN
     v_target_payment_status := 'settlement';
+    v_target_transaction_status := 'pending';
   ELSIF p_new_state = 'EXPIRED' THEN
     v_target_payment_status := 'expired';
   ELSIF p_new_state = 'PROCESSING' THEN

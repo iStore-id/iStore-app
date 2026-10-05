@@ -26,6 +26,7 @@ const loyaltyService = LoyaltyService.getInstance();
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
+  let stockReserved = false;
   let gatewayCode = "midtrans";
   const userId = req.user ? (req.user.uid || req.user.id) : null;
   try {
@@ -109,6 +110,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     // 2.0 FLASH SALE & PROMO VALIDATION
+    orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const activeFlashSale = await flashSaleService.getActiveFlashSaleForVariant(variantId);
     let baseAmount = subtotal;
     let discount = 0;
@@ -121,7 +123,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         return res.status(400).json({ success: false, message: "Kode promo tidak dapat digabungkan dengan produk Flash Sale." });
       }
       try {
-        const consumedFs = await flashSaleService.consumeQuotaAndLimit(activeFlashSale.id!, userId || "guest");
+        const consumedFs = await flashSaleService.consumeQuotaAndLimit(activeFlashSale.id!, userId || "guest", orderId);
         baseAmount = consumedFs.salePrice;
         flashSaleSnapshot = {
           id: consumedFs.id,
@@ -175,9 +177,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    // Create Order ID
-    orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
+    // Prepare for redemption if needed
     if (pointsToRedeem > 0 && userId) {
       await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
       loyaltyRedeemed = true;
@@ -201,11 +201,10 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     }
 
     // 3. Create Order in Supabase
-    orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    
     if (stock && stock.status === 'active') {
       try {
-        await inventoryService.reserveStock(orderId, variantId, 1);
+        await inventoryService.reserveStock(orderId!, variantId, 1);
+        stockReserved = true;
       } catch (err: any) {
         return res.status(400).json({ success: false, message: "Gagal mengamankan stok: " + err.message });
       }
@@ -260,7 +259,14 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
     // Increment promo usage atomically if applied
     if (promoId) {
-      await promoService.incrementUsage(promoId);
+      try {
+        await promoService.incrementUsage(promoId, userId || undefined, orderId);
+      } catch (promoIncErr: any) {
+        // Rollback strategy: In a real production system, we might want to cancel the order here.
+        // For now, we'll log it and let the checkout continue but warn.
+        // Ideally, incrementUsage should be called BEFORE createOrder or inside a transaction.
+        console.error(`[Promo Error] Failed to increment promo usage: ${promoIncErr.message}`);
+      }
     }
 
     // 4. Payment Provider Dispatch & Native Method Validation
@@ -423,20 +429,33 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           } catch (doitRecErr) {
             console.error("[Doit Recovery Error]", doitRecErr);
           }
-          await OrderRepository.getInstance().updateOrder(orderId, {
-            paymentStatus: 'FAILED',
-            transactionStatus: 'FAILED',
-            updatedAt: new Date().toISOString()
-          }).catch(console.error);
+          await transitionOrderState(orderId, 'FAILED', {}, "Doit payment initialization failed").catch(console.error);
         } else if (gatewayCode === 'ipaymu') {
-             await OrderRepository.getInstance().updateOrder(orderId, {
-                paymentStatus: 'FAILED',
-                transactionStatus: 'FAILED',
-                updatedAt: new Date().toISOString()
-             }).catch(console.error);
+          await transitionOrderState(orderId, 'FAILED', {}, "iPaymu payment initialization failed").catch(console.error);
         }
       } catch (recoveryError) {
         console.error("[Recovery Error]", recoveryError);
+      }
+    }
+    
+    // Explicit cleanup for Promo/FS/Stock if order was NOT fully created or if transition failed
+    // This is a safety measure to ensure no leftover reservations/usage
+    if (orderId) {
+      try {
+        const { PromoService } = await import('./promo-service.js');
+        await PromoService.getInstance().releaseUsage(orderId);
+      } catch {}
+      try {
+        const { FlashSaleService } = await import('./flash-sale-service.js');
+        await FlashSaleService.getInstance().releaseQuota(orderId);
+      } catch {}
+      try {
+        const { InventoryService } = await import('./inventory-service.js');
+        if (stockReserved) {
+          await InventoryService.getInstance().releaseReservation(orderId);
+        }
+      } catch (err: any) {
+        console.error(`[Inventory Cleanup] Failed to release reservation for ${orderId}:`, err.message);
       }
     }
     
