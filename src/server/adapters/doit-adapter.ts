@@ -93,7 +93,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
   }
 
   /**
-   * Create Payment (QRIS rail) on doit.id
+   * Create Payment (hosted checkout: rail "any") on doit.id
    * POST https://pay.doit.id/v1/payments
    */
   async createPayment(input: CreatePaymentInput): Promise<PaymentResult> {
@@ -113,7 +113,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
 
     const payload = {
       amount: Math.round(input.grossAmount),
-      rail: "qris",
+      rail: "any",
       reference: input.orderId
     };
 
@@ -123,7 +123,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       logSystem("INFO", "PAYMENT", "DOIT_CREATE_PAYMENT_INIT", `Membuat pembayaran doit.id untuk order ${input.orderId} nominal ${input.grossAmount}`, "doit-adapter", {
         orderId: input.orderId,
         outcome: "SUCCESS",
-        metadata: { amount: input.grossAmount, rail: "qris" }
+        metadata: { amount: input.grossAmount, rail: "any" }
       });
 
       const response = await fetch(endpoint, {

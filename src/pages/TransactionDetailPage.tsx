@@ -195,7 +195,16 @@ export default function TransactionDetailPage() {
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex flex-col items-center gap-6">
-              {order.qrImage ? (
+              {order.paymentGatewayCode === 'doit' && order.paymentUrl ? (
+                <button 
+                  onClick={() => {
+                    window.location.href = order.paymentUrl!;
+                  }}
+                  className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  Lanjutkan Pembayaran
+                </button>
+              ) : order.qrImage ? (
                 <div className="flex flex-col items-center space-y-4 w-full">
                   <div className="text-center space-y-1">
                     <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>

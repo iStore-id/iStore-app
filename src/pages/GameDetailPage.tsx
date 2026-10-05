@@ -581,7 +581,13 @@ export default function GameDetailPage() {
       setOrderId(data.orderId);
       setSnapToken(data.snapToken);
       setQrImage(data.qrImage);
-      
+
+      // For Doit: redirect directly to hosted checkout URL
+      if (data.gatewayCode === "doit" && data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+        return;
+      }
+
       // If we have a QR image, we show it in-page (step 3)
       if (data.qrImage) {
         setCheckoutStep(3);
