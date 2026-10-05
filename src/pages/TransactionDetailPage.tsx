@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { formatRupiah, loadMidtransSnap } from "../lib/utils";
-import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Truck } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Truck, Check } from "lucide-react";
 import { useAuthStore } from "../store/auth-store";
 import { trackPurchase } from "../lib/gtag";
 
@@ -44,6 +44,35 @@ function hexToRgba(hex: string, opacity: number) {
   return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
 }
 
+const getBankInfo = (bankCode?: string) => {
+  const code = (bankCode || "").toLowerCase();
+  if (code === "bmri" || code === "mandiri" || code === "mandiri_va") {
+    return { name: "Bank Mandiri", logo: "/payment-logos/mandiri.svg" };
+  }
+  if (code === "bnia" || code === "bni" || code === "bni_va") {
+    return { name: "Bank BNI", logo: "/payment-logos/bni.svg" };
+  }
+  if (code === "brin" || code === "bri" || code === "bri_va") {
+    return { name: "Bank BRI (BRIVA)", logo: "/payment-logos/bri.svg" };
+  }
+  if (code === "bsyi" || code === "bsi" || code === "bsi_va") {
+    return { name: "Bank Syariah Indonesia (BSI)", logo: "/payment-logos/bsi.svg" };
+  }
+  if (code === "cimb" || code === "cimb_va") {
+    return { name: "Bank CIMB Niaga", logo: "/payment-logos/cimb-niaga.svg" };
+  }
+  if (code === "permata" || code === "permata_va") {
+    return { name: "Bank Permata", logo: "/payment-logos/permata.svg" };
+  }
+  if (code === "maybank" || code === "maybank_va") {
+    return { name: "Bank Maybank", logo: "/payment-logos/bi-fast.svg" };
+  }
+  if (code === "danamon" || code === "danamon_va") {
+    return { name: "Bank Danamon", logo: "/payment-logos/danamon.svg" };
+  }
+  return { name: bankCode ? `Bank ${bankCode.toUpperCase()}` : "Virtual Account", logo: "/payment-logos/bi-fast.svg" };
+};
+
 export default function TransactionDetailPage() {
   const { invoice } = useParams();
   const [order, setOrder] = useState<any>(null);
@@ -52,6 +81,7 @@ export default function TransactionDetailPage() {
   const [error, setError] = useState("");
   const [errorState, setErrorState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [copiedVa, setCopiedVa] = useState(false);
   const { user } = useAuthStore();
   const [revealCode, setRevealCode] = useState(false);
   const [hasCustomBg, setHasCustomBg] = useState(false);
@@ -223,85 +253,205 @@ export default function TransactionDetailPage() {
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex flex-col items-center gap-6">
-              {order.paymentGatewayCode === 'doit' && order.paymentUrl ? (
-                <button 
-                  onClick={async () => {
-                    setActionError(null);
-                    await loadDoitEmbed();
-                    if (window.doit && typeof window.doit.open === "function") {
-                      window.doit.open(order.paymentUrl!, {
-                        closeDelay: 1500,
-                        onPaid: () => {
-                          window.location.reload();
-                        },
-                        onExpired: () => {
-                          setActionError("Sesi pembayaran telah kedaluwarsa.");
-                        },
-                        onClose: () => {
-                          // Customer remains in iStore
-                        }
-                      });
-                    } else {
-                      setActionError("Checkout Doit gagal dimuat. Silakan refresh halaman.");
-                    }
-                  }}
-                  className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
-                >
-                  Lanjutkan Pembayaran
-                </button>
-              ) : order.qrImage ? (
-                <div className="flex flex-col items-center space-y-4 w-full">
-                  <div className="text-center space-y-1">
-                    <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
-                    <p className="text-[11px] text-slate-500">Silakan scan kode QR di bawah ini</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
-                    <img src={order.qrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
-                    <Clock className="w-3 h-3" />
-                    <span>MENUNGGU PEMBAYARAN</span>
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  onClick={async () => {
-                    setActionError(null);
-                    let snapReady = !!window.snap;
-                    if (!snapReady) {
-                      snapReady = await loadMidtransSnap();
-                    }
+              {(() => {
+                const gwResp = order.gatewayResponse || {};
+                const isDoit = order.paymentGatewayCode === 'doit';
+                const doitRail = gwResp.rail || order.gatewayPaymentType;
+                const doitQrImage = gwResp.qrImage || order.qrImage;
+                const doitVaNumber = gwResp.vaNumber;
+                const doitVaBank = gwResp.vaBank;
+                const bankInfo = getBankInfo(doitVaBank);
+                const displayTotal = gwResp.totalAmount || order.totalAmount;
 
-                    if (snapReady && window.snap && order.snapToken) {
-                      window.snap.pay(order.snapToken, {
-                        onSuccess: () => window.location.reload(),
-                        onPending: () => window.location.reload(),
-                        onError: () => setActionError("Pembayaran gagal. Silakan coba lagi."),
-                        onClose: () => {}
-                      });
-                    } else if (order.paymentUrl) {
-                      window.location.href = order.paymentUrl;
-                    } else if (order.paymentGatewayCode === 'ipaymu') {
-                      try {
-                        const res = await fetch(`/api/orders/${order.invoice || order.id}/payment-status`);
-                        const result = await res.json();
-                        if (result.success && result.data.status !== 'pending') {
-                          window.location.reload();
-                        } else {
-                          setActionError("Sesi pembayaran tidak tersedia. Transaksi masih tertunda.");
-                        }
-                      } catch (e) {
-                        setActionError("Gagal memeriksa status pembayaran.");
+                if (isDoit) {
+                  if (doitRail === 'qris' || doitQrImage) {
+                    return (
+                      <div className="flex flex-col items-center space-y-4 w-full max-w-sm mx-auto">
+                        <div className="text-center space-y-1">
+                          <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
+                          <p className="text-[11px] text-slate-500">Mendukung seluruh Mobile Banking &amp; E-Wallet berstandar QRIS</p>
+                        </div>
+                        {doitQrImage ? (
+                          <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                            <img src={doitQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">
+                            Memuat QR Code pembayaran...
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
+                          <Clock className="w-3 h-3" />
+                          <span>MENUNGGU PEMBAYARAN</span>
+                        </div>
+                        <div className="w-full bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                          <span className="text-xs text-slate-500 block">Total Tagihan</span>
+                          <span className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (doitRail === 'va' || doitVaNumber) {
+                    return (
+                      <div className="flex flex-col items-center space-y-4 w-full max-w-md mx-auto">
+                        <div className="w-full bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-5 space-y-4">
+                          {/* Header Bank */}
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div className="flex items-center gap-3">
+                              <img 
+                                src={bankInfo.logo} 
+                                alt={bankInfo.name} 
+                                className="h-6 w-auto max-w-[80px] object-contain" 
+                              />
+                              <span className="font-bold text-sm text-slate-800">{bankInfo.name}</span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              Virtual Account
+                            </span>
+                          </div>
+
+                          {/* Nomor VA */}
+                          <div>
+                            <span className="text-[11px] font-medium text-slate-500 block mb-1">Nomor Virtual Account</span>
+                            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+                              <span className="font-mono text-base sm:text-lg font-bold text-slate-900 tracking-wider">
+                                {doitVaNumber || "Menyiapkan nomor VA..."}
+                              </span>
+                              {doitVaNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(String(doitVaNumber));
+                                    setCopiedVa(true);
+                                    setTimeout(() => setCopiedVa(false), 2000);
+                                  }}
+                                  className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+                                >
+                                  {copiedVa ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                  <span>{copiedVa ? "Tersalin!" : "Salin"}</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Total Nominal Transfer */}
+                          <div className="flex justify-between items-center py-2 px-1 border-t border-slate-100">
+                            <span className="text-xs text-slate-500">Total Pembayaran</span>
+                            <span className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</span>
+                          </div>
+
+                          {/* Petunjuk Transfer */}
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-600 space-y-1">
+                            <p className="font-semibold text-slate-800">Petunjuk Singkat:</p>
+                            <ul className="list-disc list-inside space-y-0.5 text-slate-500 text-[10px]">
+                              <li>Buka m-Banking atau ATM {bankInfo.name}</li>
+                              <li>Pilih menu Transfer &gt; Virtual Account</li>
+                              <li>Masukkan nomor VA di atas dan pastikan nominal sesuai</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
+                          <Clock className="w-3 h-3" />
+                          <span>MENUNGGU PEMBAYARAN</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Controlled recovery state if neither QR nor VA data is available
+                  return (
+                    <div className="flex flex-col items-center space-y-3 p-6 bg-slate-50 border border-slate-200 rounded-2xl max-w-md mx-auto text-center">
+                      <Clock className="w-8 h-8 text-brand-600 animate-spin" />
+                      <h4 className="text-sm font-bold text-slate-800">Memproses Sesi Pembayaran</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Sistem sedang menghubungkan instruksi pembayaran resmi.
+                      </p>
+                      {order.paymentUrl && (
+                        <button
+                          onClick={async () => {
+                            setActionError(null);
+                            await loadDoitEmbed();
+                            if (window.doit && typeof window.doit.open === "function") {
+                              window.doit.open(order.paymentUrl!, {
+                                closeDelay: 1500,
+                                onPaid: () => window.location.reload(),
+                                onExpired: () => setActionError("Sesi pembayaran telah kedaluwarsa."),
+                                onClose: () => {}
+                              });
+                            } else {
+                              window.location.href = order.paymentUrl!;
+                            }
+                          }}
+                          className="mt-2 text-xs font-semibold px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+                        >
+                          Buka Pembayaran Alternatif (Doit)
+                        </button>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Existing Midtrans and other gateways
+                if (order.qrImage) {
+                  return (
+                    <div className="flex flex-col items-center space-y-4 w-full">
+                      <div className="text-center space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
+                        <p className="text-[11px] text-slate-500">Silakan scan kode QR di bawah ini</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                        <img src={order.qrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
+                        <Clock className="w-3 h-3" />
+                        <span>MENUNGGU PEMBAYARAN</span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button 
+                    onClick={async () => {
+                      setActionError(null);
+                      let snapReady = !!window.snap;
+                      if (!snapReady) {
+                        snapReady = await loadMidtransSnap();
                       }
-                    } else {
-                      setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
-                    }
-                  }}
-                  className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
-                >
-                  Lanjutkan Pembayaran
-                </button>
-              )}
+
+                      if (snapReady && window.snap && order.snapToken) {
+                        window.snap.pay(order.snapToken, {
+                          onSuccess: () => window.location.reload(),
+                          onPending: () => window.location.reload(),
+                          onError: () => setActionError("Pembayaran gagal. Silakan coba lagi."),
+                          onClose: () => {}
+                        });
+                      } else if (order.paymentUrl) {
+                        window.location.href = order.paymentUrl;
+                      } else if (order.paymentGatewayCode === 'ipaymu') {
+                        try {
+                          const res = await fetch(`/api/orders/${order.invoice || order.id}/payment-status`);
+                          const result = await res.json();
+                          if (result.success && result.data.status !== 'pending') {
+                            window.location.reload();
+                          } else {
+                            setActionError("Sesi pembayaran tidak tersedia. Transaksi masih tertunda.");
+                          }
+                        } catch (e) {
+                          setActionError("Gagal memeriksa status pembayaran.");
+                        }
+                      } else {
+                        setActionError("Token atau URL pembayaran tidak ditemukan. Silakan hubungi customer support.");
+                      }
+                    }}
+                    className="bg-brand-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+                  >
+                    Lanjutkan Pembayaran
+                  </button>
+                );
+              })()}
 
               {actionError && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 max-w-sm">

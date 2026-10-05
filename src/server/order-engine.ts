@@ -263,19 +263,42 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       await promoService.incrementUsage(promoId);
     }
 
-    // 4. Generate Midtrans Snap Token
-    const allowedPaymentMethods = [
-      "qris",
-      "gopay",
-      "shopeepay",
-      "bca_va",
-      "bni_va",
-      "bri_va",
-      "echannel",
-      "permata_va",
-      "other_va"
-    ];
-    const validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
+    // 4. Payment Provider Dispatch & Native Method Validation
+    let validatedPaymentMethod: string | undefined = undefined;
+
+    if (gatewayCode === "doit") {
+      const doitAllowedMethods = [
+        "qris",
+        "mandiri_va",
+        "bni_va",
+        "bri_va",
+        "bsi_va",
+        "cimb_va",
+        "permata_va",
+        "maybank_va",
+        "danamon_va"
+      ];
+      if (typeof paymentMethod !== "string" || !doitAllowedMethods.includes(paymentMethod)) {
+        return res.status(400).json({
+          success: false,
+          message: "Metode pembayaran Doit tidak valid atau belum dipilih."
+        });
+      }
+      validatedPaymentMethod = paymentMethod;
+    } else {
+      const allowedPaymentMethods = [
+        "qris",
+        "gopay",
+        "shopeepay",
+        "bca_va",
+        "bni_va",
+        "bri_va",
+        "echannel",
+        "permata_va",
+        "other_va"
+      ];
+      validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
+    }
 
     const provider = PaymentRouter.getInstance().getProvider(gatewayCode);
     const paymentResult = await provider.createPayment({
@@ -295,16 +318,33 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       paymentMethod: validatedPaymentMethod
     });
 
-    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage)) {
-      throw new Error(paymentResult.message || "Payment initialization failed: No presentation URL or QR.");
+    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber)) {
+      throw new Error(paymentResult.message || "Payment initialization failed: No presentation URL, QR, or VA.");
     }
 
     const isMidtrans = gatewayCode === "midtrans";
 
-    // Save token to order for future retries if needed
+    // Save token & native presentation to order for future retries if needed
+    const rawRes = paymentResult.rawResponse?.data || paymentResult.rawResponse || {};
+    const resQrContent = rawRes.qr_content || rawRes.qr_string || rawRes.qrContent;
+    const resVaNumber = paymentResult.vaNumber || rawRes.va_number || rawRes.vaNumber;
+    const resVaBank = paymentResult.vaBank || rawRes.va_bank || rawRes.vaBank;
+    const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
+
     await orderRepo.updateOrder(orderId, {
-      snapToken: isMidtrans ? paymentResult.token : null,
-      paymentUrl: paymentResult.redirectUrl,
+      snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
+      paymentUrl: paymentResult.redirectUrl || null,
+      gatewayPaymentType: resRail || null,
+      gatewayResponse: {
+        rail: resRail || null,
+        vaNumber: resVaNumber || null,
+        vaBank: resVaBank || null,
+        qrImage: paymentResult.qrImage || null,
+        qrContent: resQrContent || null,
+        totalAmount: paymentResult.totalAmount || finalAmount,
+        expiresAt: paymentResult.expiresAt || null,
+        paymentUrl: paymentResult.redirectUrl || null
+      },
       updatedAt: new Date().toISOString()
     });
 
@@ -312,9 +352,14 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       success: true,
       orderId,
       gatewayCode,
-      snapToken: isMidtrans ? paymentResult.token : null,
+      snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl,
-      qrImage: paymentResult.qrImage
+      qrImage: paymentResult.qrImage,
+      rail: paymentResult.rail,
+      vaNumber: paymentResult.vaNumber,
+      vaBank: paymentResult.vaBank,
+      totalAmount: paymentResult.totalAmount || finalAmount,
+      expiresAt: paymentResult.expiresAt
     });
 
   } catch (error: any) {

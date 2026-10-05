@@ -111,11 +111,62 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
     const endpoint = `${baseUrl}/v1/payments`;
     const idempotencyKey = `${input.orderId}-PAYMENT`;
 
-    const payload = {
-      amount: Math.round(input.grossAmount),
-      rail: "any",
-      reference: input.orderId
+    const DOIT_VA_MAP: Record<string, string> = {
+      mandiri_va: "bmri",
+      bmri: "bmri",
+      bni_va: "bnia",
+      bnia: "bnia",
+      bri_va: "brin",
+      brin: "brin",
+      bsi_va: "bsyi",
+      bsyi: "bsyi",
+      cimb_va: "cimb",
+      cimb: "cimb",
+      permata_va: "permata",
+      permata: "permata",
+      maybank_va: "maybank",
+      maybank: "maybank",
+      danamon_va: "danamon",
+      danamon: "danamon"
     };
+
+    const DOIT_TRANSFER_MAP: Record<string, string> = {
+      bca_transfer: "bca",
+      mandiri_transfer: "mandiri",
+      bni_transfer: "bni",
+      bsi_transfer: "bsi"
+    };
+
+    const method = String(input.paymentMethod || "").toLowerCase().trim();
+    let payload: Record<string, any>;
+
+    if (method === "qris") {
+      payload = {
+        amount: Math.round(input.grossAmount),
+        rail: "qris",
+        reference: input.orderId
+      };
+    } else if (DOIT_VA_MAP[method]) {
+      payload = {
+        amount: Math.round(input.grossAmount),
+        rail: "va",
+        va_bank: DOIT_VA_MAP[method],
+        reference: input.orderId
+      };
+    } else if (DOIT_TRANSFER_MAP[method]) {
+      payload = {
+        amount: Math.round(input.grossAmount),
+        rail: "transfer",
+        va_bank: DOIT_TRANSFER_MAP[method],
+        reference: input.orderId
+      };
+    } else {
+      payload = {
+        amount: Math.round(input.grossAmount),
+        rail: "any",
+        reference: input.orderId
+      };
+    }
 
     const bodyString = JSON.stringify(payload);
 
@@ -123,7 +174,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       logSystem("INFO", "PAYMENT", "DOIT_CREATE_PAYMENT_INIT", `Membuat pembayaran doit.id untuk order ${input.orderId} nominal ${input.grossAmount}`, "doit-adapter", {
         orderId: input.orderId,
         outcome: "SUCCESS",
-        metadata: { amount: input.grossAmount, rail: "any" }
+        metadata: { amount: input.grossAmount, rail: payload.rail, vaBank: payload.va_bank }
       });
 
       const response = await fetch(endpoint, {
@@ -158,6 +209,13 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       const paymentId = String(resData.id || resData.payment_id || "");
       const qrContent = resData.qr_content || resData.qr_string || resData.qrContent || "";
       const hostedUrl = resData.hosted_url || resData.hostedUrl || resData.url || undefined;
+      const responseRail = resData.rail || payload.rail;
+      const vaNumber = resData.va_number || resData.vaNumber || undefined;
+      const vaBank = resData.va_bank || resData.vaBank || payload.va_bank || undefined;
+      const feeAmount = typeof resData.fee_amount === "number" ? resData.fee_amount : (typeof resData.fee === "number" ? resData.fee : undefined);
+      const feePayer = resData.fee_payer || resData.feePayer || undefined;
+      const totalAmount = typeof resData.total_amount === "number" ? resData.total_amount : (typeof resData.amount === "number" ? resData.amount : Math.round(input.grossAmount));
+      const expiresAt = resData.expires_at || resData.expired_at || resData.expiry || undefined;
 
       let qrImageDataUrl: string | undefined = undefined;
       if (qrContent) {
@@ -179,7 +237,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       logSystem("INFO", "PAYMENT", "DOIT_CREATE_PAYMENT_SUCCESS", `Pembayaran Doit.id berhasil dibuat: ${paymentId}`, "doit-adapter", {
         orderId: input.orderId,
         outcome: "SUCCESS",
-        metadata: { paymentId, hasQr: !!qrImageDataUrl, hasHostedUrl: !!hostedUrl }
+        metadata: { paymentId, hasQr: !!qrImageDataUrl, hasHostedUrl: !!hostedUrl, rail: responseRail, vaBank }
       });
 
       return {
@@ -187,6 +245,13 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
         token: paymentId,
         qrImage: qrImageDataUrl,
         redirectUrl: hostedUrl,
+        rail: responseRail,
+        vaNumber: vaNumber ? String(vaNumber) : undefined,
+        vaBank: vaBank ? String(vaBank) : undefined,
+        feeAmount,
+        feePayer,
+        totalAmount,
+        expiresAt: expiresAt ? String(expiresAt) : undefined,
         rawResponse: data
       };
     } catch (err: any) {

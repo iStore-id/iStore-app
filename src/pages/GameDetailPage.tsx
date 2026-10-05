@@ -624,7 +624,7 @@ export default function GameDetailPage() {
           variantId: selectedVariant.id,
           customerInput: payloadCustomerInput,
           promoCode: promoCode.trim() || undefined,
-          paymentMethod: activeGateway === "doit" ? undefined : selectedPaymentMethod,
+          paymentMethod: selectedPaymentMethod,
           pointsToUse: pointsToUse
         }),
       });
@@ -644,27 +644,10 @@ export default function GameDetailPage() {
       setSnapToken(data.snapToken);
       setQrImage(data.qrImage);
 
-      // For Doit: open official Doit embed modal directly in iStore
-      if (data.gatewayCode === "doit" && data.paymentUrl) {
-        await loadDoitEmbed();
-        if (window.doit && typeof window.doit.open === "function") {
-          window.doit.open(data.paymentUrl, {
-            closeDelay: 1500,
-            onPaid: () => {
-              navigate(`/transactions/${data.orderId}`);
-            },
-            onExpired: () => {
-              setCheckoutError("Sesi pembayaran telah kedaluwarsa. Silakan lakukan pemesanan ulang.");
-            },
-            onClose: () => {
-              navigate(`/transactions/${data.orderId}`);
-            }
-          });
-          return;
-        } else {
-          setCheckoutError("Checkout Doit gagal dimuat. Silakan coba lagi.");
-          return;
-        }
+      // For Doit: navigate directly to transaction page for native presentation
+      if (data.gatewayCode === "doit") {
+        navigate(`/transactions/${data.orderId}`);
+        return;
       }
 
       // If we have a QR image, we show it in-page (step 3)
@@ -1083,18 +1066,109 @@ export default function GameDetailPage() {
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">3</span>
-                {activeGateway === "doit" ? "Metode Pembayaran" : "Pilih Metode Pembayaran"}
+                Pilih Metode Pembayaran
               </h2>
               {activeGateway === "doit" ? (
-                <div 
-                  className="p-4 rounded-2xl border text-sm text-slate-600 flex items-center gap-3"
-                  style={{
-                    backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
-                    borderColor: "var(--border-color)"
-                  }}
-                >
-                  <ShieldCheck className="w-5 h-5 text-brand-600 shrink-0" />
-                  <span>Pilihan metode pembayaran resmi (QRIS, Virtual Account, E-Wallet) akan tampil secara otomatis di jendela checkout Doit saat Anda menekan <strong>Bayar Sekarang</strong>.</span>
+                <div className="space-y-4">
+                  {/* Kelompok QRIS */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">QRIS</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "qris", name: "QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
+                      ].map((method) => {
+                        const isSelected = selectedPaymentMethod === method.id;
+                        return (
+                          <button
+                            key={method.id}
+                            type="button"
+                            onClick={() => setSelectedPaymentMethod(method.id)}
+                            className={`w-full min-w-0 p-2 sm:p-2.5 rounded-xl border-2 transition-all relative overflow-hidden flex items-center justify-center h-14 sm:h-16 ${
+                              isSelected
+                                ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
+                                : "hover:border-brand-300"
+                            }`}
+                            style={isSelected ? {} : {
+                              backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
+                              borderColor: "var(--border-color)"
+                            }}
+                          >
+                            <div className="flex items-center justify-center px-1">
+                              <img
+                                src={method.logo}
+                                alt={method.name}
+                                className="h-5 sm:h-6 w-auto max-w-[85%] max-h-full object-contain"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            {method.tag && (
+                              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 leading-none">
+                                {method.tag}
+                              </span>
+                            )}
+                            {isSelected && (
+                              <div className="absolute top-0 right-0">
+                                <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
+                                  <ShieldCheck className="w-3 h-3" />
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Kelompok Virtual Account */}
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Virtual Account</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: "mandiri_va", name: "Mandiri VA", logo: "/payment-logos/mandiri.svg" },
+                        { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
+                        { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
+                        { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
+                        { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
+                        { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
+                        { id: "maybank_va", name: "Maybank VA", logo: "/payment-logos/bi-fast.svg" },
+                        { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" }
+                      ].map((method) => {
+                        const isSelected = selectedPaymentMethod === method.id;
+                        return (
+                          <button
+                            key={method.id}
+                            type="button"
+                            onClick={() => setSelectedPaymentMethod(method.id)}
+                            className={`w-full min-w-0 p-2 sm:p-2.5 rounded-xl border-2 transition-all relative overflow-hidden flex items-center justify-center h-14 sm:h-16 ${
+                              isSelected
+                                ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
+                                : "hover:border-brand-300"
+                            }`}
+                            style={isSelected ? {} : {
+                              backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
+                              borderColor: "var(--border-color)"
+                            }}
+                          >
+                            <div className="flex items-center justify-center px-1">
+                              <img
+                                src={method.logo}
+                                alt={method.name}
+                                className="h-5 sm:h-6 w-auto max-w-[85%] max-h-full object-contain"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            {isSelected && (
+                              <div className="absolute top-0 right-0">
+                                <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
+                                  <ShieldCheck className="w-3 h-3" />
+                                </div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-2">

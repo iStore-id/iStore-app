@@ -24,6 +24,13 @@ export interface PaymentResult {
   qrImage?: string;
   rawResponse?: any;
   message?: string;
+  rail?: string;
+  vaNumber?: string;
+  vaBank?: string;
+  feeAmount?: number;
+  feePayer?: string;
+  totalAmount?: number;
+  expiresAt?: string;
 }
 
 export interface PaymentStatusInput {
