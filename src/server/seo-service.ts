@@ -23,6 +23,7 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
     "istore indonesia"
   ],
   canonicalBaseUrl: "https://ist.web.id",
+  favicon: "",
   googleSiteVerification: "",
   ga4Enabled: false,
   ga4MeasurementId: "",
@@ -113,6 +114,7 @@ class SEOService {
           ? data.defaultKeywords 
           : DEFAULT_SEO_SETTINGS.defaultKeywords,
         canonicalBaseUrl: this.sanitizeBaseUrl(data.canonicalBaseUrl || DEFAULT_SEO_SETTINGS.canonicalBaseUrl),
+        favicon: typeof data.favicon === "string" ? data.favicon.trim() : "",
         googleSiteVerification: typeof data.googleSiteVerification === "string" ? data.googleSiteVerification.trim() : "",
         ga4Enabled: typeof data.ga4Enabled === "boolean" ? data.ga4Enabled : false,
         ga4MeasurementId: typeof data.ga4MeasurementId === "string" ? data.ga4MeasurementId.trim().toUpperCase() : "",
@@ -172,6 +174,7 @@ class SEOService {
       defaultDescription: s.defaultDescription,
       defaultKeywords: s.defaultKeywords,
       canonicalBaseUrl: s.canonicalBaseUrl,
+      favicon: s.favicon,
       googleSiteVerification: s.googleSiteVerification,
       ga4Enabled: s.ga4Enabled,
       ga4MeasurementId: s.ga4MeasurementId,
@@ -247,6 +250,9 @@ class SEOService {
         ? updates.defaultKeywords.map(k => k.trim()).filter(Boolean)
         : current.defaultKeywords,
       canonicalBaseUrl: cleanCanonical,
+      favicon: typeof updates.favicon === "string"
+        ? updates.favicon.trim()
+        : (current.favicon || ""),
       googleSiteVerification: cleanGscToken,
       ga4Enabled: cleanGa4Enabled,
       ga4MeasurementId: cleanGa4Id,

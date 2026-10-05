@@ -41,6 +41,7 @@ export interface SEOSettings {
   defaultDescription: string;
   defaultKeywords: string[];
   canonicalBaseUrl: string;
+  favicon?: string;
   googleSiteVerification?: string;
   ga4Enabled?: boolean;
   ga4MeasurementId?: string;
@@ -59,6 +60,7 @@ export interface PublicSEOSettings {
   defaultDescription: string;
   defaultKeywords: string[];
   canonicalBaseUrl: string;
+  favicon?: string;
   googleSiteVerification?: string;
   ga4Enabled?: boolean;
   ga4MeasurementId?: string;

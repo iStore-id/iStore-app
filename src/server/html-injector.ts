@@ -84,6 +84,7 @@ interface MetaInjectionParams {
   googleSiteVerification?: string;
   ga4Enabled?: boolean;
   ga4MeasurementId?: string;
+  favicon?: string;
 }
 
 function injectMetaToHtml(template: string, meta: MetaInjectionParams): string {
@@ -137,6 +138,11 @@ function injectMetaToHtml(template: string, meta: MetaInjectionParams): string {
   injectedHead += `    <meta name="twitter:card" content="summary_large_image" />\n`;
   injectedHead += `    <meta name="twitter:title" content="${safeTitle}" />\n`;
   injectedHead += `    <meta name="twitter:description" content="${safeDesc}" />\n`;
+
+  if (meta.favicon && /^https?:\/\//i.test(meta.favicon.trim())) {
+    const safeFavicon = escapeHtml(meta.favicon.trim());
+    injectedHead += `    <link rel="icon" href="${safeFavicon}" />\n`;
+  }
 
   if (meta.googleSiteVerification && meta.googleSiteVerification.trim()) {
     const safeGsc = escapeHtml(meta.googleSiteVerification.trim());
@@ -246,7 +252,8 @@ export async function serveGameDetailHtml(req: Request, res: Response, next: Nex
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
-      ga4MeasurementId: seoSettings.ga4MeasurementId
+      ga4MeasurementId: seoSettings.ga4MeasurementId,
+      favicon: seoSettings.favicon
     });
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -344,7 +351,8 @@ export async function serveBlogDetailHtml(req: Request, res: Response, next: Nex
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
-      ga4MeasurementId: seoSettings.ga4MeasurementId
+      ga4MeasurementId: seoSettings.ga4MeasurementId,
+      favicon: seoSettings.favicon
     });
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -403,7 +411,8 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
-      ga4MeasurementId: seoSettings.ga4MeasurementId
+      ga4MeasurementId: seoSettings.ga4MeasurementId,
+      favicon: seoSettings.favicon
     });
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
