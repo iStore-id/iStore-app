@@ -1004,7 +1004,19 @@ export default function GameDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Metode Pembayaran</span>
                   <span className="font-bold text-brand-600 text-xs sm:text-sm uppercase">
-                    {activeGateway === "doit" ? "Checkout Resmi Doit" : selectedPaymentMethod}
+                    {activeGateway === "doit" 
+                      ? ({
+                          qris: "QRIS",
+                          mandiri_va: "Mandiri VA",
+                          bni_va: "BNI VA",
+                          bri_va: "BRI VA",
+                          bsi_va: "BSI VA",
+                          cimb_va: "CIMB Niaga VA",
+                          permata_va: "Permata VA",
+                          maybank_va: "Maybank VA",
+                          danamon_va: "Danamon VA"
+                        }[selectedPaymentMethod] || selectedPaymentMethod.toUpperCase())
+                      : selectedPaymentMethod.toUpperCase()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
