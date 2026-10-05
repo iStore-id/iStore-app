@@ -495,13 +495,21 @@ export async function doitWebhook(req: any, res: any) {
     }
 
     try {
-      // 3. Handle Test Webhook Ping
+      // 3. Handle Test Webhook Ping & Certification Probe
       if (eventType === "webhook.test") {
         if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
         logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_TEST_RECEIVED", `Webhook test ping dari Doit.id berhasil diverifikasi`, "doit-webhook", {
           outcome: "SUCCESS"
         });
         return res.status(200).json({ success: true, message: "Webhook test received successfully" });
+      }
+
+      if (eventType === "certification.probe") {
+        if (eventId) setWebhookEventStatus(eventId, "COMPLETED");
+        logSystem("INFO", "WEBHOOK", "DOIT_WEBHOOK_PROBE_RECEIVED", `Webhook certification probe dari Doit.id berhasil diverifikasi`, "doit-webhook", {
+          outcome: "SUCCESS"
+        });
+        return res.status(200).json({ success: true, message: "Certification probe received successfully" });
       }
 
       // 4. Fetch Order & Validate Gateway Identity
