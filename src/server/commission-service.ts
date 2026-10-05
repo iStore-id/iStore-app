@@ -553,7 +553,7 @@ export class CommissionService {
         }
 
         try {
-          const { JobService } = await import("./job-service");
+          const { JobService } = await import("./job-service.js");
           await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
             type: "COMMISSION_LEDGER_POST",
             payload: { commissionId },
@@ -719,7 +719,7 @@ export class CommissionService {
 
             // Enqueue retry job for resilient ledger posting
             try {
-              const { JobService } = await import("./job-service");
+              const { JobService } = await import("./job-service.js");
               await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
                 type: "COMMISSION_LEDGER_REVERSAL_POST",
                 payload: {
@@ -1227,7 +1227,7 @@ export class CommissionService {
       });
     } catch (ledgerErr: any) {
       console.error("[Ledger Payout Posting Failed - Enqueueing Retry]", ledgerErr);
-      const { JobService } = await import("./job-service");
+      const { JobService } = await import("./job-service.js");
       await JobService.getInstance().enqueue('PROCESS_COMMISSION', {
         type: "COMMISSION_PAYOUT_LEDGER_POST" as any,
         payload: { payoutBatchId: batchId },

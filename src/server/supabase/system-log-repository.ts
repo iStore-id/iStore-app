@@ -23,7 +23,11 @@ export class SystemLogRepository {
 
   async createLog(log: SystemLog): Promise<string> {
     const id = log.id || `syslog_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const row = {
+    const combinedMetadata = {
+      ...(log.metadata || {}),
+      ...(log.jobId ? { jobId: log.jobId } : {})
+    };
+    const row: any = {
       id,
       timestamp: log.timestamp || new Date().toISOString(),
       level: log.level,
@@ -34,14 +38,13 @@ export class SystemLogRepository {
       request_id: log.requestId || null,
       correlation_id: log.correlationId || null,
       order_id: log.orderId || null,
-      job_id: log.jobId || null,
       provider: log.provider || null,
       http_status: log.httpStatus || null,
       duration_ms: log.durationMs || null,
       retry_count: log.retryCount || null,
       outcome: log.outcome || null,
       stack_trace: log.stackTrace || null,
-      metadata: log.metadata || null,
+      metadata: Object.keys(combinedMetadata).length > 0 ? combinedMetadata : null,
       created_at: new Date().toISOString()
     };
 

@@ -106,7 +106,7 @@ export async function transitionOrderState(
       await safeRecordPaymentReceived(orderId, mergedOrderData, "SYSTEM", { reason });
 
       try {
-         const { JobService } = await import("./job-service");
+         const { JobService } = await import("./job-service.js");
          const jobService = JobService.getInstance();
          await jobService.enqueue({
             type: 'FULFILLMENT',
@@ -139,14 +139,14 @@ export async function transitionOrderState(
       await safeRecordFulfillmentSuccess(orderId, mergedOrderData, "SYSTEM", { reason });
 
       try {
-         const deliveryService = (await import('./delivery-service')).DeliveryService.getInstance();
+         const deliveryService = (await import('./delivery-service.js')).DeliveryService.getInstance();
          await deliveryService.handleFulfillmentResult(mergedOrderData, true, reason);
       } catch (e) {
          console.error("[Delivery] Failed to record success delivery for order", orderId, e);
       }
 
       try {
-         const inventoryService = (await import('./inventory-service')).InventoryService.getInstance();
+         const inventoryService = (await import('./inventory-service.js')).InventoryService.getInstance();
          await inventoryService.consumeReservation(orderId);
       } catch (e) {
          console.error("[Inventory] Failed to consume reservation for order", orderId, e);
@@ -159,7 +159,7 @@ export async function transitionOrderState(
       }
 
       try {
-         const { ReferralService } = await import('./referral-service');
+         const { ReferralService } = await import('./referral-service.js');
          await ReferralService.getInstance().qualifyReferral(orderId, mergedOrderData);
       } catch (e) {
          console.error("[Referral] Non-blocking failure in referral qualification for order", orderId, e);
@@ -170,7 +170,7 @@ export async function transitionOrderState(
          if (mergedOrderData.productId) {
             const product = await SupabaseCatalogRepository.getInstance().getProduct(mergedOrderData.productId);
             if (product && product.type === 'membership') {
-               const { MembershipService } = await import('./membership-service');
+               const { MembershipService } = await import('./membership-service.js');
                const membershipService = MembershipService.getInstance();
                await membershipService.activateMembership(
                   mergedOrderData.userId,
@@ -188,7 +188,7 @@ export async function transitionOrderState(
 
       // Commission Accrual Engine (Phase 2: Non-blocking, idempotent consumer of SUCCESS)
       try {
-         const { CommissionService } = await import('./commission-service');
+         const { CommissionService } = await import('./commission-service.js');
          await CommissionService.getInstance().accrueCommissionForOrder(
            orderId, 
            mergedOrderData, 
@@ -214,14 +214,14 @@ export async function transitionOrderState(
       });
 
       try {
-         const deliveryService = (await import('./delivery-service')).DeliveryService.getInstance();
+         const deliveryService = (await import('./delivery-service.js')).DeliveryService.getInstance();
          await deliveryService.handleFulfillmentResult(mergedOrderData, false, reason);
       } catch (e) {
          console.error("[Delivery] Failed to record failure delivery for order", orderId, e);
       }
 
       try {
-         const inventoryService = (await import('./inventory-service')).InventoryService.getInstance();
+         const inventoryService = (await import('./inventory-service.js')).InventoryService.getInstance();
          await inventoryService.releaseReservation(orderId);
       } catch (e) {
          console.error("[Inventory] Failed to release reservation for order", orderId, e);
@@ -235,7 +235,7 @@ export async function transitionOrderState(
       });
 
       try {
-         const inventoryService = (await import('./inventory-service')).InventoryService.getInstance();
+         const inventoryService = (await import('./inventory-service.js')).InventoryService.getInstance();
          await inventoryService.releaseReservation(orderId);
       } catch (e) {
          console.error("[Inventory] Failed to release reservation for order", orderId, e);

@@ -247,7 +247,7 @@ export async function reconcileOrder(
         if (newState === 'PAID') {
           console.log(`[Reconciliation Auto-Resolve] Enqueueing fulfillment job for order ${orderId}`);
           try {
-             const { JobService } = await import("./job-service");
+             const { JobService } = await import("./job-service.js");
              await JobService.getInstance().enqueue({
                 type: 'FULFILLMENT',
                 payload: { orderId },
@@ -309,7 +309,7 @@ export async function reconcileOrder(
   const providerCode = order.providerId || "";
   if (localState === 'PROCESSING' && (providerCode === 'tokovoucher' || providerCode.toLowerCase().includes('tokovoucher'))) {
     try {
-       const { getProvider } = await import("./providers");
+       const { getProvider } = await import("./providers.js");
        const tokoVoucherProvider = getProvider('tokovoucher');
        // Check status at TokoVoucher using orderId (ref_id)
        const checkResult = await tokoVoucherProvider.checkTransaction(orderId);
@@ -342,7 +342,7 @@ export async function reconcileOrder(
   if (localState === 'PAID' && (order.transactionStatus || 'pending') === 'pending') {
     console.log(`[Reconciliation Recovery] Found PAID order ${orderId} with pending fulfillment. Enqueueing job...`);
     try {
-       const { JobService } = await import("./job-service");
+       const { JobService } = await import("./job-service.js");
        await JobService.getInstance().enqueue({
           type: 'FULFILLMENT',
           payload: { orderId },
@@ -389,7 +389,7 @@ export async function runReconciliationBatch(actorUid: string): Promise<any> {
       
     let totalOrdersScanned = 0;
     
-    const { JobService } = await import("./job-service");
+    const { JobService } = await import("./job-service.js");
     const jobService = JobService.getInstance();
 
     for (const order of recentOrders) {

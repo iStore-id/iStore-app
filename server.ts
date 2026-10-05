@@ -135,6 +135,7 @@ import {
 import {
 } from "./src/server/customer-api.js";
 import { customerSegmentRouter } from "./src/server/customer-segment-api.js";
+import { listJobsApi, getJobDetailApi, triggerWorkerApi, retryJobApi, cancelJobApi, workerAuth, processWorkerBatchApi } from "./src/server/job-api.js";
 import { supabaseAdmin } from "./src/server/supabase-admin.js";
 import { OrderRepository } from "./src/server/supabase/order-repository.js";
 
@@ -541,6 +542,13 @@ export async function initServerLogic() {
   app.get("/api/admin/deliveries/:deliveryId", requirePermission("delivery", "view"), getAdminDeliveryDetail);
 
   // Queue / Job Routes
+  app.post("/api/worker/process", workerAuth, processWorkerBatchApi);
+  app.get("/api/worker/process", workerAuth, processWorkerBatchApi);
+  app.get("/api/admin/jobs", requirePermission("system", "view"), listJobsApi);
+  app.get("/api/admin/jobs/:id", requirePermission("system", "view"), getJobDetailApi);
+  app.post("/api/admin/jobs/trigger-worker", requirePermission("system", "edit"), triggerWorkerApi);
+  app.post("/api/admin/jobs/:id/retry", requirePermission("system", "edit"), retryJobApi);
+  app.post("/api/admin/jobs/:id/cancel", requirePermission("system", "edit"), cancelJobApi);
 
   // API Games Credential Management
   app.get("/api/admin/providers/apigames/credentials/status", requirePermission("integration", "credentials.view"), getApiGamesCredentialStatus);
@@ -805,11 +813,12 @@ export async function initServerLogic() {
     import("./src/server/job-service.js")
       .then(({ JobService }) => {
         const jobService = JobService.getInstance();
+        jobService.startWorkerLoop();
 
         // Graceful Shutdown
         const shutdown = () => {
           console.log("[Server] Received shutdown signal. Cleaning up...");
-          // if () clearInterval();
+          jobService.stopWorkerLoop();
           server.close(() => {
             console.log("[Server] Closed HTTP server.");
             process.exit(0);
