@@ -1,18 +1,27 @@
 -- 1. Create Tracking Tables for Atomicity & Idempotency
+CREATE TABLE IF NOT EXISTS public.reservations (
+  id TEXT PRIMARY KEY,
+  variant_id VARCHAR NOT NULL,
+  quantity INT NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS) on reservations table (restrict directly to service_role with no public CRUD policies)
+ALTER TABLE public.reservations ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS public.promo_usage_tracking (
-  order_id TEXT NOT NULL,
+  order_id TEXT PRIMARY KEY,
   promo_id UUID NOT NULL,
   user_id UUID,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (order_id)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS public.flash_sale_usage_tracking (
-  order_id TEXT NOT NULL,
-  flash_sale_id BIGINT NOT NULL,
+  order_id TEXT PRIMARY KEY,
+  flash_sale_id UUID NOT NULL,
   user_id UUID,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  PRIMARY KEY (order_id)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Indexes for performance
@@ -92,7 +101,7 @@ $$ LANGUAGE plpgsql;
 
 -- 3. Atomic Flash Sale Consumption RPC
 CREATE OR REPLACE FUNCTION public.atomic_consume_flash_sale_quota(
-  p_flash_sale_id BIGINT,
+  p_flash_sale_id UUID,
   p_user_id UUID,
   p_order_id TEXT
 ) RETURNS JSONB AS $$
@@ -197,7 +206,7 @@ CREATE OR REPLACE FUNCTION public.atomic_release_flash_sale_quota(
   p_order_id TEXT
 ) RETURNS JSONB AS $$
 DECLARE
-  v_flash_sale_id BIGINT;
+  v_flash_sale_id UUID;
 BEGIN
   -- 1. Check if tracking entry exists (Idempotency)
   SELECT flash_sale_id INTO v_flash_sale_id
@@ -228,15 +237,41 @@ $$ LANGUAGE plpgsql;
 -- 6. Atomic Stock Reservation RPC
 CREATE OR REPLACE FUNCTION public.atomic_reserve_stock(
   p_order_id TEXT,
-  p_variant_id UUID,
+  p_variant_id VARCHAR,
   p_quantity INT
 ) RETURNS JSONB AS $$
 DECLARE
   v_stock_id UUID;
-  v_current_quantity INT;
+  v_available_quantity INT;
+  v_reserved_quantity INT;
+  v_existing_variant_id VARCHAR;
+  v_existing_quantity INT;
 BEGIN
-  -- Lock the stock row
-  SELECT id, quantity INTO v_stock_id, v_current_quantity
+  -- A. Validate inputs
+  IF p_quantity <= 0 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'INVALID_QUANTITY');
+  END IF;
+
+  -- B. Acquire transaction-level advisory lock on p_order_id to serialize concurrent identical requests
+  PERFORM pg_advisory_xact_lock(hashtext('reservation_lock'), hashtext(p_order_id));
+
+  -- 1. Check if reservation already exists
+  SELECT variant_id, quantity INTO v_existing_variant_id, v_existing_quantity
+  FROM public.reservations
+  WHERE id = p_order_id
+  FOR UPDATE;
+
+  -- 2. Handle existing reservation
+  IF FOUND THEN
+    IF v_existing_variant_id = p_variant_id AND v_existing_quantity = p_quantity THEN
+      RETURN jsonb_build_object('success', true, 'idempotent', true);
+    ELSE
+      RETURN jsonb_build_object('success', false, 'error', 'RESERVATION_CONFLICT');
+    END IF;
+  END IF;
+
+  -- 3. No reservation exists, lock/check stock row
+  SELECT id, available_quantity, reserved_quantity INTO v_stock_id, v_available_quantity, v_reserved_quantity
   FROM public.stocks
   WHERE variant_id = p_variant_id
   FOR UPDATE;
@@ -245,24 +280,24 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'STOCK_NOT_FOUND');
   END IF;
 
-  IF v_current_quantity < p_quantity THEN
+  IF v_available_quantity < p_quantity THEN
     RETURN jsonb_build_object('success', false, 'error', 'INSUFFICIENT_STOCK');
   END IF;
 
-  -- Update stock
+  -- Update stock counters
   UPDATE public.stocks 
-  SET quantity = quantity - p_quantity,
+  SET reserved_quantity = reserved_quantity + p_quantity,
+      available_quantity = available_quantity - p_quantity,
       updated_at = NOW()
   WHERE id = v_stock_id;
 
   -- Insert reservation
   INSERT INTO public.reservations (id, variant_id, quantity, expires_at, created_at)
-  VALUES (p_order_id, p_variant_id, p_quantity, NOW() + INTERVAL '15 minutes', NOW())
-  ON CONFLICT (id) DO NOTHING;
+  VALUES (p_order_id, p_variant_id, p_quantity, NOW() + INTERVAL '15 minutes', NOW());
 
-  -- Record movement
-  INSERT INTO public.stock_movements (id, stock_id, variant_id, delta, reason, reference_id, created_at)
-  VALUES (gen_random_uuid(), v_stock_id, p_variant_id, -p_quantity, 'RESERVE', p_order_id, NOW());
+  -- Record stock movement
+  INSERT INTO public.stock_movements (id, variant_id, type, quantity, before_quantity, after_quantity, reference_id, reason, created_at)
+  VALUES (gen_random_uuid(), p_variant_id, 'RESERVE', p_quantity, v_available_quantity, v_available_quantity - p_quantity, p_order_id, 'RESERVE', NOW());
 
   RETURN jsonb_build_object('success', true);
 END;

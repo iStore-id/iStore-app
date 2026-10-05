@@ -186,7 +186,7 @@ export class SupabaseFlashSaleRepository {
     const client = this.ensureClient();
     
     const { data, error } = await client.rpc('atomic_consume_flash_sale_quota', {
-      p_flash_sale_id: parseInt(flashSaleId),
+      p_flash_sale_id: flashSaleId,
       p_user_id: userId === "guest" ? null : userId,
       p_order_id: orderId || null
     });

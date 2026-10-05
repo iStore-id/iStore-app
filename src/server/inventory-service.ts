@@ -72,22 +72,20 @@ export class InventoryService {
   async adjustStock(variantId: string, quantityChange: number, actor: string, reason: string): Promise<Stock> {
     const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", variantId).limit(1).maybeSingle();
     
-    let currentQty = 0;
-    let stockId = null;
-    
-    if (stockData) {
-      currentQty = stockData.quantity || 0;
-      stockId = stockData.id;
-    } else {
-      stockId = crypto.randomUUID();
-    }
+    let currentQty = stockData ? (stockData.quantity || 0) : 0;
+    let stockId = stockData ? stockData.id : crypto.randomUUID();
     
     const newQty = currentQty + quantityChange;
     if (newQty < 0) throw new Error("Stok tidak mencukupi");
     
+    const currentReserved = stockData ? (stockData.reserved_quantity || 0) : 0;
+    const newAvailableQuantity = newQty - currentReserved;
+    if (newAvailableQuantity < 0) throw new Error("Stok tidak mencukupi");
+    
     const payload = {
       variant_id: variantId,
       quantity: newQty,
+      available_quantity: newAvailableQuantity,
       updated_at: new Date().toISOString()
     };
     
@@ -99,9 +97,11 @@ export class InventoryService {
     
     await supabaseAdmin!.from("stock_movements").insert({
       id: crypto.randomUUID(),
-      stock_id: stockId,
       variant_id: variantId,
-      delta: quantityChange,
+      type: quantityChange >= 0 ? 'RECEIVE' : 'CONSUME',
+      quantity: Math.abs(quantityChange),
+      before_quantity: currentQty,
+      after_quantity: newQty,
       reason,
       created_at: new Date().toISOString()
     });
@@ -149,15 +149,26 @@ export class InventoryService {
     const { data: resData } = await supabaseAdmin!.from("reservations").select("*").eq("id", orderId).maybeSingle();
     if (!resData) return;
     
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
+    
     await supabaseAdmin!.from("reservations").delete().eq("id", orderId);
     
-    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
     if (stockData) {
+      const beforeQty = stockData.reserved_quantity || 0;
+      const afterQty = Math.max(0, beforeQty - resData.quantity);
+      
+      await supabaseAdmin!.from("stocks").update({
+        reserved_quantity: afterQty,
+        updated_at: new Date().toISOString()
+      }).eq("id", stockData.id);
+
       await supabaseAdmin!.from("stock_movements").insert({
         id: crypto.randomUUID(),
-        stock_id: stockData.id,
         variant_id: resData.variant_id,
-        delta: 0,
+        type: 'CONSUME',
+        quantity: resData.quantity,
+        before_quantity: beforeQty,
+        after_quantity: afterQty,
         reason: "COMMIT_RESERVATION",
         reference_id: orderId,
         created_at: new Date().toISOString()
@@ -169,20 +180,31 @@ export class InventoryService {
     const { data: resData } = await supabaseAdmin!.from("reservations").select("*").eq("id", orderId).maybeSingle();
     if (!resData) return;
     
+    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
+    
     await supabaseAdmin!.from("reservations").delete().eq("id", orderId);
     
-    const { data: stockData } = await supabaseAdmin!.from("stocks").select("*").eq("variant_id", resData.variant_id).limit(1).maybeSingle();
     if (stockData) {
+      const beforeQty = stockData.quantity || 0;
+      const beforeRes = stockData.reserved_quantity || 0;
+      const beforeAvail = stockData.available_quantity || 0;
+      
+      const afterRes = Math.max(0, beforeRes - resData.quantity);
+      const afterAvail = beforeAvail + resData.quantity;
+      
       await supabaseAdmin!.from("stocks").update({
-        quantity: (stockData.quantity || 0) + resData.quantity,
+        reserved_quantity: afterRes,
+        available_quantity: afterAvail,
         updated_at: new Date().toISOString()
       }).eq("id", stockData.id);
       
       await supabaseAdmin!.from("stock_movements").insert({
         id: crypto.randomUUID(),
-        stock_id: stockData.id,
         variant_id: resData.variant_id,
-        delta: resData.quantity,
+        type: 'RELEASE',
+        quantity: resData.quantity,
+        before_quantity: beforeQty,
+        after_quantity: beforeQty,
         reason: "CANCEL_RESERVATION",
         reference_id: orderId,
         created_at: new Date().toISOString()
