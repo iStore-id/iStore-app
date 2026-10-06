@@ -38,6 +38,11 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Pagination States
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 20;
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMapping, setEditingMapping] = useState<ProviderMapping | null>(null);
@@ -57,9 +62,56 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const fetchMappingsOnly = async (currentPage = page, currentSearch = search, currentSupplier = filterSupplier, currentStatus = filterStatus) => {
+    try {
+      setLoading(true);
+      const token = await user?.getIdToken();
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const queryParams = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: String(pageSize),
+        providerId: currentSupplier,
+        status: currentStatus,
+        search: currentSearch
+      });
+
+      const mapRes = await fetch(`/api/admin/providers/mappings?${queryParams.toString()}`, { headers });
+      const mapData = await mapRes.json();
+
+      if (mapData.success) {
+        const mappingList = Array.isArray(mapData.data)
+          ? mapData.data
+          : Array.isArray(mapData.data?.data)
+            ? mapData.data.data
+            : Array.isArray(mapData.mappings)
+              ? mapData.mappings
+              : [];
+        setMappings(mappingList);
+        setTotal(mapData.total || mappingList.length);
+      } else {
+        showNotification('error', mapData.message || 'Gagal memuat data pemetaan produk.');
+      }
+    } catch (err: any) {
+      console.error('Error fetching mappings:', err);
+      showNotification('error', 'Gagal memuat data pemetaan produk.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchMappingsOnly(page, search, filterSupplier, filterStatus);
+  }, [page, search, filterSupplier, filterStatus]);
+
+  // Reset page to 1 when filters or search term changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, filterSupplier, filterStatus]);
 
   useEffect(() => {
     if (addTrigger && addTrigger.tab === 'mappings') {
@@ -80,8 +132,7 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
       const token = await user?.getIdToken();
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-      const [mapRes, prodRes, varRes, provRes, skusRes, catRes, gameRes] = await Promise.all([
-        fetch('/api/admin/providers/mappings', { headers }),
+      const [prodRes, varRes, provRes, skusRes, catRes, gameRes] = await Promise.all([
         fetch('/api/admin/catalog/products', { headers }),
         fetch('/api/admin/catalog/variants', { headers }),
         fetch('/api/admin/providers', { headers }),
@@ -90,8 +141,7 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
         fetch('/api/admin/catalog/games', { headers })
       ]);
 
-      const [mapData, prodData, varData, provData, skusData, catData, gameData] = await Promise.all([
-        mapRes.json(),
+      const [prodData, varData, provData, skusData, catData, gameData] = await Promise.all([
         prodRes.json(),
         varRes.json(),
         provRes.json(),
@@ -100,22 +150,14 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
         gameRes.json()
       ]);
 
-      if (mapData.success) {
-        const mappingList = Array.isArray(mapData.data)
-          ? mapData.data
-          : Array.isArray(mapData.data?.data)
-            ? mapData.data.data
-            : Array.isArray(mapData.mappings)
-              ? mapData.mappings
-              : [];
-        setMappings(mappingList);
-      }
       if (prodData.success) setProducts(Array.isArray(prodData.data) ? prodData.data : []);
       if (varData.success) setVariants(Array.isArray(varData.data) ? varData.data : []);
       if (provData.success) setProviders(Array.isArray(provData.data) ? provData.data : []);
       if (skusData.success) setProviderSkus(Array.isArray(skusData.data) ? skusData.data : []);
       if (catData.success) setCategories(Array.isArray(catData.data) ? catData.data : []);
       if (gameData.success) setGames(Array.isArray(gameData.data) ? gameData.data : []);
+
+      await fetchMappingsOnly(page, search, filterSupplier, filterStatus);
     } catch (err: any) {
       console.error('Error fetching mappings data:', err);
       showNotification('error', 'Gagal memuat data pemetaan produk.');
@@ -614,6 +656,33 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {total > pageSize && (
+          <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 border-t border-slate-200 text-xs sm:text-sm">
+            <div className="text-slate-600">
+              Menampilkan <span className="font-semibold">{Math.min((page - 1) * pageSize + 1, total)}</span> - <span className="font-semibold">{Math.min(page * pageSize, total)}</span> dari <span className="font-semibold">{total}</span> pemetaan
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Sebelumnya
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(Math.ceil(total / pageSize), p + 1))}
+                disabled={page >= Math.ceil(total / pageSize)}
+                className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}

@@ -142,7 +142,7 @@ export class ProviderMappingService {
    * Systematic backfill for all existing APPROVED mappings.
    */
   async backfillApprovedMappingsCost(actor: { uid: string, email: string }): Promise<any> {
-    const mappings = await providerRepo.listMappingsByProvider("ALL", "APPROVED");
+    const { data: mappings } = await providerRepo.listMappingsByProvider("ALL", "APPROVED");
     const variantIds = Array.from(new Set(mappings.map(m => m.variantId)));
     
     const results = {
@@ -173,10 +173,17 @@ export class ProviderMappingService {
     return results;
   }
 
-  async listMappings(providerId: string, status: MappingStatus | 'ALL', page: number = 1, pageSize: number = 20, lastDoc?: any): Promise<{ data: ProviderMapping[], lastDoc: any }> {
-    const data = await providerRepo.listMappingsByProvider(providerId, status);
-    // Simple pagination for now (Supabase query doesn't use lastDoc)
-    return { data, lastDoc: null };
+  async listMappings(
+    providerId: string, 
+    status: MappingStatus | 'ALL', 
+    page: number = 1, 
+    pageSize: number = 20, 
+    search?: string
+  ): Promise<{ data: ProviderMapping[], total: number, page: number, pageSize: number }> {
+    const limit = pageSize;
+    const offset = (page - 1) * pageSize;
+    const { data, total } = await providerRepo.listMappingsByProvider(providerId, status, limit, offset, search);
+    return { data, total, page, pageSize };
   }
 
   async mapSku(skuId: string, variantId: string, actor: { uid: string, email: string }): Promise<string> {

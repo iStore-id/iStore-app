@@ -272,25 +272,48 @@ export class SupabaseProviderRepository {
     }));
   }
 
-  async listMappingsByProvider(providerId?: string, status?: string): Promise<ProviderMapping[]> {
+  async listMappingsByProvider(
+    providerId?: string, 
+    status?: string,
+    limit?: number,
+    offset?: number,
+    search?: string
+  ): Promise<{ data: ProviderMapping[], total: number }> {
     const client = this.ensureClient();
     let query = client
       .from("provider_mappings")
-      .select("*");
+      .select("*", { count: "exact" });
 
     if (providerId && providerId !== "ALL") {
       query = query.eq("provider_id", providerId);
     }
 
     if (status && status !== "ALL") {
-      query = query.eq("status", status);
+      if (status === "ACTIVE") {
+        query = query.in("status", ["APPROVED", "MAPPED"]).eq("routing_eligibility", true);
+      } else if (status === "INACTIVE") {
+        query = query.or("status.not.in.(APPROVED,MAPPED),routing_eligibility.eq.false");
+      } else {
+        query = query.eq("status", status);
+      }
     }
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    if (search && search.trim()) {
+      const term = `%${search.trim()}%`;
+      query = query.or(`provider_sku.ilike.${term},metadata->>productName.ilike.${term},metadata->>variantName.ilike.${term},metadata->>supplierProductName.ilike.${term}`);
+    }
+
+    query = query.order("created_at", { ascending: false });
+
+    if (limit !== undefined && offset !== undefined) {
+      query = query.range(offset, offset + limit - 1);
+    }
+
+    const { data, count, error } = await query;
 
     if (error) throw new Error(`Supabase listMappingsByProvider error: ${error.message}`);
 
-    return (data || []).map((row: any) => ({
+    const mappedData = (data || []).map((row: any) => ({
       id: row.id,
       productId: "",
       variantId: row.variant_id,
@@ -307,6 +330,8 @@ export class SupabaseProviderRepository {
       updatedAt: row.updated_at,
       updatedBy: "system",
     }));
+
+    return { data: mappedData, total: count || 0 };
   }
 
   async getMappingBySkuAndStatus(skuId: string, status: string): Promise<ProviderMapping | null> {

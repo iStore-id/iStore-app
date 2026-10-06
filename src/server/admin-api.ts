@@ -2061,15 +2061,23 @@ const mappingService = ProviderMappingService.getInstance();
 
 export async function listMappingsApi(req: AuthenticatedRequest, res: Response) {
   try {
-    const { providerId, status, pageSize, lastDoc } = req.query;
+    const { providerId, status, pageSize, page, search } = req.query;
+    const pageNum = parseInt(page as string) || 1;
+    const sizeNum = parseInt(pageSize as string) || 20;
     const result = await mappingService.listMappings(
       providerId as string, 
       (status as any) || 'ALL', 
-      1, 
-      parseInt(pageSize as string) || 20, 
-      lastDoc ? JSON.parse(lastDoc as string) : undefined
+      pageNum, 
+      sizeNum, 
+      search as string
     );
-    return res.status(200).json({ success: true, data: result.data, lastDoc: result.lastDoc });
+    return res.status(200).json({ 
+      success: true, 
+      data: result.data, 
+      total: result.total, 
+      page: result.page, 
+      pageSize: result.pageSize 
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
