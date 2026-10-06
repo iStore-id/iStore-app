@@ -537,15 +537,34 @@ export class SupabaseCatalogRepository {
 
   async listVariants(productId?: string): Promise<ProductVariant[]> {
     const client = this.ensureClient();
-    let query = client.from("product_variants").select("*");
-    
-    if (productId) {
-      query = query.eq("product_id", productId);
+    const pageSize = 1000;
+    const rows: any[] = [];
+
+    for (let offset = 0; ; offset += pageSize) {
+      let query = client
+        .from("product_variants")
+        .select("*")
+        .range(offset, offset + pageSize - 1);
+
+      if (productId) {
+        query = query.eq("product_id", productId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Supabase listVariants error: ${error.message}`);
+      }
+
+      const page = data || [];
+      rows.push(...page);
+
+      if (page.length < pageSize) {
+        break;
+      }
     }
-    
-    const { data, error } = await query;
-    if (error) throw new Error(`Supabase listVariants error: ${error.message}`);
-    return (data || []).map((row: any) => ({
+
+    return rows.map((row: any) => ({
       id: row.id,
       productId: row.product_id,
       name: row.name,
