@@ -57,7 +57,6 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
   const [formProviderId, setFormProviderId] = useState('');
   const [formProviderSkuId, setFormProviderSkuId] = useState('');
   const [formSkuSearch, setFormSkuSearch] = useState('');
-  const [formIsActive, setFormIsActive] = useState(true);
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -228,7 +227,6 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
     setFormProviderId(providers[0]?.id || '');
     setFormProviderSkuId('');
     setFormSkuSearch('');
-    setFormIsActive(true);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -248,7 +246,6 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
     setFormProviderId(mapping.providerId);
     setFormProviderSkuId(mapping.providerSkuId || '');
     setFormSkuSearch('');
-    setFormIsActive(isMappingActive(mapping));
     setFormError('');
     setIsModalOpen(true);
   };
@@ -289,16 +286,14 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
       const token = await user?.getIdToken();
       if (!token) throw new Error('Autentikasi gagal. Silakan login kembali.');
 
-      const payload = {
+      const payload: any = {
         productId: formProductId,
         variantId: formVariantId,
         sku: selectedVariant?.sku || '',
         providerId: formProviderId,
         providerSkuId: selectedSku.id,
         providerSku: selectedSku.providerSku,
-        status: formIsActive ? 'APPROVED' : 'REJECTED',
         priority: 1,
-        routingEligibility: formIsActive,
         metadata: {
           productName: selectedProduct?.name || '',
           variantName: selectedVariant?.name || '',
@@ -306,6 +301,11 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
           supplierCode: selectedSku.providerSku || '',
         }
       };
+
+      if (!editingMapping) {
+        payload.status = 'NEEDS_REVIEW';
+        payload.routingEligibility = false;
+      }
 
       const url = editingMapping
         ? `/api/admin/providers/mappings/${editingMapping.id}`
@@ -336,34 +336,40 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
     }
   };
 
-  // Quick Toggle Status (Aktif / Tidak Aktif)
+  // Quick Toggle Status (Power Button Workflow)
   const handleToggleStatus = async (mapping: ProviderMapping) => {
-    const currentlyActive = isMappingActive(mapping);
-    const newStatus = currentlyActive ? 'REJECTED' : 'APPROVED';
-    const newEligibility = !currentlyActive;
+    let url = '';
+    let actionLabel = '';
+
+    if (mapping.status === 'NEEDS_REVIEW') {
+      url = `/api/admin/providers/mappings/${mapping.id}/approve`;
+      actionLabel = 'disetujui';
+    } else if (mapping.status === 'APPROVED') {
+      url = `/api/admin/providers/mappings/${mapping.id}/reject`;
+      actionLabel = 'ditolak';
+    } else {
+      // Non-mutating guard for MAPPED, REJECTED, CANDIDATE, UNMAPPED, etc.
+      showNotification('error', `Status '${mapping.status}' tidak dapat diubah menggunakan tombol daya.`);
+      return;
+    }
 
     try {
       const token = await user?.getIdToken();
       if (!token) return;
 
-      const response = await fetch(`/api/admin/providers/mappings/${mapping.id}`, {
-        method: 'PUT',
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          routingEligibility: newEligibility
-        })
+        }
       });
 
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Gagal mengubah status pemetaan.');
+        throw new Error(data.message || `Gagal memproses perubahan status.`);
       }
 
-      showNotification('success', `Status pemetaan diubah menjadi ${newEligibility ? 'Aktif' : 'Tidak Aktif'}.`);
+      showNotification('success', `Pemetaan produk berhasil ${actionLabel}.`);
       fetchData();
     } catch (err: any) {
       showNotification('error', err.message || 'Gagal mengubah status.');
@@ -620,11 +626,18 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                           {/* Quick Toggle Status */}
                           <button
                             onClick={() => handleToggleStatus(mapping)}
-                            title={active ? 'Nonaktifkan Pemetaan' : 'Aktifkan Pemetaan'}
+                            disabled={mapping.status !== 'NEEDS_REVIEW' && mapping.status !== 'APPROVED'}
+                            title={
+                              mapping.status === 'NEEDS_REVIEW' ? 'Setujui Pemetaan (Approve)' :
+                              mapping.status === 'APPROVED' ? 'Tolak Pemetaan (Reject)' :
+                              `Status '${mapping.status}' tidak dapat diubah`
+                            }
                             className={`p-1.5 rounded-lg border transition-colors ${
-                              active
-                                ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50 border-slate-200'
-                                : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border-slate-200'
+                              mapping.status === 'NEEDS_REVIEW'
+                                ? 'text-emerald-600 hover:bg-emerald-50 border-emerald-200'
+                                : mapping.status === 'APPROVED'
+                                  ? 'text-red-500 hover:bg-red-50 border-red-200'
+                                  : 'text-slate-300 bg-slate-50 border-slate-100 cursor-not-allowed'
                             }`}
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -924,48 +937,35 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                 </p>
               </div>
 
-              {/* Status Pemetaan */}
+              {/* Status Pemetaan (READ-ONLY) */}
               <div className="pt-2 border-t border-slate-100 space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
                   Status Pemetaan
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                    formIsActive 
-                      ? 'border-emerald-500 bg-emerald-50/50 text-emerald-900' 
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}>
-                    <input 
-                      type="radio" 
-                      name="mapping_status" 
-                      checked={formIsActive} 
-                      onChange={() => setFormIsActive(true)}
-                      className="text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <div>
-                      <div className="text-sm font-semibold">Aktif</div>
-                      <div className="text-[11px] text-slate-500">Dapat digunakan saat transaksi</div>
-                    </div>
-                  </label>
-
-                  <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                    !formIsActive 
-                      ? 'border-slate-400 bg-slate-100 text-slate-900' 
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}>
-                    <input 
-                      type="radio" 
-                      name="mapping_status" 
-                      checked={!formIsActive} 
-                      onChange={() => setFormIsActive(false)}
-                      className="text-slate-600 focus:ring-slate-500"
-                    />
-                    <div>
-                      <div className="text-sm font-semibold">Tidak Aktif</div>
-                      <div className="text-[11px] text-slate-500">Dinonaktifkan sementara</div>
-                    </div>
-                  </label>
-                </div>
+                {editingMapping ? (
+                  <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800">
+                    <span className={`w-2 h-2 rounded-full ${
+                      editingMapping.status === 'APPROVED' ? 'bg-emerald-500' :
+                      editingMapping.status === 'NEEDS_REVIEW' ? 'bg-amber-500' :
+                      editingMapping.status === 'MAPPED' ? 'bg-blue-500' : 'bg-slate-400'
+                    }`}></span>
+                    <span className="font-semibold">{editingMapping.status}</span>
+                    <span className="text-xs text-slate-500 font-normal">
+                      ({editingMapping.routingEligibility ? 'Routable/Aktif' : 'Non-routable/Tidak Aktif'})
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg text-sm font-medium text-amber-800">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span className="font-semibold">NEEDS_REVIEW</span>
+                    <span className="text-xs text-amber-600 font-normal">
+                      (Akan draf dan memerlukan persetujuan admin)
+                    </span>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-500">
+                  Status pemetaan hanya dapat diubah melalui tombol aksi (Power) di tabel utama setelah pemetaan disimpan.
+                </p>
               </div>
 
               {/* Form Action Buttons */}

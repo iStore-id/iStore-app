@@ -477,6 +477,46 @@ export async function deleteProviderMapping(req: AuthenticatedRequest, res: Resp
   }
 }
 
+export async function approveProviderMapping(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const actor = { uid: req.user.uid, email: req.user.email };
+    const mapping = await providerRepo.getMapping(id);
+    
+    if (!mapping) {
+      return res.status(404).json({ success: false, message: "Provider Mapping not found" });
+    }
+
+    if (mapping.status !== "NEEDS_REVIEW") {
+      return res.status(400).json({ success: false, message: `Only mappings with status 'NEEDS_REVIEW' can be approved. Current status is '${mapping.status}'.` });
+    }
+
+    await mappingService.approveMapping(id, actor);
+    await logAudit(req, "APPROVE_PROVIDER_MAPPING", "providerMappings", id, { status: "APPROVED", routingEligibility: true });
+    return res.status(200).json({ success: true, message: "Provider Mapping approved" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function rejectProviderMapping(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const actor = { uid: req.user.uid, email: req.user.email };
+    const mapping = await providerRepo.getMapping(id);
+    
+    if (!mapping) {
+      return res.status(404).json({ success: false, message: "Provider Mapping not found" });
+    }
+
+    await mappingService.rejectMapping(id, actor);
+    await logAudit(req, "REJECT_PROVIDER_MAPPING", "providerMappings", id, { status: "REJECTED" });
+    return res.status(200).json({ success: true, message: "Provider Mapping rejected" });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 // ===================
 // USER MANAGEMENT
 // ===================

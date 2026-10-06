@@ -16,7 +16,7 @@ import {
   createGame, updateGame, deleteGame, createCategory, updateCategory, deleteCategory, createVariant, updateVariant, 
   createProvider, updateProvider, getProviders, deleteProvider,
   createProviderSku, updateProviderSku, deleteProviderSku, 
-  createProviderMapping, updateProviderMapping, deleteProviderMapping, getProviderCatalogDiscovery, 
+  createProviderMapping, updateProviderMapping, deleteProviderMapping, approveProviderMapping, rejectProviderMapping, getProviderCatalogDiscovery, 
   createPaymentGateway, updatePaymentGateway, getApiGamesCredentialStatus, updateApiGamesCredentials, testApiGamesConnection, 
   createRefund, getAdminRefunds, getMidtransIntegration, updateMidtransIntegration, testMidtransIntegration, removeMidtransIntegration, 
   getTokoVoucherIntegration, updateTokoVoucherIntegration, testTokoVoucherIntegrationApi, removeTokoVoucherIntegration, 
@@ -492,6 +492,8 @@ export async function initServerLogic() {
 
   app.post("/api/admin/providers/mappings", requirePermission("providers", "create"), createProviderMapping);
   app.put("/api/admin/providers/mappings/:id", requirePermission("providers", "edit"), updateProviderMapping);
+  app.post("/api/admin/providers/mappings/:id/approve", requirePermission("providers", "edit"), approveProviderMapping);
+  app.post("/api/admin/providers/mappings/:id/reject", requirePermission("providers", "edit"), rejectProviderMapping);
   app.delete("/api/admin/providers/mappings/:id", requirePermission("providers", "delete"), deleteProviderMapping);
   app.get("/api/admin/providers/mappings", requirePermission("providers", "view"), listMappingsApi);
   app.post("/api/admin/providers/mappings/map", requirePermission("providers", "edit"), mapSkuApi);
