@@ -205,24 +205,36 @@ export class JobService {
             throw new Error(`FULFILLMENT job ${jobId} has missing orderId in payload.`);
           }
 
-          const { dispatchFulfillment } = await import("./fulfillment-dispatcher.js");
-          await dispatchFulfillment(orderId);
-
-          // Verify actual order transactionStatus from database - do NOT assume function call = success
           const { OrderRepository } = await import("./supabase/order-repository.js");
-          const updatedOrder = await OrderRepository.getInstance().getOrderById(orderId);
-          const txStatus = (updatedOrder?.transactionStatus || '').toLowerCase();
+          let order = await OrderRepository.getInstance().getOrderById(orderId);
+          let txStatus = (order?.transactionStatus || '').toLowerCase();
+
+          if (txStatus === 'processing') {
+            const { reconcileOrder } = await import("./reconciliation-service.js");
+            await reconcileOrder(orderId, "system");
+            // Re-read after reconciliation
+            order = await OrderRepository.getInstance().getOrderById(orderId);
+            txStatus = (order?.transactionStatus || '').toLowerCase();
+          }
+
+          if (txStatus === 'pending') {
+            const { dispatchFulfillment } = await import("./fulfillment-dispatcher.js");
+            await dispatchFulfillment(orderId);
+            // Re-read after dispatch
+            order = await OrderRepository.getInstance().getOrderById(orderId);
+            txStatus = (order?.transactionStatus || '').toLowerCase();
+          }
 
           if (txStatus === 'success') {
             success = true;
           } else if (txStatus === 'failed') {
-            const failureReason = updatedOrder?.failureReason || (updatedOrder?.fulfillmentResponse as any)?.message || 'Permanent fulfillment failure';
+            const failureReason = order?.failureReason || (order?.fulfillmentResponse as any)?.message || 'Permanent fulfillment failure';
             const permErr: any = new Error(`FULFILLMENT_PERMANENT_FAILED: ${failureReason}`);
             permErr.isPermanent = true;
             throw permErr;
           } else {
             // Still in PROCESSING or PENDING (e.g. pending async provider callback or transient timeout)
-            const responseMsg = (updatedOrder?.fulfillmentResponse as any)?.message || 'Pending provider verification';
+            const responseMsg = (order?.fulfillmentResponse as any)?.message || 'Pending provider verification';
             throw new Error(`FULFILLMENT_NOT_FINALIZED: Order ${orderId} remains in ${txStatus} (${responseMsg})`);
           }
         } else if (jobType === 'QUOTA_RELEASE') {
