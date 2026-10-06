@@ -1,0 +1,22 @@
+name: Worker Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  process-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body \
+            --silent \
+            --show-error \
+            --max-time 30 \
+            -X GET \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            https://ist.web.id/api/worker/process
