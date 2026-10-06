@@ -156,16 +156,35 @@ export class SupabaseProviderRepository {
 
   async listProviderSkus(providerId?: string): Promise<ProviderSku[]> {
     const client = this.ensureClient();
-    let query = client.from("provider_skus").select("*").order("created_at", { ascending: false });
+    const pageSize = 1000;
+    const rows: any[] = [];
 
-    if (providerId) {
-      query = query.eq("provider_id", providerId);
+    for (let offset = 0; ; offset += pageSize) {
+      let query = client
+        .from("provider_skus")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1);
+
+      if (providerId) {
+        query = query.eq("provider_id", providerId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Supabase listProviderSkus error: ${error.message}`);
+      }
+
+      const page = data || [];
+      rows.push(...page);
+
+      if (page.length < pageSize) {
+        break;
+      }
     }
 
-    const { data, error } = await query;
-    if (error) throw new Error(`Supabase listProviderSkus error: ${error.message}`);
-
-    return (data || []).map((row: any) => ({
+    return rows.map((row: any) => ({
       id: row.id,
       providerId: row.provider_id,
       providerSku: row.provider_sku,
