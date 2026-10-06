@@ -509,6 +509,10 @@ export async function rejectProviderMapping(req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ success: false, message: "Provider Mapping not found" });
     }
 
+    if (mapping.status !== "APPROVED") {
+      return res.status(400).json({ success: false, message: `Only mappings with status 'APPROVED' can be rejected. Current status is '${mapping.status}'.` });
+    }
+
     await mappingService.rejectMapping(id, actor);
     await logAudit(req, "REJECT_PROVIDER_MAPPING", "providerMappings", id, { status: "REJECTED" });
     return res.status(200).json({ success: true, message: "Provider Mapping rejected" });
