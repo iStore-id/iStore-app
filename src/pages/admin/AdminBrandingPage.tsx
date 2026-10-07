@@ -48,13 +48,13 @@ function hexToRgba(hex: string, opacity: number) {
 const COLOR_PRESETS = [
   { 
     name: "iStore Default", 
-    primary: "#ff4400", 
-    secondary: "#0f172a", 
-    brandText: "#0f172a", 
-    accent: "#f59e0b",
-    hover: "#e63d00",
-    bg: "#f8fafc",
-    surface: "#ffffff"
+    primary: "#EE4D2D", 
+    secondary: "#212121", 
+    brandText: "#212121", 
+    accent: "#FFB800",
+    hover: "#D93F22",
+    bg: "#F5F5F5",
+    surface: "#FFFFFF"
   },
   { 
     name: "Ocean Blue", 
@@ -176,18 +176,18 @@ export default function AdminBrandingPage() {
   const [favicon, setFavicon] = useState("");
 
   // 10 Skema Warna Custom
-  const [primaryColor, setPrimaryColor] = useState("#ff4400");
-  const [secondaryColor, setSecondaryColor] = useState("#0f172a");
-  const [brandTextColor, setBrandTextColor] = useState("#0f172a");
-  const [accentColor, setAccentColor] = useState("#f59e0b");
-  const [backgroundColor, setBackgroundColor] = useState("#f8fafc");
-  const [surfaceColor, setSurfaceColor] = useState("#ffffff");
-  const [textColor, setTextColor] = useState("#0f172a");
-  const [textSecondaryColor, setTextSecondaryColor] = useState("#64748b");
-  const [borderColor, setBorderColor] = useState("#e2e8f0");
-  const [hoverColor, setHoverColor] = useState("#e63d00");
-  const [headerBackgroundColor, setHeaderBackgroundColor] = useState("#ffffff");
-  const [headerTextColor, setHeaderTextColor] = useState("#475569");
+  const [primaryColor, setPrimaryColor] = useState("#EE4D2D");
+  const [secondaryColor, setSecondaryColor] = useState("#212121");
+  const [brandTextColor, setBrandTextColor] = useState("#212121");
+  const [accentColor, setAccentColor] = useState("#FFB800");
+  const [backgroundColor, setBackgroundColor] = useState("#F5F5F5");
+  const [surfaceColor, setSurfaceColor] = useState("#FFFFFF");
+  const [textColor, setTextColor] = useState("#212121");
+  const [textSecondaryColor, setTextSecondaryColor] = useState("#757575");
+  const [borderColor, setBorderColor] = useState("#E5E5E5");
+  const [hoverColor, setHoverColor] = useState("#D93F22");
+  const [headerBackgroundColor, setHeaderBackgroundColor] = useState("#FFFFFF");
+  const [headerTextColor, setHeaderTextColor] = useState("#212121");
   const [logoStyle, setLogoStyle] = useState<StoreConfiguration['logoStyle']>("natural");
   const [logoShowName, setLogoShowName] = useState(false);
 
@@ -1398,11 +1398,11 @@ export default function AdminBrandingPage() {
                           setSurfaceColor(p.surface);
 
                           if (p.name === "iStore Default") {
-                            setTextColor("#0f172a");
-                            setTextSecondaryColor("#64748b");
-                            setBorderColor("#e2e8f0");
-                            setHeaderBackgroundColor("#ffffff");
-                            setHeaderTextColor("#475569");
+                            setTextColor("#212121");
+                            setTextSecondaryColor("#757575");
+                            setBorderColor("#E5E5E5");
+                            setHeaderBackgroundColor("#FFFFFF");
+                            setHeaderTextColor("#212121");
                           }
                         }}
                         className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-2.5 cursor-pointer ${
