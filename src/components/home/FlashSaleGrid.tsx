@@ -332,7 +332,7 @@ const FlashSaleCard: React.FC<FlashSaleCardProps> = ({ item, isDuplicate = false
         {/* Refined Single Editorial Discount Accent Badge */}
         {item.discount && item.discount > 0 && (
           <div className="absolute top-1.5 left-1.5 z-10">
-            <span className="inline-flex items-center px-1 py-0.5 sm:px-1.5 sm:py-0.5 lg:px-2 lg:py-0.5 rounded-md text-[9px] sm:text-[9.5px] lg:text-[10px] font-extrabold tracking-tight bg-slate-900 text-white shadow-xs transition-transform duration-250 ease-out group-hover:scale-105 motion-reduce:transform-none">
+            <span className="inline-flex items-center px-1 py-0.5 sm:px-1.5 sm:py-0.5 lg:px-2 lg:py-0.5 rounded-md text-[9px] sm:text-[9.5px] lg:text-[10px] font-extrabold tracking-tight text-white shadow-xs transition-transform duration-250 ease-out group-hover:scale-105 motion-reduce:transform-none" style={{ backgroundColor: "var(--accent-color)" }}>
               -{item.discount}%
             </span>
           </div>
