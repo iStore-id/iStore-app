@@ -30,6 +30,7 @@ import { fetchStoreConfig, invalidateStoreConfigCache } from "../lib/utils";
 import NotificationBell from "../components/NotificationBell";
 import { PaymentMethodLogos } from "../components/PaymentLogos";
 import ThemeToggle, { CustomerThemePreference } from "../components/ThemeToggle";
+import { ISTORE_DEFAULT_THEME } from "../theme/default-theme";
 
 interface BrandingConfig {
   name: string;
@@ -396,57 +397,57 @@ export default function MainLayout() {
   const currentPreference: CustomerThemePreference = customerTheme || ownerPreference || "light";
   const isDark = currentPreference === "dark" || (currentPreference === "system" && systemPrefersDark);
   const effectiveTheme = isDark ? "dark" : "light";
+  const isDefaultTheme = branding?.themePreset === "default";
+  const themeTokens = isDefaultTheme ? ISTORE_DEFAULT_THEME[effectiveTheme] : null;
 
-  const primaryColor = branding?.primaryColor || '#ff4400';
-  const secondaryColor = branding?.secondaryColor || '#0f172a';
-  const hoverColor = branding?.hoverColor || '#e63d00';
-  const accentColor = branding?.accentColor || '#f59e0b';
+  const primaryColor = themeTokens?.primaryColor || branding?.primaryColor || '#EE4D2D';
+  const secondaryColor = themeTokens?.secondaryColor || branding?.secondaryColor || '#212121';
+  const hoverColor = themeTokens?.hoverColor || branding?.hoverColor || '#D93F22';
+  const accentColor = themeTokens?.accentColor || branding?.accentColor || '#FFB800';
   
-  const computedBg = isDark
-    ? (branding?.backgroundColor && isHexDark(branding.backgroundColor) ? branding.backgroundColor : '#090d16')
-    : (branding?.backgroundColor || '#f8fafc');
+  const computedBg = themeTokens?.backgroundColor || (isDark
+    ? (branding?.backgroundColor && isHexDark(branding.backgroundColor) ? branding.backgroundColor : '#121212')
+    : (branding?.backgroundColor || '#F5F5F5'));
 
-  const computedSurface = isDark
-    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
-    : (branding?.surfaceColor || '#ffffff');
+  const computedSurface = themeTokens?.surfaceColor || (isDark
+    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#1E1E1E')
+    : (branding?.surfaceColor || '#FFFFFF'));
 
-  const computedText = isDark
-    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#f8fafc')
-    : (branding?.textColor || '#0f172a');
+  const computedText = themeTokens?.textColor || (isDark
+    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#F5F5F5')
+    : (branding?.textColor || '#212121'));
 
-  const computedTextSecondary = isDark
-    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
-    : (branding?.textSecondaryColor || '#64748b');
+  const computedTextSecondary = themeTokens?.textSecondaryColor || (isDark
+    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#B3B3B3')
+    : (branding?.textSecondaryColor || '#757575'));
 
-  const computedBorder = branding?.borderColor || (isDark ? '#1e293b' : '#e2e8f0');
+  const computedBorder = themeTokens?.borderColor || branding?.borderColor || (isDark ? '#333333' : '#E5E5E5');
 
-  const computedHeaderBg = isDark
-    ? (branding?.headerBackgroundColor && isHexDark(branding.headerBackgroundColor) ? branding.headerBackgroundColor : '#0b0f19')
-    : (branding?.headerBackgroundColor || '#ffffff');
+  const computedHeaderBg = themeTokens?.headerBackgroundColor || (isDark
+    ? (branding?.headerBackgroundColor && isHexDark(branding.headerBackgroundColor) ? branding.headerBackgroundColor : '#161616')
+    : (branding?.headerBackgroundColor || '#FFFFFF'));
 
-  const computedHeaderText = isDark
-    ? (branding?.headerTextColor && !isHexDark(branding.headerTextColor) ? branding.headerTextColor : '#f8fafc')
-    : (branding?.headerTextColor || '#475569');
+  const computedHeaderText = themeTokens?.headerTextColor || (isDark
+    ? (branding?.headerTextColor && !isHexDark(branding.headerTextColor) ? branding.headerTextColor : '#FFFFFF')
+    : (branding?.headerTextColor || '#212121'));
 
-  const computedBrandText = isDark
+  const computedBrandText = themeTokens?.brandTextColor || (isDark
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
-    : (branding?.brandTextColor || primaryColor || '#0f172a');
+    : (branding?.brandTextColor || primaryColor || '#212121'));
 
-  // Footer theme follows Dashboard Store Config ("branding.themePreference").
-  // In dark/system-dark mode, the dashboard theme wins over a light custom footer color.
-  const dashboardIsDark = ownerPreference === "dark" || (ownerPreference === "system" && systemPrefersDark);
-  const dashboardSurface = dashboardIsDark
-    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
-    : (branding?.surfaceColor || '#ffffff');
-  const dashboardText = dashboardIsDark
-    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#f8fafc')
-    : (branding?.textColor || '#0f172a');
-  const dashboardTextSecondary = dashboardIsDark
-    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
-    : (branding?.textSecondaryColor || '#64748b');
-  const dashboardBorder = dashboardIsDark
-    ? (branding?.borderColor && isHexDark(branding.borderColor) ? branding.borderColor : '#1e293b')
-    : (branding?.borderColor || '#e2e8f0');
+  // Footer "Ikuti Storefront" follows the effective active Light/Dark/System theme.
+  // Custom footer color/image remain explicit footer-only overrides.
+  const dashboardIsDark = effectiveTheme === "dark";
+  const dashboardSurface = themeTokens?.surfaceColor || (dashboardIsDark
+    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#1E1E1E')
+    : (branding?.surfaceColor || '#FFFFFF'));
+  const dashboardText = themeTokens?.textColor || (dashboardIsDark
+    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#F5F5F5')
+    : (branding?.textColor || '#212121'));
+  const dashboardTextSecondary = themeTokens?.textSecondaryColor || (dashboardIsDark
+    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#B3B3B3')
+    : (branding?.textSecondaryColor || '#757575'));
+  const dashboardBorder = themeTokens?.borderColor || branding?.borderColor || (dashboardIsDark ? '#333333' : '#E5E5E5');
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
