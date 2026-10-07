@@ -205,7 +205,7 @@ export default function AdminBrandingPage() {
   // Latar Belakang Khusus Footer
   const [footerBackgroundColor, setFooterBackgroundColor] = useState("");
   const [footerBackgroundImage, setFooterBackgroundImage] = useState("");
-  const [footerBackgroundMode, setFooterBackgroundMode] = useState<"color" | "image">("color");
+  const [footerBackgroundMode, setFooterBackgroundMode] = useState<"inherit" | "color" | "image">("inherit");
 
   // Latar Belakang Khusus Auth (Login/Register)
   const [authBackgroundColor, setAuthBackgroundColor] = useState("");
@@ -282,7 +282,7 @@ export default function AdminBrandingPage() {
         setHomepageBackgroundMode(cfg.homepageBackgroundMode || "color");
         setFooterBackgroundColor(cfg.footerBackgroundColor || "");
         setFooterBackgroundImage(cfg.footerBackgroundImage || "");
-        setFooterBackgroundMode(cfg.footerBackgroundMode || "color");
+        setFooterBackgroundMode(cfg.footerBackgroundMode || "inherit");
         setAuthBackgroundColor(cfg.authBackgroundColor || "");
         setAuthBackgroundImage(cfg.authBackgroundImage || "");
         setAuthBackgroundMode(cfg.authBackgroundMode || "color");
@@ -1265,28 +1265,15 @@ export default function AdminBrandingPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Latar Belakang Khusus Footer</h3>
                   <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setFooterBackgroundMode("color")}
-                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
-                        footerBackgroundMode === "color"
-                          ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-white text-slate-600"
-                      }`}
-                    >
-                      Warna
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFooterBackgroundMode("image")}
-                      className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
-                        footerBackgroundMode === "image"
-                          ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                          : "border-slate-200 bg-white text-slate-600"
-                      }`}
-                    >
-                      Wallpaper
-                    </button>
+                    <button type="button" onClick={() => setFooterBackgroundMode("inherit")} className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                      footerBackgroundMode === "inherit" ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"
+                    }`}>Ikuti Storefront</button>
+                    <button type="button" onClick={() => setFooterBackgroundMode("color")} className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                      footerBackgroundMode === "color" ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"
+                    }`}>Warna</button>
+                    <button type="button" onClick={() => setFooterBackgroundMode("image")} className={`py-1 px-2.5 rounded-lg border text-[10px] font-bold transition ${
+                      footerBackgroundMode === "image" ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600"
+                    }`}>Wallpaper</button>
                   </div>
                 </div>
 
