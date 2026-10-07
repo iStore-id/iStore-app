@@ -122,6 +122,7 @@ export async function getPublicGameDetail(req: Request, res: Response) {
       image: p.image,
       status: p.status,
       availability: p.availability,
+      sortOrder: p.sortOrder,
       metadata: p.metadata || {}
     }));
 
