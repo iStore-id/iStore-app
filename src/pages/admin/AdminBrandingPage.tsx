@@ -1454,10 +1454,12 @@ export default function AdminBrandingPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {COLOR_PRESETS.map((p) => {
-                    const isSelected =
-                      primaryColor.toLowerCase() === p.primary.toLowerCase() &&
-                      secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
-                      brandTextColor.toLowerCase() === p.brandText.toLowerCase();
+                    const isSelected = p.name === "iStore Default"
+                      ? themePreset === "default"
+                      : themePreset === "custom" &&
+                        primaryColor.toLowerCase() === p.primary.toLowerCase() &&
+                        secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
+                        brandTextColor.toLowerCase() === p.brandText.toLowerCase();
 
                     return (
                       <button
