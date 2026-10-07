@@ -4,6 +4,7 @@ import { getUserRole } from "./auth-service.js";
 import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration, getSystemConfiguration, setSystemConfiguration } from "./core-service.js";
 import { StoreConfiguration } from "../types/core.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
+import { ISTORE_DEFAULT_THEME } from "../theme/default-theme.js";
 
 export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Response) {
   try {
@@ -246,6 +247,12 @@ export async function getStoreConfig(req: AuthenticatedRequest, res: Response) {
 export async function updateStoreConfig(req: AuthenticatedRequest, res: Response) {
   try {
     const updates = req.body;
+
+    // iStore Default is a locked preset. The server is the final authority so
+    // direct API requests cannot mutate its core color tokens.
+    if (updates.themePreset === "default") {
+      Object.assign(updates, ISTORE_DEFAULT_THEME.light);
+    }
 
     // Server-side URL validation for socialMedia
     if (updates.basicInformation?.socialMedia) {
