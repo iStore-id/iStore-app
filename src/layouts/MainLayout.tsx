@@ -63,6 +63,7 @@ interface BrandingConfig {
   footerBackgroundMode?: 'inherit' | 'color' | 'image';
   borderRadius?: string;
   buttonStyle?: string;
+  themePreset?: 'default' | 'custom';
   themePreference?: string;
   operationalStatus?: 'open' | 'closed' | 'maintenance';
   closedMessage?: string;
