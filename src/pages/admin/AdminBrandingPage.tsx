@@ -591,8 +591,9 @@ export default function AdminBrandingPage() {
               <button 
                 type="button" 
                 onClick={onSyncWithPrimary}
-                className="text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer shrink-0"
-                title="Samakan dengan warna Primary"
+                disabled={disabled}
+                className={`text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                title={disabled ? "Dikunci oleh iStore Default" : "Samakan dengan warna Primary"}
               >
                 Sync
               </button>
