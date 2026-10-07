@@ -24,7 +24,6 @@ import {
   Monitor
 } from "lucide-react";
 import { StoreConfiguration } from "../../types/core";
-import { ISTORE_DEFAULT_THEME, IStoreThemeMode, IStoreThemePreset } from "../../theme/default-theme";
 import { invalidateStoreConfigCache } from "../../lib/utils";
 
 interface MediaItem {
@@ -49,13 +48,13 @@ function hexToRgba(hex: string, opacity: number) {
 const COLOR_PRESETS = [
   { 
     name: "iStore Default", 
-    primary: "#EE4D2D", 
-    secondary: "#212121", 
-    brandText: "#212121", 
-    accent: "#FFB800",
-    hover: "#D93F22",
-    bg: "#F5F5F5",
-    surface: "#FFFFFF"
+    primary: "#ff4400", 
+    secondary: "#0f172a", 
+    brandText: "#0f172a", 
+    accent: "#f59e0b",
+    hover: "#e63d00",
+    bg: "#f8fafc",
+    surface: "#ffffff"
   },
   { 
     name: "Ocean Blue", 
@@ -195,8 +194,7 @@ export default function AdminBrandingPage() {
   // Bentuk & Style
   const [borderRadius, setBorderRadius] = useState<StoreConfiguration['borderRadius']>("xl");
   const [buttonStyle, setButtonStyle] = useState<StoreConfiguration['buttonStyle']>("solid");
-  const [themePreset, setThemePreset] = useState<IStoreThemePreset>("custom");
-  const [themePreference, setThemePreference] = useState<IStoreThemeMode>("light");
+  const [themePreference, setThemePreference] = useState<StoreConfiguration['themePreference']>("light");
   const [showGlobalBorders, setShowGlobalBorders] = useState<boolean>(true);
 
   // Latar Belakang Khusus Homepage & Layer Transaksi
@@ -277,7 +275,6 @@ export default function AdminBrandingPage() {
         setNavIndicator(cfg.navIndicator ?? true);
         setBorderRadius(cfg.borderRadius || "xl");
         setButtonStyle(cfg.buttonStyle || "solid");
-        setThemePreset(cfg.themePreset || "custom");
         setThemePreference(cfg.themePreference || "light");
         setShowGlobalBorders(cfg.showGlobalBorders ?? true);
         setHomepageBackgroundColor(cfg.homepageBackgroundColor || "");
@@ -346,24 +343,6 @@ export default function AdminBrandingPage() {
     return () => mediaQuery.removeEventListener("change", handler);
   }, []);
 
-  useEffect(() => {
-    if (themePreset !== "default") return;
-    const mode = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference;
-    const tokens = ISTORE_DEFAULT_THEME[mode];
-    setPrimaryColor(tokens.primaryColor);
-    setSecondaryColor(tokens.secondaryColor);
-    setBrandTextColor(tokens.brandTextColor);
-    setAccentColor(tokens.accentColor);
-    setHoverColor(tokens.hoverColor);
-    setBackgroundColor(tokens.backgroundColor);
-    setSurfaceColor(tokens.surfaceColor);
-    setTextColor(tokens.textColor);
-    setTextSecondaryColor(tokens.textSecondaryColor);
-    setBorderColor(tokens.borderColor);
-    setHeaderBackgroundColor(tokens.headerBackgroundColor);
-    setHeaderTextColor(tokens.headerTextColor);
-  }, [themePreset, themePreference, systemPrefersDark]);
-
   const sanitizeHex = (color: string, fallback: string): string => {
     if (!color) return fallback;
     const clean = color.startsWith("#") ? color : `#${color}`;
@@ -419,7 +398,6 @@ export default function AdminBrandingPage() {
       transactionCardBlur,
       borderRadius,
       buttonStyle,
-      themePreset,
       themePreference,
       showGlobalBorders,
       basicInformation: {
@@ -576,7 +554,6 @@ export default function AdminBrandingPage() {
     onChange: (v: string) => void; 
     placeholder: string;
     onSyncWithPrimary?: () => void;
-    disabled?: boolean;
   }) => {
     const currentColor = value.length === 7 ? value : placeholder;
 
@@ -591,9 +568,8 @@ export default function AdminBrandingPage() {
               <button 
                 type="button" 
                 onClick={onSyncWithPrimary}
-                disabled={disabled}
-                className={`text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0 ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                title={disabled ? "Dikunci oleh iStore Default" : "Samakan dengan warna Primary"}
+                className="text-[9px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer shrink-0"
+                title="Samakan dengan warna Primary"
               >
                 Sync
               </button>
@@ -604,9 +580,9 @@ export default function AdminBrandingPage() {
 
         <label 
           htmlFor={id} 
-          className={`relative h-11 w-full rounded-lg border border-slate-200/80 shadow-inner flex items-center justify-center transition-all overflow-hidden group/swatch ${disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer active:scale-[0.99]"}`}
+          className="relative h-11 w-full rounded-lg border border-slate-200/80 shadow-inner flex items-center justify-center cursor-pointer transition-all active:scale-[0.99] overflow-hidden group/swatch"
           style={{ backgroundColor: currentColor }}
-          title={disabled ? "Dikunci oleh iStore Default" : `Pilih warna untuk ${label}`}
+          title={`Pilih warna untuk ${label}`}
         >
           <div className="absolute inset-0 bg-black/0 group-hover/swatch:bg-black/10 transition-colors" />
           
@@ -615,8 +591,7 @@ export default function AdminBrandingPage() {
             type="color"
             value={currentColor}
             onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-            className={`absolute inset-0 opacity-0 w-full h-full ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
           />
 
           <span 
@@ -1031,7 +1006,6 @@ export default function AdminBrandingPage() {
                     desc="Warna latar belakang bar navigasi utama."
                     value={headerBackgroundColor}
                     onChange={setHeaderBackgroundColor}
-                    disabled={themePreset === "default"}
                     placeholder="#ffffff"
                   />
                   <ColorPickerField 
@@ -1040,7 +1014,6 @@ export default function AdminBrandingPage() {
                     desc="Warna untuk menu navigasi dan ikon di header."
                     value={headerTextColor}
                     onChange={setHeaderTextColor}
-                    disabled={themePreset === "default"}
                     placeholder="#475569"
                   />
                 </div>
@@ -1364,54 +1337,6 @@ export default function AdminBrandingPage() {
 
               {/* Subsection 4.1: Preferensi Tema */}
               <div className="space-y-2.5">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Preset Tema Toko</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {[
-                    { id: "default", label: "iStore Default", desc: "Palette resmi iStore, terkunci dan mengikuti Light/Dark/System.", icon: Sparkles },
-                    { id: "custom", label: "Custom", desc: "Owner dapat mengatur token warna secara manual.", icon: Sliders }
-                  ].map((preset) => {
-                    const Icon = preset.icon;
-                    const isSelected = themePreset === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          const nextPreset = preset.id as IStoreThemePreset;
-                          setThemePreset(nextPreset);
-                          if (nextPreset === "default") {
-                            const mode = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference;
-                            const tokens = ISTORE_DEFAULT_THEME[mode];
-                            setPrimaryColor(tokens.primaryColor);
-                            setSecondaryColor(tokens.secondaryColor);
-                            setBrandTextColor(tokens.brandTextColor);
-                            setAccentColor(tokens.accentColor);
-                            setHoverColor(tokens.hoverColor);
-                            setBackgroundColor(tokens.backgroundColor);
-                            setSurfaceColor(tokens.surfaceColor);
-                            setTextColor(tokens.textColor);
-                            setTextSecondaryColor(tokens.textSecondaryColor);
-                            setBorderColor(tokens.borderColor);
-                            setHeaderBackgroundColor(tokens.headerBackgroundColor);
-                            setHeaderTextColor(tokens.headerTextColor);
-                          }
-                        }}
-                        className={`p-3 rounded-xl border text-left transition flex items-start gap-3 ${isSelected ? "border-orange-500 bg-orange-50/70 ring-2 ring-orange-500/20 shadow-2xs" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50 bg-white"}`}
-                      >
-                        <div className={`p-2 rounded-lg ${isSelected ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-500"}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="text-xs font-bold text-slate-800">{preset.label}{preset.id === "default" ? " 🔒" : ""}</div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{preset.desc}</div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-2.5">
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Preferensi Tema Toko</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {[
@@ -1454,37 +1379,16 @@ export default function AdminBrandingPage() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {COLOR_PRESETS.map((p) => {
-                    const isSelected = p.name === "iStore Default"
-                      ? themePreset === "default"
-                      : themePreset === "custom" &&
-                        primaryColor.toLowerCase() === p.primary.toLowerCase() &&
-                        secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
-                        brandTextColor.toLowerCase() === p.brandText.toLowerCase();
+                    const isSelected =
+                      primaryColor.toLowerCase() === p.primary.toLowerCase() &&
+                      secondaryColor.toLowerCase() === p.secondary.toLowerCase() &&
+                      brandTextColor.toLowerCase() === p.brandText.toLowerCase();
 
                     return (
                       <button
                         key={p.name}
                         type="button"
                         onClick={() => {
-                          if (p.name === "iStore Default") {
-                            setThemePreset("default");
-                            const mode = themePreference === "system" ? (systemPrefersDark ? "dark" : "light") : themePreference;
-                            const tokens = ISTORE_DEFAULT_THEME[mode];
-                            setPrimaryColor(tokens.primaryColor);
-                            setSecondaryColor(tokens.secondaryColor);
-                            setBrandTextColor(tokens.brandTextColor);
-                            setAccentColor(tokens.accentColor);
-                            setHoverColor(tokens.hoverColor);
-                            setBackgroundColor(tokens.backgroundColor);
-                            setSurfaceColor(tokens.surfaceColor);
-                            setTextColor(tokens.textColor);
-                            setTextSecondaryColor(tokens.textSecondaryColor);
-                            setBorderColor(tokens.borderColor);
-                            setHeaderBackgroundColor(tokens.headerBackgroundColor);
-                            setHeaderTextColor(tokens.headerTextColor);
-                            return;
-                          }
-                          setThemePreset("custom");
                           setPrimaryColor(p.primary);
                           setSecondaryColor(p.secondary);
                           setBrandTextColor(p.brandText);
@@ -1492,6 +1396,14 @@ export default function AdminBrandingPage() {
                           setHoverColor(p.hover);
                           setBackgroundColor(p.bg);
                           setSurfaceColor(p.surface);
+
+                          if (p.name === "iStore Default") {
+                            setTextColor("#0f172a");
+                            setTextSecondaryColor("#64748b");
+                            setBorderColor("#e2e8f0");
+                            setHeaderBackgroundColor("#ffffff");
+                            setHeaderTextColor("#475569");
+                          }
                         }}
                         className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between gap-2.5 cursor-pointer ${
                           isSelected 
@@ -1535,8 +1447,7 @@ export default function AdminBrandingPage() {
                     label="1. Primary" 
                     desc="Warna utama tombol & badge." 
                     value={primaryColor} 
-                    onChange={setPrimaryColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setPrimaryColor} 
                     placeholder="#3B82F6" 
                   />
                   
@@ -1545,8 +1456,7 @@ export default function AdminBrandingPage() {
                     label="2. Secondary" 
                     desc="Warna pendukung & gradien." 
                     value={secondaryColor} 
-                    onChange={setSecondaryColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setSecondaryColor} 
                     placeholder="#1D4ED8" 
                   />
 
@@ -1555,8 +1465,7 @@ export default function AdminBrandingPage() {
                     label="3. Teks Brand" 
                     desc="Warna teks judul toko." 
                     value={brandTextColor} 
-                    onChange={setBrandTextColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setBrandTextColor} 
                     placeholder="#1E3A8A"
                     onSyncWithPrimary={() => setBrandTextColor(primaryColor)}
                   />
@@ -1566,8 +1475,7 @@ export default function AdminBrandingPage() {
                     label="4. Aksen" 
                     desc="Badge promo & diskon." 
                     value={accentColor} 
-                    onChange={setAccentColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setAccentColor} 
                     placeholder="#F59E0B" 
                   />
 
@@ -1576,8 +1484,7 @@ export default function AdminBrandingPage() {
                     label="5. Background" 
                     desc="Canvas fallback dasar." 
                     value={backgroundColor} 
-                    onChange={setBackgroundColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setBackgroundColor} 
                     placeholder="#FFFFFF" 
                   />
 
@@ -1586,8 +1493,7 @@ export default function AdminBrandingPage() {
                     label="6. Surface (L2)" 
                     desc="Kartu produk & modal." 
                     value={surfaceColor} 
-                    onChange={setSurfaceColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setSurfaceColor} 
                     placeholder="#FFFFFF" 
                   />
 
@@ -1596,8 +1502,7 @@ export default function AdminBrandingPage() {
                     label="7. Teks Utama" 
                     desc="Warna judul & heading." 
                     value={textColor} 
-                    onChange={setTextColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setTextColor} 
                     placeholder="#0F172A" 
                   />
 
@@ -1606,8 +1511,7 @@ export default function AdminBrandingPage() {
                     label="8. Teks Sekunder" 
                     desc="Subtitle & deskripsi." 
                     value={textSecondaryColor} 
-                    onChange={setTextSecondaryColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setTextSecondaryColor} 
                     placeholder="#64748B" 
                   />
 
@@ -1616,8 +1520,7 @@ export default function AdminBrandingPage() {
                     label="9. Border" 
                     desc="Garis pemisah card." 
                     value={borderColor} 
-                    onChange={setBorderColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setBorderColor} 
                     placeholder="#E2E8F0" 
                   />
 
@@ -1626,8 +1529,7 @@ export default function AdminBrandingPage() {
                     label="10. Hover" 
                     desc="Warna kursor di tombol." 
                     value={hoverColor} 
-                    onChange={setHoverColor}
-                    disabled={themePreset === "default"} 
+                    onChange={setHoverColor} 
                     placeholder="#2563EB" 
                   />
                 </div>
