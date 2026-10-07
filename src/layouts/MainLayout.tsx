@@ -404,29 +404,29 @@ export default function MainLayout() {
   
   const computedBg = isDark
     ? (branding?.backgroundColor && isHexDark(branding.backgroundColor) ? branding.backgroundColor : '#121212')
-    : (branding?.backgroundColor || '#f8fafc');
+    : (branding?.backgroundColor || '#F5F5F5');
 
   const computedSurface = isDark
     ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#1E1E1E')
-    : (branding?.surfaceColor || '#ffffff');
+    : (branding?.surfaceColor || '#FFFFFF');
 
   const computedText = isDark
     ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#F5F5F5')
-    : (branding?.textColor || '#0f172a');
+    : (branding?.textColor || '#212121');
 
   const computedTextSecondary = isDark
     ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#B3B3B3')
-    : (branding?.textSecondaryColor || '#64748b');
+    : (branding?.textSecondaryColor || '#757575');
 
-  const computedBorder = branding?.borderColor || (isDark ? '#1e293b' : '#e2e8f0');
+  const computedBorder = branding?.borderColor || (isDark ? '#333333' : '#E5E5E5');
 
   const computedHeaderBg = isDark
     ? (branding?.headerBackgroundColor && isHexDark(branding.headerBackgroundColor) ? branding.headerBackgroundColor : '#161616')
-    : (branding?.headerBackgroundColor || '#ffffff');
+    : (branding?.headerBackgroundColor || '#FFFFFF');
 
   const computedHeaderText = isDark
     ? (branding?.headerTextColor && !isHexDark(branding.headerTextColor) ? branding.headerTextColor : '#F5F5F5')
-    : (branding?.headerTextColor || '#475569');
+    : (branding?.headerTextColor || '#212121');
 
   const computedBrandText = isDark
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
@@ -436,13 +436,13 @@ export default function MainLayout() {
   // In dark/system-dark mode, the dashboard theme wins over a light custom footer color.
   const dashboardIsDark = ownerPreference === "dark" || (ownerPreference === "system" && systemPrefersDark);
   const dashboardSurface = dashboardIsDark
-    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
+    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#212121')
     : (branding?.surfaceColor || '#ffffff');
   const dashboardText = dashboardIsDark
-    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#f8fafc')
+    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#F5F5F5')
     : (branding?.textColor || '#0f172a');
   const dashboardTextSecondary = dashboardIsDark
-    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
+    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#B3B3B3')
     : (branding?.textSecondaryColor || '#64748b');
   const dashboardBorder = dashboardIsDark
     ? (branding?.borderColor && isHexDark(branding.borderColor) ? branding.borderColor : '#333333')
