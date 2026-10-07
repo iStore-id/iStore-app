@@ -432,8 +432,8 @@ export default function MainLayout() {
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
     : (branding?.brandTextColor || primaryColor || '#0f172a');
 
-  // Footer theme follows Dashboard Store Config ("branding.themePreference"),
-  // while an explicitly configured footer color still controls its own contrast.
+  // Footer theme follows Dashboard Store Config ("branding.themePreference").
+  // In dark/system-dark mode, the dashboard theme wins over a light custom footer color.
   const dashboardIsDark = ownerPreference === "dark" || (ownerPreference === "system" && systemPrefersDark);
   const dashboardSurface = dashboardIsDark
     ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
@@ -450,12 +450,16 @@ export default function MainLayout() {
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
-  const footerBackground = hasCustomFooterColor
-    ? branding?.footerBackgroundColor
-    : (hasCustomFooterImage ? "transparent" : dashboardSurface);
-  const footerIsDark = hasCustomFooterColor && branding?.footerBackgroundColor
-    ? isHexDark(branding.footerBackgroundColor)
-    : dashboardIsDark;
+  const footerBackground = dashboardIsDark
+    ? dashboardSurface
+    : (hasCustomFooterColor
+      ? branding?.footerBackgroundColor
+      : (hasCustomFooterImage ? "transparent" : dashboardSurface));
+  const footerIsDark = dashboardIsDark
+    ? true
+    : (hasCustomFooterColor && branding?.footerBackgroundColor
+      ? isHexDark(branding.footerBackgroundColor)
+      : false);
   const footerText = footerIsDark ? '#f8fafc' : dashboardText;
   const footerTextSecondary = footerIsDark ? '#cbd5e1' : dashboardTextSecondary;
   const footerTextMuted = footerIsDark ? '#94a3b8' : '#64748b';
