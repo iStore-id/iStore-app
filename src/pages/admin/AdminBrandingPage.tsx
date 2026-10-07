@@ -479,6 +479,16 @@ export default function AdminBrandingPage() {
     ? (isHexDark(transactionCardColor) ? transactionCardColor : "#0f172a")
     : transactionCardColor;
 
+  // Footer preview follows the same theme/config precedence as the storefront.
+  const previewFooterIsDark = footerBackgroundMode === "color" && footerBackgroundColor
+    ? isHexDark(footerBackgroundColor)
+    : isPreviewDark;
+  const previewFooterBackground = footerBackgroundMode === "color" && footerBackgroundColor
+    ? footerBackgroundColor
+    : (footerBackgroundMode === "image" && footerBackgroundImage ? "transparent" : (isPreviewDark ? "#0f172a" : previewSurface));
+  const previewFooterText = previewFooterIsDark ? "#f8fafc" : previewText;
+  const previewFooterTextSecondary = previewFooterIsDark ? "#cbd5e1" : previewTextSecondary;
+
   // Dynamic Radius Resolver
   const getRadiusStyle = (element: 'container' | 'button' | 'badge' = 'container') => {
     switch (borderRadius) {
@@ -2086,13 +2096,13 @@ export default function AdminBrandingPage() {
                 <div 
                   className="p-2.5 rounded-lg text-center text-[9px] transition-all relative z-10"
                   style={{ 
-                    backgroundColor: footerBackgroundMode === 'color' && footerBackgroundColor ? footerBackgroundColor : (footerBackgroundMode === 'image' ? 'transparent' : '#0f172a'),
+                    backgroundColor: previewFooterBackground,
                     backgroundImage: footerBackgroundMode === 'image' && footerBackgroundImage ? `url("${footerBackgroundImage}")` : 'none',
-                    color: '#94a3b8',
+                    color: previewFooterTextSecondary,
                     borderRadius: getRadiusStyle('container')
                   }}
                 >
-                  <p className="font-bold text-white text-[10px]">{displayName}</p>
+                  <p className="font-bold text-[10px]" style={{ color: previewFooterText }}>{displayName}</p>
                   <p className="text-[8px] mt-0.5">© 2026 {displayName}. All rights reserved.</p>
                 </div>
               </div>
