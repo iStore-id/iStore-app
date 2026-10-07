@@ -397,35 +397,35 @@ export default function MainLayout() {
   const isDark = currentPreference === "dark" || (currentPreference === "system" && systemPrefersDark);
   const effectiveTheme = isDark ? "dark" : "light";
 
-  const primaryColor = branding?.primaryColor || '#ff4400';
-  const secondaryColor = branding?.secondaryColor || '#0f172a';
-  const hoverColor = branding?.hoverColor || '#e63d00';
-  const accentColor = branding?.accentColor || '#f59e0b';
+  const primaryColor = branding?.primaryColor || '#EE4D2D';
+  const secondaryColor = branding?.secondaryColor || '#212121';
+  const hoverColor = branding?.hoverColor || '#D93F22';
+  const accentColor = branding?.accentColor || '#FFB800';
   
   const computedBg = isDark
-    ? (branding?.backgroundColor && isHexDark(branding.backgroundColor) ? branding.backgroundColor : '#090d16')
+    ? (branding?.backgroundColor && isHexDark(branding.backgroundColor) ? branding.backgroundColor : '#121212')
     : (branding?.backgroundColor || '#f8fafc');
 
   const computedSurface = isDark
-    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
+    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#1E1E1E')
     : (branding?.surfaceColor || '#ffffff');
 
   const computedText = isDark
-    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#f8fafc')
+    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#F5F5F5')
     : (branding?.textColor || '#0f172a');
 
   const computedTextSecondary = isDark
-    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
+    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#B3B3B3')
     : (branding?.textSecondaryColor || '#64748b');
 
   const computedBorder = branding?.borderColor || (isDark ? '#1e293b' : '#e2e8f0');
 
   const computedHeaderBg = isDark
-    ? (branding?.headerBackgroundColor && isHexDark(branding.headerBackgroundColor) ? branding.headerBackgroundColor : '#0b0f19')
+    ? (branding?.headerBackgroundColor && isHexDark(branding.headerBackgroundColor) ? branding.headerBackgroundColor : '#161616')
     : (branding?.headerBackgroundColor || '#ffffff');
 
   const computedHeaderText = isDark
-    ? (branding?.headerTextColor && !isHexDark(branding.headerTextColor) ? branding.headerTextColor : '#f8fafc')
+    ? (branding?.headerTextColor && !isHexDark(branding.headerTextColor) ? branding.headerTextColor : '#F5F5F5')
     : (branding?.headerTextColor || '#475569');
 
   const computedBrandText = isDark
@@ -445,7 +445,7 @@ export default function MainLayout() {
     ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
     : (branding?.textSecondaryColor || '#64748b');
   const dashboardBorder = dashboardIsDark
-    ? (branding?.borderColor && isHexDark(branding.borderColor) ? branding.borderColor : '#1e293b')
+    ? (branding?.borderColor && isHexDark(branding.borderColor) ? branding.borderColor : '#333333')
     : (branding?.borderColor || '#e2e8f0');
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
