@@ -249,10 +249,14 @@ export async function getStoreConfig(req: AuthenticatedRequest, res: Response) {
 export async function updateStoreConfig(req: AuthenticatedRequest, res: Response) {
   try {
     const updates = req.body;
+    const currentStoreConfig = await getStoreConfiguration();
+    const effectiveThemePreset = updates.themePreset ?? currentStoreConfig?.themePreset;
 
     // iStore Default is a locked preset. The server is the final authority so
-    // direct API requests cannot mutate its core color tokens.
-    if (updates.themePreset === "default") {
+    // direct API requests cannot mutate its core color tokens, including
+    // partial updates that omit themePreset while Default is already active.
+    if (effectiveThemePreset === "default") {
+      updates.themePreset = "default";
       Object.assign(updates, ISTORE_DEFAULT_THEME.light);
     }
 
