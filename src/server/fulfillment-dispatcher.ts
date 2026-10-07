@@ -1,7 +1,6 @@
 import { transitionOrderState } from "./state-machine.js";
 import { OrderRepository } from "./supabase/order-repository.js";
 import { ProviderService } from "./provider-service.js";
-import { getProvider } from "./providers.js";
 import { logSystem } from "./system-log-service.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 
@@ -50,60 +49,26 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
     throw err;
   }
 
-  // 4. Submit to provider (DI LUAR TRANSAKSI FIRESTORE - BEBAS LATENSI HTTP)
+  // 4. Submit to provider via dynamic ProviderService
   try {
-    let result: { success: boolean; reference?: string; message?: string; status?: string; providerReference?: string };
+    const providerService = ProviderService.getInstance();
+    const variantId = orderData.variantId || "";
+    const providerSku = orderData.providerSku || (orderData as any).providerProductId || "";
+    
+    const mappedCustomerData = {
+      destination: orderData.customerData?.userId || orderData.customerData?.destination || "",
+      serverId: orderData.customerData?.zoneId || orderData.customerData?.serverId || ""
+    };
 
-    try {
-      // Try to use the dynamic routing ProviderService
-      const providerService = ProviderService.getInstance();
-      const variantId = orderData.variantId || "";
-      const providerSku = orderData.providerSku || (orderData as any).providerProductId || "";
-      
-      const mappedCustomerData = {
-        destination: orderData.customerData?.userId || orderData.customerData?.destination || "",
-        serverId: orderData.customerData?.zoneId || orderData.customerData?.serverId || ""
-      };
-
-      console.log(`[Fulfillment Dispatcher] Trying dynamic ProviderService routing for ${orderId}...`);
-      const response = await providerService.fulfillOrder(orderId, variantId, providerSku, mappedCustomerData);
-      
-      result = {
-        success: response.success,
-        reference: response.providerReference || response.reference,
-        message: response.message,
-        status: response.status
-      };
-    } catch (routeErr: any) {
-      console.warn(`[Fulfillment Dispatcher] ProviderService failed or not configured for ${orderId}: ${routeErr.message}. Falling back to legacy provider.`);
-      logSystem("WARN", "PROVIDER", "PROVIDER_FALLBACK_TRIGGERED", `Dynamic routing gagal untuk ${orderId}, beralih ke legacy: ${routeErr.message}`, "fulfillment-dispatcher", {
-        orderId,
-        outcome: "WARNING",
-        metadata: { error: routeErr.message }
-      });
-      
-      // Legacy Fallback
-      const legacyProviderName = (orderData as any).provider || orderData.providerId || "apigames";
-      const legacyProvider = getProvider(legacyProviderName);
-      
-      // Format legacy order data structure to match expected
-      const legacyOrderData = {
-        id: orderId,
-        providerProductId: (orderData as any).providerProductId || orderData.providerSku || "",
-        customerData: {
-          userId: orderData.customerData?.userId || orderData.customerData?.destination || "",
-          zoneId: orderData.customerData?.zoneId || orderData.customerData?.serverId || ""
-        },
-        provider: legacyProviderName
-      };
-
-      const response = await legacyProvider.createTransaction(legacyOrderData);
-      result = {
-        success: response.success,
-        reference: response.reference,
-        message: response.message
-      };
-    }
+    console.log(`[Fulfillment Dispatcher] Executing dynamic ProviderService routing for ${orderId}...`);
+    const response = await providerService.fulfillOrder(orderId, variantId, providerSku, mappedCustomerData);
+    
+    const result = {
+      success: response.success,
+      reference: response.providerReference || response.reference,
+      message: response.message,
+      status: response.status
+    };
 
     console.log(`[Fulfillment Dispatcher] Provider response for ${orderId}:`, result);
 
