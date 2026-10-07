@@ -4,7 +4,6 @@ import { getUserRole } from "./auth-service.js";
 import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration, getSystemConfiguration, setSystemConfiguration } from "./core-service.js";
 import { StoreConfiguration } from "../types/core.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
-import { ISTORE_DEFAULT_THEME } from "../theme/default-theme.js";
 
 export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Response) {
   try {
@@ -131,7 +130,6 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
           authBackgroundMode: "color",
           borderRadius: "xl",
           buttonStyle: "solid",
-          themePreset: "custom",
           themePreference: "system",
           currency: "IDR",
           currencySymbol: "Rp",
@@ -200,7 +198,6 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         navIndicator: config.navIndicator ?? true,
         borderRadius: config.borderRadius || "xl",
         buttonStyle: config.buttonStyle || "solid",
-        themePreset: config.themePreset || "custom",
         themePreference: config.themePreference || "system",
         showGlobalBorders: config.showGlobalBorders ?? true,
         currency: config.currency || "IDR",
@@ -249,16 +246,6 @@ export async function getStoreConfig(req: AuthenticatedRequest, res: Response) {
 export async function updateStoreConfig(req: AuthenticatedRequest, res: Response) {
   try {
     const updates = req.body;
-    const currentStoreConfig = await getStoreConfiguration();
-    const effectiveThemePreset = updates.themePreset ?? currentStoreConfig?.themePreset;
-
-    // iStore Default is a locked preset. The server is the final authority so
-    // direct API requests cannot mutate its core color tokens, including
-    // partial updates that omit themePreset while Default is already active.
-    if (effectiveThemePreset === "default") {
-      updates.themePreset = "default";
-      Object.assign(updates, ISTORE_DEFAULT_THEME.light);
-    }
 
     // Server-side URL validation for socialMedia
     if (updates.basicInformation?.socialMedia) {
