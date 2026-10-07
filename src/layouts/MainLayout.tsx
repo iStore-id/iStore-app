@@ -432,9 +432,9 @@ export default function MainLayout() {
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
     : (branding?.brandTextColor || primaryColor || '#0f172a');
 
-  // Footer theme follows Dashboard Store Config ("branding.themePreference").
-  // In dark/system-dark mode, the dashboard theme wins over a light custom footer color.
-  const dashboardIsDark = ownerPreference === "dark" || (ownerPreference === "system" && systemPrefersDark);
+  // Footer follows the resolved CUSTOMER storefront theme, not the owner/admin preference.
+  // Owner/admin controls remain editable, but customer light/dark/system selection is authoritative here.
+  const dashboardIsDark = isDark;
   const dashboardSurface = dashboardIsDark
     ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#212121')
     : (branding?.surfaceColor || '#ffffff');
@@ -508,6 +508,27 @@ export default function MainLayout() {
       {/* Dynamic Branding Style Injection */}
       {branding && (
         <style>{`
+          /* Customer storefront theme normalization.
+             These overrides keep legacy Tailwind utility colors from fighting
+             the resolved light/dark/system theme outside the owner/admin dashboard. */
+          .public-storefront .bg-white { background-color: var(--surface-color) !important; }
+          .public-storefront .bg-slate-50 { background-color: var(--background-color) !important; }
+          .public-storefront .bg-slate-100 { background-color: color-mix(in srgb, var(--surface-color) 92%, var(--text-color) 8%) !important; }
+          .public-storefront .bg-slate-200 { background-color: color-mix(in srgb, var(--surface-color) 84%, var(--text-color) 16%) !important; }
+          .public-storefront .text-slate-900 { color: var(--text-color) !important; }
+          .public-storefront .text-slate-800 { color: var(--text-color) !important; }
+          .public-storefront .text-slate-700 { color: var(--text-color) !important; }
+          .public-storefront .text-slate-600 { color: var(--text-secondary-color) !important; }
+          .public-storefront .text-slate-500 { color: var(--text-secondary-color) !important; }
+          .public-storefront .text-slate-400 { color: color-mix(in srgb, var(--text-secondary-color) 72%, var(--surface-color) 28%) !important; }
+          .public-storefront .border-slate-100 { border-color: var(--border-color) !important; }
+          .public-storefront .border-slate-200 { border-color: var(--border-color) !important; }
+          .public-storefront .border-slate-200\/80 { border-color: color-mix(in srgb, var(--border-color) 80%, transparent) !important; }
+          .public-storefront .hover\\:bg-slate-50:hover { background-color: var(--background-color) !important; }
+          .public-storefront .hover\\:bg-slate-100:hover { background-color: color-mix(in srgb, var(--surface-color) 92%, var(--text-color) 8%) !important; }
+          .public-storefront .hover\\:bg-slate-200\\/60:hover { background-color: color-mix(in srgb, var(--surface-color) 84%, var(--text-color) 16%) !important; }
+          .public-storefront .hover\\:text-slate-900:hover { color: var(--text-color) !important; }
+          .public-storefront .placeholder-slate-400::placeholder { color: var(--text-secondary-color) !important; }
           .public-storefront {
             --primary-color: ${primaryColor};
             --secondary-color: ${secondaryColor};
