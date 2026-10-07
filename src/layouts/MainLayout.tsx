@@ -432,6 +432,23 @@ export default function MainLayout() {
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
     : (branding?.brandTextColor || primaryColor || '#0f172a');
 
+  const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
+  const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
+  const footerBackground = hasCustomFooterColor
+    ? branding?.footerBackgroundColor
+    : (hasCustomFooterImage ? "transparent" : computedSurface);
+  const footerIsDark = hasCustomFooterColor && branding?.footerBackgroundColor
+    ? isHexDark(branding.footerBackgroundColor)
+    : isDark;
+  const footerText = footerIsDark ? '#f8fafc' : computedText;
+  const footerTextSecondary = footerIsDark ? '#cbd5e1' : computedTextSecondary;
+  const footerTextMuted = footerIsDark ? '#94a3b8' : '#64748b';
+  const footerHeading = footerIsDark ? '#ffffff' : computedText;
+  const footerBorder = footerIsDark ? '#334155' : computedBorder;
+  const footerHover = footerIsDark ? '#ffffff' : primaryColor;
+  const footerSoftBackground = footerIsDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.06)';
+  const footerSoftBorder = footerIsDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.08)';
+
   const hasCustomColor = branding?.homepageBackgroundMode === "color" && Boolean(branding?.homepageBackgroundColor);
   const hasCustomImage = branding?.homepageBackgroundMode === "image" && Boolean(branding?.homepageBackgroundImage);
   
@@ -488,6 +505,14 @@ export default function MainLayout() {
             --header-text: ${computedHeaderText};
             --accent-color: ${accentColor};
             --hover-color: ${hoverColor};
+            --footer-text: ${footerText};
+            --footer-text-secondary: ${footerTextSecondary};
+            --footer-text-muted: ${footerTextMuted};
+            --footer-heading: ${footerHeading};
+            --footer-border: ${footerBorder};
+            --footer-hover: ${footerHover};
+            --footer-soft-background: ${footerSoftBackground};
+            --footer-soft-border: ${footerSoftBorder};
             --theme-border-radius-sm: ${radiusTokens.sm};
             --theme-border-radius-md: ${radiusTokens.md};
             --theme-border-radius-lg: ${radiusTokens.lg};
@@ -509,6 +534,17 @@ export default function MainLayout() {
             color: var(--text-color);
             color-scheme: ${effectiveTheme};
           }
+
+          .public-storefront .istore-footer .footer-text { color: var(--footer-text) !important; }
+          .public-storefront .istore-footer .footer-text-secondary { color: var(--footer-text-secondary) !important; }
+          .public-storefront .istore-footer .footer-text-muted { color: var(--footer-text-muted) !important; }
+          .public-storefront .istore-footer .footer-heading { color: var(--footer-heading) !important; }
+          .public-storefront .istore-footer .footer-border { border-color: var(--footer-border) !important; }
+          .public-storefront .istore-footer .footer-hover:hover { color: var(--footer-hover) !important; }
+          .public-storefront .istore-footer .footer-soft-bg { background-color: var(--footer-soft-background) !important; }
+          .public-storefront .istore-footer .footer-soft-border { border-color: var(--footer-soft-border) !important; }
+          .public-storefront .istore-footer .footer-social-icon { color: #ffffff !important; }
+
           
           ${isDark ? `
             /* 1. Surfaces & Backgrounds (Slate & White variants) */
@@ -1223,24 +1259,32 @@ export default function MainLayout() {
 
       {/* Footer */}
       <footer 
-        className="text-slate-400 py-8 sm:py-10 lg:py-12 mt-auto relative z-1 transition-all duration-300"
+        className="istore-footer footer-text-secondary py-8 sm:py-10 lg:py-12 mt-auto relative z-1 transition-all duration-300"
         style={{
-          backgroundColor: branding?.footerBackgroundMode === 'color' && branding?.footerBackgroundColor ? branding.footerBackgroundColor : (branding?.footerBackgroundMode === 'image' ? 'transparent' : '#0f172a'),
+          backgroundColor: footerBackground,
           backgroundImage: branding?.footerBackgroundMode === 'image' && branding?.footerBackgroundImage ? `url("${branding.footerBackgroundImage}")` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
+          backgroundRepeat: 'no-repeat',
+          ['--footer-text' as string]: footerText,
+          ['--footer-text-secondary' as string]: footerTextSecondary,
+          ['--footer-text-muted' as string]: footerTextMuted,
+          ['--footer-heading' as string]: footerHeading,
+          ['--footer-border' as string]: footerBorder,
+          ['--footer-hover' as string]: footerHover,
+          ['--footer-soft-background' as string]: footerSoftBackground,
+          ['--footer-soft-border' as string]: footerSoftBorder
         }}
       >
         <div className="max-w-7xl mx-auto px-4">
           {/* 1. Logo & Brand Info */}
-          <div className="pb-8 border-b border-slate-800">
+          <div className="pb-8 border-b footer-border">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="space-y-3 max-w-xl">
                 {branding?.logo ? (
                   <div className={`flex items-center justify-center transition-all duration-300 w-fit ${
-                    branding.logoStyle === 'circle' ? 'rounded-full aspect-square p-2 bg-white/10 border border-white/5' : 
-                    branding.logoStyle === 'rounded-box' ? 'rounded-lg p-2 bg-white/10 border border-white/5' : ''
+                    branding.logoStyle === 'circle' ? 'rounded-full aspect-square p-2 footer-soft-bg border footer-soft-border' : 
+                    branding.logoStyle === 'rounded-box' ? 'rounded-lg p-2 footer-soft-bg border footer-soft-border' : ''
                   }`}>
                     <img 
                       src={branding.logo} 
@@ -1250,14 +1294,14 @@ export default function MainLayout() {
                     />
                   </div>
                 ) : branding?.name ? (
-                  <span className="font-bold text-2xl text-white tracking-tight block">{branding.name}</span>
+                  <span className="font-bold text-2xl footer-heading tracking-tight block">{branding.name}</span>
                 ) : null}
-                <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                <p className="text-xs sm:text-sm footer-text-secondary leading-relaxed">
                   {branding?.description || "Platform Top Up Game Terpercaya"}
                 </p>
 
                 {/* Official Contact Info */}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-slate-400">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs footer-text-secondary">
                   {branding?.contactInformation?.address && (
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
@@ -1267,7 +1311,7 @@ export default function MainLayout() {
                   {branding?.contactInformation?.email && (
                     <div className="flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                      <a href={`mailto:${branding.contactInformation.email}`} className="hover:text-white transition-colors">
+                      <a href={`mailto:${branding.contactInformation.email}`} className="footer-hover transition-colors">
                         {branding.contactInformation.email}
                       </a>
                     </div>
@@ -1284,14 +1328,14 @@ export default function MainLayout() {
               {/* Verified Social Media Links */}
               {branding?.socialMedia && Object.values(branding.socialMedia).some(url => typeof url === "string" && url.startsWith("https://")) && (
                 <div className="shrink-0">
-                  <div className="text-xs font-semibold text-slate-300 mb-2">Ikuti Kami:</div>
+                  <div className="text-xs font-semibold footer-text mb-2">Ikuti Kami:</div>
                   <div className="flex flex-wrap items-center gap-2">
                     {branding.socialMedia.instagram?.startsWith("https://") && (
                       <a
                         href={branding.socialMedia.instagram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-[#E1306C] hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm"
+                        className="w-8 h-8 rounded-lg bg-[#E1306C] hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm"
                         title="Instagram"
                       >
                         <Instagram className="w-4 h-4" />
@@ -1302,7 +1346,7 @@ export default function MainLayout() {
                         href={branding.socialMedia.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-[#1877F2] hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm"
+                        className="w-8 h-8 rounded-lg bg-[#1877F2] hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm"
                         title="Facebook"
                       >
                         <Facebook className="w-4 h-4" />
@@ -1313,7 +1357,7 @@ export default function MainLayout() {
                         href={branding.socialMedia.tiktok}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-black hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm border border-white/10"
+                        className="w-8 h-8 rounded-lg bg-black hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm border border-white/10"
                         title="TikTok"
                       >
                         <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1326,7 +1370,7 @@ export default function MainLayout() {
                         href={branding.socialMedia.youtube}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-[#FF0000] hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm"
+                        className="w-8 h-8 rounded-lg bg-[#FF0000] hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm"
                         title="YouTube"
                       >
                         <Youtube className="w-4 h-4" />
@@ -1337,7 +1381,7 @@ export default function MainLayout() {
                         href={branding.socialMedia.telegram}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-[#229ED9] hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm"
+                        className="w-8 h-8 rounded-lg bg-[#229ED9] hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm"
                         title="Telegram"
                       >
                         <Send className="w-4 h-4" />
@@ -1348,7 +1392,7 @@ export default function MainLayout() {
                         href={branding.socialMedia.twitter}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-8 h-8 rounded-lg bg-black hover:opacity-80 text-white flex items-center justify-center transition-all shadow-sm border border-white/10"
+                        className="w-8 h-8 rounded-lg bg-black hover:opacity-80 footer-social-icon flex items-center justify-center transition-all shadow-sm border border-white/10"
                         title="Twitter / X"
                       >
                         <Twitter className="w-4 h-4" />
@@ -1361,8 +1405,8 @@ export default function MainLayout() {
           </div>
 
           {/* 2. Mengapa Memilih Toko Kami? - 3 Grid Horizontal */}
-          <div className="py-8 border-b border-slate-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">
+          <div className="py-8 border-b footer-border">
+            <h3 className="text-xs font-bold uppercase tracking-wider footer-text-secondary mb-4">
               Mengapa Memilih Toko Kami?
             </h3>
             <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
@@ -1371,8 +1415,8 @@ export default function MainLayout() {
                   <Clock3 className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Fulfillment Instan 24/7</h4>
-                  <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 leading-relaxed">
+                  <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Fulfillment Instan 24/7</h4>
+                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pesanan diproses otomatis secara real-time.
                   </p>
                 </div>
@@ -1383,8 +1427,8 @@ export default function MainLayout() {
                   <ShieldCheck className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Gerbang Pembayaran Aman</h4>
-                  <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 leading-relaxed">
+                  <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Gerbang Pembayaran Aman</h4>
+                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pembayaran diproses melalui payment gateway resmi.
                   </p>
                 </div>
@@ -1395,8 +1439,8 @@ export default function MainLayout() {
                   <Receipt className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">Pelacakan Transaksi Terbuka</h4>
-                  <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 leading-relaxed">
+                  <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Pelacakan Transaksi Terbuka</h4>
+                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pantau status pesanan dalam satu halaman.
                   </p>
                 </div>
@@ -1407,27 +1451,27 @@ export default function MainLayout() {
           {/* 3. Navigation Links: Layanan | Bantuan | Legal */}
           <div className="pt-8 grid grid-cols-2 md:grid-cols-3 gap-8">
             <div>
-              <h3 className="text-white font-semibold mb-4 text-sm">Layanan</h3>
+              <h3 className="footer-heading font-semibold mb-4 text-sm">Layanan</h3>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/" className="hover:text-white transition-colors">Top Up Game</Link></li>
-                <li><Link to="/blog" className="hover:text-white transition-colors">Blog & Tips Gaming</Link></li>
-                <li><Link to="/#cat-pulsa" className="hover:text-white transition-colors">Pulsa & Data</Link></li>
-                <li><Link to="/#cat-token-listrik" className="hover:text-white transition-colors">Token PLN</Link></li>
-                <li><Link to="/membership" className="hover:text-white transition-colors">VIP Membership</Link></li>
+                <li><Link to="/" className="footer-hover transition-colors">Top Up Game</Link></li>
+                <li><Link to="/blog" className="footer-hover transition-colors">Blog & Tips Gaming</Link></li>
+                <li><Link to="/#cat-pulsa" className="footer-hover transition-colors">Pulsa & Data</Link></li>
+                <li><Link to="/#cat-token-listrik" className="footer-hover transition-colors">Token PLN</Link></li>
+                <li><Link to="/membership" className="footer-hover transition-colors">VIP Membership</Link></li>
               </ul>
             </div>
 
             <div>
-              <h3 className="text-white font-semibold mb-4 text-sm">Bantuan</h3>
+              <h3 className="footer-heading font-semibold mb-4 text-sm">Bantuan</h3>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/transactions" className="hover:text-white transition-colors">Cek Transaksi</Link></li>
+                <li><Link to="/transactions" className="footer-hover transition-colors">Cek Transaksi</Link></li>
                 <li>
                   {branding?.contactInformation?.whatsapp ? (
                     <a
                       href={`https://wa.me/${branding.contactInformation.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin${branding?.name ? `%20${encodeURIComponent(branding.name)}` : ""},%20saya%20butuh%20bantuan`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="hover:text-white transition-colors flex items-center gap-1.5 text-emerald-500 font-semibold"
+                      className="footer-hover transition-colors flex items-center gap-1.5 text-emerald-500 font-semibold"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Hubungi Kami (WhatsApp)</span>
@@ -1435,39 +1479,39 @@ export default function MainLayout() {
                   ) : branding?.contactInformation?.email ? (
                     <a
                       href={`mailto:${branding.contactInformation.email}`}
-                      className="hover:text-white transition-colors"
+                      className="footer-hover transition-colors"
                     >
                       Hubungi Kami (Email)
                     </a>
                   ) : (
-                    <Link to="/faq" className="hover:text-white transition-colors">
+                    <Link to="/faq" className="footer-hover transition-colors">
                       Hubungi Kami
                     </Link>
                   )}
                 </li>
-                <li><Link to="/faq" className="hover:text-white transition-colors">FAQ</Link></li>
-                <li><Link to="/support" className="hover:text-white transition-colors">Pusat Bantuan</Link></li>
+                <li><Link to="/faq" className="footer-hover transition-colors">FAQ</Link></li>
+                <li><Link to="/support" className="footer-hover transition-colors">Pusat Bantuan</Link></li>
               </ul>
             </div>
 
             <div className="col-span-2 md:col-span-1">
-              <h3 className="text-white font-semibold mb-4 text-sm">Legal</h3>
+              <h3 className="footer-heading font-semibold mb-4 text-sm">Legal</h3>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/terms" className="hover:text-white transition-colors">Syarat & Ketentuan</Link></li>
-                <li><Link to="/privacy" className="hover:text-white transition-colors">Kebijakan Privasi</Link></li>
-                <li><Link to="/refund" className="hover:text-white transition-colors">Kebijakan Refund</Link></li>
+                <li><Link to="/terms" className="footer-hover transition-colors">Syarat & Ketentuan</Link></li>
+                <li><Link to="/privacy" className="footer-hover transition-colors">Kebijakan Privasi</Link></li>
+                <li><Link to="/refund" className="footer-hover transition-colors">Kebijakan Refund</Link></li>
               </ul>
             </div>
           </div>
 
           {/* 4. Metode Pembayaran */}
-          <div className="mt-10 pt-8 border-t border-slate-800">
-            <h3 className="text-white font-semibold mb-4 text-sm text-center md:text-left">Metode Pembayaran</h3>
+          <div className="mt-10 pt-8 border-t footer-border">
+            <h3 className="footer-heading font-semibold mb-4 text-sm text-center md:text-left">Metode Pembayaran</h3>
             <PaymentMethodLogos />
           </div>
 
           {/* 5. Copyright */}
-          <div className="mt-8 pt-8 border-t border-slate-800 text-xs sm:text-sm text-center text-slate-500">
+          <div className="mt-8 pt-8 border-t footer-border text-xs sm:text-sm text-center footer-text-muted">
             &copy; 2026. All rights reserved.
           </div>
         </div>
