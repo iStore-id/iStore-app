@@ -92,7 +92,9 @@ export async function getPublicMidtransConfig(req: Request, res: Response) {
 
 export async function getPublicStoreConfig(req: Request, res: Response) {
   try {
-    res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.setHeader("CDN-Cache-Control", "no-store");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
     const config = await getStoreConfiguration();
     if (!config) {
       return res.status(200).json({
