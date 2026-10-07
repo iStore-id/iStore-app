@@ -1090,7 +1090,7 @@ export default function GameDetailPage() {
                   {/* Kelompok QRIS */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">QRIS</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
                       ].map((method) => {
@@ -1127,7 +1127,7 @@ export default function GameDetailPage() {
                             </div>
                             <div className="mt-1">
                               <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
-                              <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
+                              {method.desc && <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>}
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
@@ -1145,16 +1145,16 @@ export default function GameDetailPage() {
                   {/* Kelompok Virtual Account */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Virtual Account</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
                       {[
-                        { id: "mandiri_va", name: "Mandiri VA", desc: "Virtual Account", logo: "/payment-logos/mandiri.svg" },
-                        { id: "bni_va", name: "BNI VA", desc: "Virtual Account", logo: "/payment-logos/bni.svg" },
-                        { id: "bri_va", name: "BRI VA", desc: "Virtual Account", logo: "/payment-logos/bri.svg" },
-                        { id: "bsi_va", name: "BSI VA", desc: "Virtual Account", logo: "/payment-logos/bsi.svg" },
-                        { id: "cimb_va", name: "CIMB Niaga VA", desc: "Virtual Account", logo: "/payment-logos/cimb-niaga.svg" },
-                        { id: "permata_va", name: "Permata VA", desc: "Virtual Account", logo: "/payment-logos/permata.svg" },
-                        { id: "maybank_va", name: "Maybank VA", desc: "Virtual Account", logo: "/payment-logos/bi-fast.svg" },
-                        { id: "danamon_va", name: "Danamon VA", desc: "Virtual Account", logo: "/payment-logos/danamon.svg" }
+                        { id: "mandiri_va", name: "Mandiri VA", logo: "/payment-logos/mandiri.svg" },
+                        { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
+                        { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
+                        { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
+                        { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
+                        { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
+                        { id: "maybank_va", name: "Maybank VA", logo: "/payment-logos/bi-fast.svg" },
+                        { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" }
                       ].map((method) => {
                         const isSelected = selectedPaymentMethod === method.id;
                         return (
@@ -1184,7 +1184,6 @@ export default function GameDetailPage() {
                             </div>
                             <div className="mt-1">
                               <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
-                              <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
@@ -1200,17 +1199,17 @@ export default function GameDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
                   {[
                     { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
                     { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
                     { id: "shopeepay", name: "ShopeePay", desc: "Pembayaran digital", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
-                    { id: "bca_va", name: "BCA VA", desc: "Virtual Account", logo: "/payment-logos/bca.svg" },
-                    { id: "bni_va", name: "BNI VA", desc: "Virtual Account", logo: "/payment-logos/bni.svg" },
-                    { id: "bri_va", name: "BRI VA", desc: "Virtual Account", logo: "/payment-logos/bri.svg" },
-                    { id: "echannel", name: "Mandiri", desc: "Virtual Account", logo: "/payment-logos/mandiri.svg" },
-                    { id: "permata_va", name: "Permata VA", desc: "Virtual Account", logo: "/payment-logos/permata.svg" },
-                    { id: "other_va", name: "VA", desc: "Virtual Account", logo: "/payment-logos/bi-fast.svg" }
+                    { id: "bca_va", name: "BCA VA", logo: "/payment-logos/bca.svg" },
+                    { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
+                    { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
+                    { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
+                    { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
+                    { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
                   ].map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
@@ -1245,7 +1244,7 @@ export default function GameDetailPage() {
                         </div>
                         <div className="mt-1">
                           <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
-                          <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
+                          {method.desc && <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>}
                         </div>
                         {isSelected && (
                           <div className="absolute top-0 right-0">
