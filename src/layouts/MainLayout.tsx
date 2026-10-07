@@ -432,19 +432,35 @@ export default function MainLayout() {
     ? (branding?.brandTextColor && !isHexDark(branding.brandTextColor) ? branding.brandTextColor : primaryColor)
     : (branding?.brandTextColor || primaryColor || '#0f172a');
 
+  // Footer theme follows Dashboard Store Config ("branding.themePreference"),
+  // while an explicitly configured footer color still controls its own contrast.
+  const dashboardIsDark = ownerPreference === "dark" || (ownerPreference === "system" && systemPrefersDark);
+  const dashboardSurface = dashboardIsDark
+    ? (branding?.surfaceColor && isHexDark(branding.surfaceColor) ? branding.surfaceColor : '#0f172a')
+    : (branding?.surfaceColor || '#ffffff');
+  const dashboardText = dashboardIsDark
+    ? (branding?.textColor && !isHexDark(branding.textColor) ? branding.textColor : '#f8fafc')
+    : (branding?.textColor || '#0f172a');
+  const dashboardTextSecondary = dashboardIsDark
+    ? (branding?.textSecondaryColor && !isHexDark(branding.textSecondaryColor) ? branding.textSecondaryColor : '#94a3b8')
+    : (branding?.textSecondaryColor || '#64748b');
+  const dashboardBorder = dashboardIsDark
+    ? (branding?.borderColor && isHexDark(branding.borderColor) ? branding.borderColor : '#1e293b')
+    : (branding?.borderColor || '#e2e8f0');
+
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
   const footerBackground = hasCustomFooterColor
     ? branding?.footerBackgroundColor
-    : (hasCustomFooterImage ? "transparent" : computedSurface);
+    : (hasCustomFooterImage ? "transparent" : dashboardSurface);
   const footerIsDark = hasCustomFooterColor && branding?.footerBackgroundColor
     ? isHexDark(branding.footerBackgroundColor)
-    : isDark;
-  const footerText = footerIsDark ? '#f8fafc' : computedText;
-  const footerTextSecondary = footerIsDark ? '#cbd5e1' : computedTextSecondary;
+    : dashboardIsDark;
+  const footerText = footerIsDark ? '#f8fafc' : dashboardText;
+  const footerTextSecondary = footerIsDark ? '#cbd5e1' : dashboardTextSecondary;
   const footerTextMuted = footerIsDark ? '#94a3b8' : '#64748b';
-  const footerHeading = footerIsDark ? '#ffffff' : computedText;
-  const footerBorder = footerIsDark ? '#334155' : computedBorder;
+  const footerHeading = footerIsDark ? '#ffffff' : dashboardText;
+  const footerBorder = footerIsDark ? '#334155' : dashboardBorder;
   const footerHover = footerIsDark ? '#ffffff' : primaryColor;
   const footerSoftBackground = footerIsDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.06)';
   const footerSoftBorder = footerIsDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.08)';
