@@ -462,6 +462,9 @@ export async function updateProviderMapping(req: AuthenticatedRequest, res: Resp
     await logAudit(req, "UPDATE_PROVIDER_MAPPING", "providerMappings", id, req.body);
     return res.status(200).json({ success: true, message: "Provider Mapping updated" });
   } catch (error: any) {
+    if (error.message === "APPROVED_MAPPING_IMMUTABLE") {
+      return res.status(400).json({ success: false, message: "Generic update is not allowed on APPROVED provider mappings." });
+    }
     return res.status(500).json({ success: false, message: error.message });
   }
 }
@@ -2046,6 +2049,10 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
           continue;
         } else if (mode === "UPDATE") {
           const existingInfo = existingMap.get(key)!;
+          if (existingInfo.data.status === "APPROVED") {
+            skippedCount++;
+            continue;
+          }
           await providerRepo.upsertMapping({
             id: existingInfo.id,
             variantId: variantId,
@@ -2053,8 +2060,8 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
             providerSku: skuData.providerSku || "", // Should be provider_sku from db
             providerSkuId: providerSkuId,
             priority: (typeof priority === "number" && priority >= 1) ? priority : Math.max(1, existingInfo.data.priority || 1),
-            status: (status || existingInfo.data.status) as any,
-            routingEligibility: typeof routingEligibility === "boolean" ? routingEligibility : existingInfo.data.routingEligibility,
+            status: existingInfo.data.status,
+            routingEligibility: existingInfo.data.routingEligibility,
             notes: notes !== undefined ? notes : (existingInfo.data.notes || ""),
             metadata: metadata !== undefined ? metadata : (existingInfo.data.metadata || {})
           });
@@ -2066,15 +2073,15 @@ export async function bulkCreateProviderMappings(req: AuthenticatedRequest, res:
           providerId,
           providerSku: skuData.providerSku || "",
           providerSkuId,
-          status: (status || "NEEDS_REVIEW") as any,
+          status: "NEEDS_REVIEW",
           priority: (typeof priority === "number" && priority >= 1) ? priority : 1,
-          routingEligibility: typeof routingEligibility === "boolean" ? routingEligibility : true,
+          routingEligibility: false,
           notes: notes || "",
           metadata: metadata || {}
         });
         successCount++;
         // Update existingMap to avoid duplicates in the same batch if necessary
-        existingMap.set(key, { id: "new", data: {} }); 
+        existingMap.set(key, { id: "new", data: { status: "NEEDS_REVIEW", routingEligibility: false } }); 
       }
     }
 

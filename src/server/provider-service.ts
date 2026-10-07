@@ -184,14 +184,14 @@ export class ProviderService {
       providerId: data.providerId,
       providerSkuId: data.providerSkuId,
       providerSku: sku.providerSku,
-      status: data.status || "UNMAPPED",
       priority: data.priority ?? 0,
-      routingEligibility: data.routingEligibility ?? true,
       metadata: data.metadata || {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       updatedBy: userId,
       ...data,
+      status: "NEEDS_REVIEW",
+      routingEligibility: false
     };
 
     await providerRepo.upsertMapping(mapping as any);
@@ -202,14 +202,22 @@ export class ProviderService {
     const mapping = await providerRepo.getMapping(id);
     if (!mapping) throw new Error("Mapping not found");
 
-    let providerSku = data.providerSku || mapping.providerSku;
-    if (data.providerSkuId && data.providerSkuId !== mapping.providerSkuId) {
-      const sku = await providerRepo.getProviderSkuById(data.providerSkuId);
+    if (mapping.status === "APPROVED") {
+      throw new Error("APPROVED_MAPPING_IMMUTABLE");
+    }
+
+    const cleanData = { ...data };
+    delete cleanData.status;
+    delete cleanData.routingEligibility;
+
+    let providerSku = cleanData.providerSku || mapping.providerSku;
+    if (cleanData.providerSkuId && cleanData.providerSkuId !== mapping.providerSkuId) {
+      const sku = await providerRepo.getProviderSkuById(cleanData.providerSkuId);
       if (sku) {
         providerSku = sku.providerSku;
       }
-    } else if (!providerSku && (data.providerSkuId || mapping.providerSkuId)) {
-      const sku = await providerRepo.getProviderSkuById(data.providerSkuId || mapping.providerSkuId);
+    } else if (!providerSku && (cleanData.providerSkuId || mapping.providerSkuId)) {
+      const sku = await providerRepo.getProviderSkuById(cleanData.providerSkuId || mapping.providerSkuId);
       if (sku) {
         providerSku = sku.providerSku;
       }
@@ -217,7 +225,9 @@ export class ProviderService {
 
     await providerRepo.upsertMapping({
       ...mapping,
-      ...data,
+      ...cleanData,
+      status: mapping.status,
+      routingEligibility: mapping.routingEligibility,
       providerSku,
       id,
       updatedAt: new Date().toISOString(),
