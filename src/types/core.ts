@@ -73,7 +73,7 @@ export interface StoreConfiguration {
   // Custom Footer Background Settings
   footerBackgroundColor?: string;
   footerBackgroundImage?: string;
-  footerBackgroundMode?: 'color' | 'image';
+  footerBackgroundMode?: 'inherit' | 'color' | 'image';
 
   // Custom Auth Background Settings (Login/Register)
   authBackgroundColor?: string;
