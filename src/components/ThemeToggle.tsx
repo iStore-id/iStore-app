@@ -111,7 +111,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
         aria-haspopup="true"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
-        className="p-2 hover:text-brand-600 rounded-full transition-all flex items-center justify-center" style={{ color: "var(--header-text)" }}
+        className="p-2 hover:text-brand-600 rounded-full transition-all flex items-center justify-center"
         style={{ color: "var(--header-text)" }}
         title={`Tema: ${
           currentPreference === "system"
