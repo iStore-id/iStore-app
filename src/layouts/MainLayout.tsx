@@ -59,7 +59,7 @@ interface BrandingConfig {
   homepageBackgroundMode?: 'color' | 'image';
   footerBackgroundColor?: string;
   footerBackgroundImage?: string;
-  footerBackgroundMode?: 'color' | 'image';
+  footerBackgroundMode?: 'inherit' | 'color' | 'image';
   borderRadius?: string;
   buttonStyle?: string;
   themePreference?: string;
@@ -450,11 +450,10 @@ export default function MainLayout() {
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
-  // Footer follows the storefront surface by default; explicit footer background remains an override.
-  const footerBackground = hasCustomFooterColor
+  const footerBackground = branding?.footerBackgroundMode === "color" && hasCustomFooterColor
     ? branding?.footerBackgroundColor
-    : (hasCustomFooterImage ? "transparent" : dashboardSurface);
-  const footerIsDark = hasCustomFooterColor && branding?.footerBackgroundColor
+    : (branding?.footerBackgroundMode === "image" && hasCustomFooterImage ? "transparent" : dashboardSurface);
+  const footerIsDark = branding?.footerBackgroundMode === "color" && hasCustomFooterColor && branding?.footerBackgroundColor
     ? isHexDark(branding.footerBackgroundColor)
     : dashboardIsDark;
   const footerText = footerIsDark ? '#f8fafc' : dashboardText;
