@@ -742,11 +742,39 @@ export default function GameDetailPage() {
       >
         {checkoutStep === 1 && (
           <>
-            {/* LAYOUT 1: Data Akun, Data Pembeli, Pilih Nominal */}
-            {/* 1. Login / Data Akun */}
+            {/* LAYOUT 1: Pilih Layanan, Data Akun, Data Pembeli, Pilih Nominal */}
+
+            {/* 1. Pilih Layanan (if multiple products available) */}
+            {products.length > 1 && (
+              <div className="space-y-4">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">1</span>
+                  Pilih Layanan
+                </h2>
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2.5">
+                  {products.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleProductChange(p)}
+                      className={`px-5 py-2.5 rounded-xl border-2 text-sm font-bold transition-all text-center ${
+                        selectedProduct?.id === p.id 
+                          ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-100" 
+                          : "border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. Login / Data Akun */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">1</span>
+                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+                  {products.length > 1 ? "2" : "1"}
+                </span>
                 Login / Data Akun
               </h2>
               {(() => {
@@ -789,11 +817,13 @@ export default function GameDetailPage() {
               })()}
             </div>
 
-            {/* Data Pembeli */}
+            {/* 3. Data Pembeli */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
+                  <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+                    {products.length > 1 ? "3" : "2"}
+                  </span>
                   Data Pembeli <span className="text-xs font-normal text-slate-400">(Opsional)</span>
                 </h2>
                 <p className="text-[11px] text-slate-400">Guna konfirmasi & bukti transaksi via WA/Email</p>
@@ -833,42 +863,17 @@ export default function GameDetailPage() {
               </div>
             </div>
 
-            {/* Select Product if multiple */}
-            {products.length > 1 && (
-              <>
-                <div className="space-y-4">
-                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
-                    Pilih Layanan
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {products.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleProductChange(p)}
-                        className={`px-5 py-2 rounded-xl border-2 text-sm font-bold transition-all ${
-                          selectedProduct?.id === p.id 
-                            ? "border-brand-600 bg-brand-600 text-white shadow-md shadow-brand-100" 
-                            : "border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200"
-                        }`}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* 2. Pilih Nominal Top-Up */}
+            {/* 4. Pilih Nominal Top-Up */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">2</span>
+                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+                  {products.length > 1 ? "4" : "3"}
+                </span>
                 Pilih Nominal Top-Up
               </h2>
-              <div className="grid grid-cols-3 gap-2 sm:gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
                 {variantsLoading ? (
-                  Array.from({ length: 6 }).map((_, idx) => (
+                  Array.from({ length: 8 }).map((_, idx) => (
                     <div
                       key={`var-skel-${idx}`}
                       className="w-full h-20 rounded-xl bg-slate-200/60 animate-pulse p-3 flex flex-col justify-between"
@@ -1085,7 +1090,7 @@ export default function GameDetailPage() {
                   {/* Kelompok QRIS */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">QRIS</h3>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "qris", name: "QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
                       ].map((method) => {
@@ -1134,7 +1139,7 @@ export default function GameDetailPage() {
                   {/* Kelompok Virtual Account */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Virtual Account</h3>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "mandiri_va", name: "Mandiri VA", logo: "/payment-logos/mandiri.svg" },
                         { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
@@ -1183,7 +1188,7 @@ export default function GameDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {[
                     { id: "qris", name: "QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
                     { id: "gopay", name: "GoPay", logo: "/payment-logos/gopay.svg" },
