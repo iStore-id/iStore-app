@@ -49,6 +49,22 @@ export async function initStoreConfiguration(ownerActor: {uid: string, email: st
         tagline: "Top up game cepat dan aman",
         socialMedia: {}
       },
+      primaryColor: "#EE4D2D",
+      secondaryColor: "#212121",
+      brandTextColor: "#212121",
+      backgroundColor: "#F5F5F5",
+      surfaceColor: "#FFFFFF",
+      textColor: "#212121",
+      textSecondaryColor: "#757575",
+      borderColor: "#E5E5E5",
+      accentColor: "#FFB800",
+      hoverColor: "#D93F22",
+      headerBackgroundColor: "#FFFFFF",
+      headerTextColor: "#212121",
+      borderRadius: "xl",
+      buttonStyle: "solid",
+      themePreference: "system",
+      showGlobalBorders: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
