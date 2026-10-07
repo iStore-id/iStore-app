@@ -524,10 +524,6 @@ export default function MainLayout() {
           .public-storefront .border-slate-100 { border-color: var(--border-color) !important; }
           .public-storefront .border-slate-200 { border-color: var(--border-color) !important; }
           .public-storefront .border-slate-200\/80 { border-color: color-mix(in srgb, var(--border-color) 80%, transparent) !important; }
-          .public-storefront .hover\\:bg-slate-50:hover { background-color: var(--background-color) !important; }
-          .public-storefront .hover\\:bg-slate-100:hover { background-color: color-mix(in srgb, var(--surface-color) 92%, var(--text-color) 8%) !important; }
-          .public-storefront .hover\\:bg-slate-200\\/60:hover { background-color: color-mix(in srgb, var(--surface-color) 84%, var(--text-color) 16%) !important; }
-          .public-storefront .hover\\:text-slate-900:hover { color: var(--text-color) !important; }
           .public-storefront .placeholder-slate-400::placeholder { color: var(--text-secondary-color) !important; }
           .public-storefront {
             --primary-color: ${primaryColor};
@@ -616,12 +612,8 @@ export default function MainLayout() {
             }
 
             /* Hover states for Slate & White */
-            .public-storefront[data-theme="dark"] .hover\\:bg-slate-50:hover,
-            .public-storefront[data-theme="dark"] .hover\\:bg-slate-100:hover,
-            .public-storefront[data-theme="dark"] .hover\\:bg-white:hover {
               background-color: #334155 !important;
             }
-            .public-storefront[data-theme="dark"] .hover\\:bg-slate-200:hover {
               background-color: #475569 !important;
             }
 
@@ -637,8 +629,6 @@ export default function MainLayout() {
             .public-storefront[data-theme="dark"] .bg-gray-200 {
               background-color: #334155 !important;
             }
-            .public-storefront[data-theme="dark"] .hover\\:bg-gray-50:hover,
-            .public-storefront[data-theme="dark"] .hover\\:bg-gray-100:hover {
               background-color: #334155 !important;
             }
             .public-storefront[data-theme="dark"] .text-gray-950,
@@ -685,10 +675,8 @@ export default function MainLayout() {
             .public-storefront[data-theme="dark"] .text-slate-300 {
               color: #cbd5e1 !important;
             }
-            .public-storefront[data-theme="dark"] .hover\\:text-slate-900:hover {
               color: #ffffff !important;
             }
-            .public-storefront[data-theme="dark"] .hover\\:text-slate-700:hover {
               color: #f1f5f9 !important;
             }
 
@@ -807,9 +795,6 @@ export default function MainLayout() {
             .public-storefront[data-theme="dark"] .text-brand-900 {
               color: #a5b4fc !important;
             }
-            .public-storefront[data-theme="dark"] .hover\\:bg-brand-50:hover,
-            .public-storefront[data-theme="dark"] .hover\\:bg-brand-50\\/60:hover,
-            .public-storefront[data-theme="dark"] .hover\\:bg-primary\\/10:hover {
               background-color: rgba(51, 65, 85, 0.7) !important;
             }
 
