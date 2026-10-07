@@ -1092,7 +1092,7 @@ export default function GameDetailPage() {
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">QRIS</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
-                        { id: "qris", name: "QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
+                        { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
                       ].map((method) => {
                         const isSelected = selectedPaymentMethod === method.id;
                         return (
@@ -1100,7 +1100,7 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-2 sm:p-2.5 rounded-xl border-2 transition-all relative overflow-hidden flex items-center justify-center h-14 sm:h-16 ${
+                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
                               isSelected
                                 ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                                 : "hover:border-brand-300"
@@ -1110,19 +1110,25 @@ export default function GameDetailPage() {
                               borderColor: "var(--border-color)"
                             }}
                           >
-                            <div className="flex items-center justify-center px-1">
-                              <img
-                                src={method.logo}
-                                alt={method.name}
-                                className="h-5 sm:h-6 w-auto max-w-[85%] max-h-full object-contain"
-                                referrerPolicy="no-referrer"
-                              />
+                            <div className="flex items-center justify-between w-full mb-1">
+                              <div className="h-5 sm:h-6 flex items-center shrink-0">
+                                <img
+                                  src={method.logo}
+                                  alt={method.name}
+                                  className="h-full w-auto max-w-[90px] object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              {method.tag && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 leading-none shrink-0">
+                                  {method.tag}
+                                </span>
+                              )}
                             </div>
-                            {method.tag && (
-                              <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 leading-none">
-                                {method.tag}
-                              </span>
-                            )}
+                            <div className="mt-1">
+                              <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
+                              <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
+                            </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
                                 <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
@@ -1141,14 +1147,14 @@ export default function GameDetailPage() {
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Virtual Account</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
-                        { id: "mandiri_va", name: "Mandiri VA", logo: "/payment-logos/mandiri.svg" },
-                        { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
-                        { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
-                        { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
-                        { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
-                        { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
-                        { id: "maybank_va", name: "Maybank VA", logo: "/payment-logos/bi-fast.svg" },
-                        { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" }
+                        { id: "mandiri_va", name: "Mandiri VA", desc: "Virtual Account", logo: "/payment-logos/mandiri.svg" },
+                        { id: "bni_va", name: "BNI VA", desc: "Virtual Account", logo: "/payment-logos/bni.svg" },
+                        { id: "bri_va", name: "BRI VA", desc: "Virtual Account", logo: "/payment-logos/bri.svg" },
+                        { id: "bsi_va", name: "BSI VA", desc: "Virtual Account", logo: "/payment-logos/bsi.svg" },
+                        { id: "cimb_va", name: "CIMB Niaga VA", desc: "Virtual Account", logo: "/payment-logos/cimb-niaga.svg" },
+                        { id: "permata_va", name: "Permata VA", desc: "Virtual Account", logo: "/payment-logos/permata.svg" },
+                        { id: "maybank_va", name: "Maybank VA", desc: "Virtual Account", logo: "/payment-logos/bi-fast.svg" },
+                        { id: "danamon_va", name: "Danamon VA", desc: "Virtual Account", logo: "/payment-logos/danamon.svg" }
                       ].map((method) => {
                         const isSelected = selectedPaymentMethod === method.id;
                         return (
@@ -1156,7 +1162,7 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-2 sm:p-2.5 rounded-xl border-2 transition-all relative overflow-hidden flex items-center justify-center h-14 sm:h-16 ${
+                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
                               isSelected
                                 ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                                 : "hover:border-brand-300"
@@ -1166,13 +1172,19 @@ export default function GameDetailPage() {
                               borderColor: "var(--border-color)"
                             }}
                           >
-                            <div className="flex items-center justify-center px-1">
-                              <img
-                                src={method.logo}
-                                alt={method.name}
-                                className="h-5 sm:h-6 w-auto max-w-[85%] max-h-full object-contain"
-                                referrerPolicy="no-referrer"
-                              />
+                            <div className="flex items-center justify-between w-full mb-1">
+                              <div className="h-5 sm:h-6 flex items-center shrink-0">
+                                <img
+                                  src={method.logo}
+                                  alt={method.name}
+                                  className="h-full w-auto max-w-[90px] object-contain"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-1">
+                              <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
+                              <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
@@ -1190,15 +1202,15 @@ export default function GameDetailPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {[
-                    { id: "qris", name: "QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
-                    { id: "gopay", name: "GoPay", logo: "/payment-logos/gopay.svg" },
-                    { id: "shopeepay", name: "ShopeePay", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
-                    { id: "bca_va", name: "BCA VA", logo: "/payment-logos/bca.svg" },
-                    { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
-                    { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
-                    { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
-                    { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
-                    { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
+                    { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
+                    { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
+                    { id: "shopeepay", name: "ShopeePay", desc: "Pembayaran digital", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
+                    { id: "bca_va", name: "BCA VA", desc: "Virtual Account", logo: "/payment-logos/bca.svg" },
+                    { id: "bni_va", name: "BNI VA", desc: "Virtual Account", logo: "/payment-logos/bni.svg" },
+                    { id: "bri_va", name: "BRI VA", desc: "Virtual Account", logo: "/payment-logos/bri.svg" },
+                    { id: "echannel", name: "Mandiri", desc: "Virtual Account", logo: "/payment-logos/mandiri.svg" },
+                    { id: "permata_va", name: "Permata VA", desc: "Virtual Account", logo: "/payment-logos/permata.svg" },
+                    { id: "other_va", name: "VA", desc: "Virtual Account", logo: "/payment-logos/bi-fast.svg" }
                   ].map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
@@ -1206,7 +1218,7 @@ export default function GameDetailPage() {
                         key={method.id}
                         type="button"
                         onClick={() => setSelectedPaymentMethod(method.id)}
-                        className={`w-full min-w-0 p-2 sm:p-2.5 rounded-xl border-2 transition-all relative overflow-hidden flex items-center justify-center h-14 sm:h-16 ${
+                        className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
                           isSelected
                             ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                             : "hover:border-brand-300"
@@ -1216,19 +1228,25 @@ export default function GameDetailPage() {
                           borderColor: "var(--border-color)"
                         }}
                       >
-                        <div className="flex items-center justify-center px-1">
-                          <img
-                            src={method.logo}
-                            alt={method.name}
-                            className="h-5 sm:h-6 w-auto max-w-[85%] max-h-full object-contain"
-                            referrerPolicy="no-referrer"
-                          />
+                        <div className="flex items-center justify-between w-full mb-1">
+                          <div className="h-5 sm:h-6 flex items-center shrink-0">
+                            <img
+                              src={method.logo}
+                              alt={method.name}
+                              className="h-full w-auto max-w-[90px] object-contain"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                          {method.tag && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 leading-none shrink-0">
+                              {method.tag}
+                            </span>
+                          )}
                         </div>
-                        {method.tag && (
-                          <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 leading-none">
-                            {method.tag}
-                          </span>
-                        )}
+                        <div className="mt-1">
+                          <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
+                          <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>
+                        </div>
                         {isSelected && (
                           <div className="absolute top-0 right-0">
                             <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
