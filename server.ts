@@ -315,7 +315,7 @@ export async function initServerLogic() {
   app.get("/api/public/catalog/games", getPublicGames);
   app.get("/api/public/catalog/categories", getPublicCategories);
   app.get("/api/public/catalog/games/:slug", getPublicGameDetail);
-  app.get("/api/public/catalog/products/:productId/variants", getPublicVariants);
+  app.get("/api/public/catalog/products/:productId/variants", optionalAuth, getPublicVariants);
   app.get("/api/public/flash-sales", getPublicFlashSales);
   
   // Pricing APIs

@@ -2,10 +2,12 @@ import { Request, Response } from "express";
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { DynamicCatalogService } from "./dynamic-catalog-service.js";
 import { FlashSaleService } from "./flash-sale-service.js";
+import { PricingService } from "./pricing-service.js";
 
 const supabaseCatalogRepo = SupabaseCatalogRepository.getInstance();
 const dynamicCatalogService = DynamicCatalogService.getInstance();
 const flashSaleService = FlashSaleService.getInstance();
+const pricingService = PricingService.getInstance();
 
 export async function getPublicGames(req: Request, res: Response) {
   try {
@@ -32,19 +34,22 @@ export async function getPublicGames(req: Request, res: Response) {
   }
 }
 
-async function resolveEnrichedVariants(productId: string) {
+async function resolveEnrichedVariants(productId: string, userId?: string) {
   const variants = await dynamicCatalogService.getMergedVariants(productId);
   
-  const formattedVariants = variants.map((v) => ({
-    id: v.id,
-    productId: v.productId,
-    name: v.name,
-    displayName: v.displayName,
-    sku: v.sku,
-    status: v.status,
-    availability: v.availability,
-    sortOrder: v.sortOrder,
-    sellingPrice: v.pricing?.sellingPrice || 0
+  const formattedVariants = await Promise.all(variants.map(async (v) => {
+    const { finalPrice } = await pricingService.resolveEffectivePrice(v, { userId });
+    return {
+      id: v.id,
+      productId: v.productId,
+      name: v.name,
+      displayName: v.displayName,
+      sku: v.sku,
+      status: v.status,
+      availability: v.availability,
+      sortOrder: v.sortOrder,
+      sellingPrice: finalPrice
+    };
   }));
 
   // Fail-safe and optimized bulk flash sale fetching
@@ -135,7 +140,8 @@ export async function getPublicGameDetail(req: Request, res: Response) {
 export async function getPublicVariants(req: Request, res: Response) {
   try {
     const { productId } = req.params;
-    const enriched = await resolveEnrichedVariants(productId);
+    const userId = (req as any).user?.uid;
+    const enriched = await resolveEnrichedVariants(productId, userId);
     return res.status(200).json({ success: true, data: enriched });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -186,7 +192,8 @@ export async function getPublicFlashSales(req: Request, res: Response) {
       const game = await supabaseCatalogRepo.getGame(product.gameId);
       if (!game || game.status !== "active") continue;
 
-      const normalPrice = variant.pricing?.sellingPrice || 0;
+      const { finalPrice } = await pricingService.resolveEffectivePrice(variant);
+      const normalPrice = finalPrice;
       const discount = normalPrice > 0 ? Math.round(((normalPrice - fs.salePrice) / normalPrice) * 100) : 0;
 
       enrichedSales.push({

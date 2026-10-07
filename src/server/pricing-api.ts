@@ -243,6 +243,7 @@ export async function bulkRefreshPrices(req: AuthenticatedRequest, res: Response
     }
 
     // Refresh harga semua variant menggunakan PricingService existing
+    pricingService.invalidateRulesCache();
     await pricingService.refreshMultipleVariantsPrice(variantIds, { uid: req.user.uid, email: req.user.email });
 
     return res.status(200).json({ success: true, message: `Successfully applied bulk pricing rules and refreshed ${variantIds.length} variants.` });
