@@ -450,16 +450,13 @@ export default function MainLayout() {
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
-  const footerBackground = dashboardIsDark
-    ? dashboardSurface
-    : (hasCustomFooterColor
-      ? branding?.footerBackgroundColor
-      : (hasCustomFooterImage ? "transparent" : dashboardSurface));
-  const footerIsDark = dashboardIsDark
-    ? true
-    : (hasCustomFooterColor && branding?.footerBackgroundColor
-      ? isHexDark(branding.footerBackgroundColor)
-      : false);
+  // Footer follows the storefront surface by default; explicit footer background remains an override.
+  const footerBackground = hasCustomFooterColor
+    ? branding?.footerBackgroundColor
+    : (hasCustomFooterImage ? "transparent" : dashboardSurface);
+  const footerIsDark = hasCustomFooterColor && branding?.footerBackgroundColor
+    ? isHexDark(branding.footerBackgroundColor)
+    : dashboardIsDark;
   const footerText = footerIsDark ? '#f8fafc' : dashboardText;
   const footerTextSecondary = footerIsDark ? '#cbd5e1' : dashboardTextSecondary;
   const footerTextMuted = footerIsDark ? '#94a3b8' : '#64748b';
