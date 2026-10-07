@@ -10,6 +10,26 @@ const pricingService = PricingService.getInstance();
 export async function createPricingRule(req: AuthenticatedRequest, res: Response) {
   try {
     const data = req.body;
+    const status = data.status || 'active';
+    const scope = data.scope;
+    const scopeId = data.scopeId || null;
+
+    if (status === 'active') {
+      let deactivateQuery = supabaseAdmin
+        .from("pricing_rules")
+        .update({ status: 'inactive', updated_at: new Date().toISOString() })
+        .eq("scope", scope)
+        .eq("status", "active");
+
+      if (scopeId) {
+        deactivateQuery = deactivateQuery.eq("scope_id", scopeId);
+      } else {
+        deactivateQuery = deactivateQuery.is("scope_id", null);
+      }
+
+      const { error: deactivateError } = await deactivateQuery;
+      if (deactivateError) throw deactivateError;
+    }
     
     // Map camelCase to snake_case for Supabase
     const ruleToInsert = {
@@ -17,10 +37,10 @@ export async function createPricingRule(req: AuthenticatedRequest, res: Response
       description: data.description,
       method: data.method,
       value: data.value,
-      scope: data.scope,
-      scope_id: data.scopeId,
+      scope: scope,
+      scope_id: scopeId,
       priority: data.priority || 0,
-      status: data.status || 'active',
+      status: status,
       effective_from: data.effectiveFrom || null,
       effective_until: data.effectiveUntil || null,
       created_by: req.user.uid,
@@ -76,6 +96,37 @@ export async function updatePricingRule(req: AuthenticatedRequest, res: Response
   try {
     const { id } = req.params;
     const data = req.body;
+
+    // Fetch the existing rule first to determine its final status, scope, and scopeId
+    const { data: existingRule, error: fetchError } = await supabaseAdmin
+      .from("pricing_rules")
+      .select("scope, scope_id, status")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const finalStatus = data.status !== undefined ? data.status : existingRule.status;
+    const finalScope = data.scope !== undefined ? data.scope : existingRule.scope;
+    const finalScopeId = data.scopeId !== undefined ? data.scopeId : existingRule.scope_id;
+
+    if (finalStatus === 'active') {
+      let deactivateQuery = supabaseAdmin
+        .from("pricing_rules")
+        .update({ status: 'inactive', updated_at: new Date().toISOString() })
+        .eq("scope", finalScope)
+        .eq("status", "active")
+        .neq("id", id);
+
+      if (finalScopeId) {
+        deactivateQuery = deactivateQuery.eq("scope_id", finalScopeId);
+      } else {
+        deactivateQuery = deactivateQuery.is("scope_id", null);
+      }
+
+      const { error: deactivateError } = await deactivateQuery;
+      if (deactivateError) throw deactivateError;
+    }
     
     // Map camelCase to snake_case for Supabase
     const updates: any = {};
