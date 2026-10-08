@@ -208,14 +208,18 @@ const AdminProvidersPage = () => {
         return <MappingsTab addTrigger={addTrigger} />;
       case 'routing':
         return (
-          <div className="min-h-[400px] flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-slate-100 rounded-xl">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-              <GitBranch className="w-8 h-8" />
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-xl flex items-start gap-3">
+              <GitBranch className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-bold text-blue-900">Routing Observability (Read-Only)</h3>
+                <p className="text-xs text-blue-800 mt-1 leading-relaxed">
+                  Tampilan ini hanya membaca mapping yang ada. Owner dapat melihat Variant → Supplier → Provider SKU → status mapping → status SKU → kesiapan routing.
+                  Algoritma routing dan data transaksi tidak diubah dari halaman ini.
+                </p>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900">Routing Policy</h3>
-            <p className="text-slate-500 max-w-sm mt-2">
-              Kebijakan routing ditentukan secara otomatis dari Mapping Priority, Provider Priority, dan Status/Health.
-            </p>
+            <MappingsTab readOnly />
           </div>
         );
       case 'discovery':
