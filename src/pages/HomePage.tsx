@@ -332,7 +332,8 @@ export default function HomePage() {
       </>
     ),
     catalog: (
-{/* Popular Games / Catalog */}
+      <>
+        {/* Popular Games / Catalog */}
       <section id="katalog" className="pt-4 sm:pt-6 pb-8 sm:pb-10 lg:pb-12 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
