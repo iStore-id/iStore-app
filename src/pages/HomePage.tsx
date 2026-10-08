@@ -44,6 +44,7 @@ export default function HomePage() {
   const [catalogMarqueeText, setCatalogMarqueeText] = useState("Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.");
   const [showCatalogMarquee, setShowCatalogMarquee] = useState<boolean>(true);
   const [homepageLayout, setHomepageLayout] = useState<any[]>(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
+  const [homepageFeaturedGameIds, setHomepageFeaturedGameIds] = useState<string[]>([]);
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const location = useLocation();
 
@@ -61,6 +62,7 @@ export default function HomePage() {
             setShowCatalogMarquee(config.showCatalogMarquee);
           }
           setHomepageLayout(normalizeHomepageLayout(config.homepageLayout));
+          setHomepageFeaturedGameIds(Array.isArray(config.homepageFeaturedGameIds) ? config.homepageFeaturedGameIds : []);
         }
       });
     };
@@ -204,6 +206,11 @@ export default function HomePage() {
       }
     }
   }, [loading, location.hash]);
+
+  const featuredGames = homepageFeaturedGameIds
+    .map(id => popularGames.find(game => game.id === id))
+    .filter((game): game is Game => Boolean(game && game.status === "active" && game.availability === "available"));
+  const featuredGameIds = new Set(featuredGames.map(game => game.id));
 
   const filteredGames = popularGames.filter((game) => {
     if (searchQuery) {
@@ -411,8 +418,33 @@ export default function HomePage() {
 
                 const isDefaultHome = navFilter.type === "all" && !searchQuery;
 
-                return categoriesToRender.map(category => {
+                return (
+                  <>
+                    {isDefaultHome && featuredGames.length > 0 && (
+                      <section className="mb-6 sm:mb-8">
+                        <div className="mb-3 sm:mb-4">
+                          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Pilihan Populer</h2>
+                          <p className="text-xs sm:text-sm text-slate-500 mt-1">Game dan layanan pilihan untuk transaksi lebih cepat.</p>
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
+                          {featuredGames.map((game) => (
+                            <Link to={`/games/${game.slug}`} key={game.id} className="group flex flex-col aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer" style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}>
+                              <div className="relative w-full h-[74%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b" style={{ borderColor: 'var(--border-color)' }}>
+                                <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover object-top transition-transform duration-500 will-change-transform group-hover:scale-105" loading="lazy" />
+                              </div>
+                              <div className="w-full h-[26%] flex items-center justify-center px-1.5 sm:px-2 py-1 text-center bg-white dark:bg-slate-900 transition-colors">
+                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-600 transition-colors">{game.name}</h3>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                    {categoriesToRender.map(category => {
                   let gamesInCategory = filteredGames.filter(game => game.categoryIds?.includes(category.id));
+                  if (isDefaultHome && featuredGameIds.size > 0) {
+                    gamesInCategory = gamesInCategory.filter(game => !featuredGameIds.has(game.id));
+                  }
                   if (gamesInCategory.length === 0) return null;
 
                   const isTopUp = category.id === "15b131f7-ef27-4df4-a788-e8d87fa4a5e6" || category.slug === "pilih-nominal" || category.name?.toUpperCase() === "TOP UP";
@@ -509,7 +541,9 @@ export default function HomePage() {
                       )}
                     </div>
                   );
-                });
+                    })}
+                  </>
+                );
               })()}
             </div>
           ) : (
