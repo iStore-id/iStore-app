@@ -15,6 +15,16 @@ export interface SystemConfiguration {
   createdAt: string;
 }
 
+export interface HomepageLayoutItem {
+  id: 'hero' | 'ticker' | 'flashSale' | 'campaign' | 'landing' | 'navigation' | 'catalog' | 'blog' | 'faq';
+  order: number;
+  visible: boolean;
+}
+
+export interface HomepageLayoutConfig {
+  items: HomepageLayoutItem[];
+}
+
 export interface StoreConfiguration {
   id?: string;
   name: string;
@@ -64,6 +74,7 @@ export interface StoreConfiguration {
   logoShowName?: boolean;
   catalogMarqueeText?: string;
   showCatalogMarquee?: boolean;
+  homepageLayout?: HomepageLayoutConfig;
   
   // Custom Homepage Background Settings
   homepageBackgroundColor?: string;
