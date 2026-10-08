@@ -197,6 +197,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         catalogMarqueeText: config.catalogMarqueeText?.trim() || "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
         showCatalogMarquee: config.showCatalogMarquee ?? true,
         homepageLayout: normalizeHomepageLayout(config.homepageLayout),
+        homepageFeaturedGameIds: normalizeHomepageFeaturedGameIds(config.homepageFeaturedGameIds),
         primaryColor: config.primaryColor || "#EE4D2D",
         secondaryColor: config.secondaryColor || "#212121",
         brandTextColor: config.brandTextColor || config.primaryColor || "#212121",
