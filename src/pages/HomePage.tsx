@@ -536,13 +536,16 @@ export default function HomePage() {
           )}
         </div>
       </section>
+      </>
     ),
     blog: (
-{/* Blog & Berita Preview Section */}
+      <>
+        {/* Blog & Berita Preview Section */
       <BlogPreviewSection />
     ),
     faq: (
-{/* Customer FAQ Preview Section */}
+      <>
+        {/* Customer FAQ Preview Section */
       {homeFaqs.length > 0 && (
         <section className="py-8 sm:py-10 lg:py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-150">
           <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
@@ -577,6 +580,7 @@ export default function HomePage() {
           </div>
         </section>
       )}
+      </>
     )
   };
 
