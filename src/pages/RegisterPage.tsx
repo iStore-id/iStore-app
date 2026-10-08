@@ -84,7 +84,12 @@ export default function RegisterPage() {
       const sbUser = data.user;
 
       // Sync to backend
-      await syncUser(sbUser, name.trim(), normalizedPhone);
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        throw new Error("Sesi autentikasi tidak tersedia setelah verifikasi OTP. Silakan coba lagi.");
+      }
+
+      await syncUser(sbUser, accessToken, name.trim(), normalizedPhone);
 
       navigate("/");
     } catch (err: any) {
@@ -95,42 +100,33 @@ export default function RegisterPage() {
     }
   };
 
-  const syncUser = async (sbUser: any, fullName: string, userPhone?: string) => {
+  const syncUser = async (sbUser: any, accessToken: string, fullName: string, userPhone?: string) => {
     const userEmail = sbUser.email || "";
-    // Owner check (server will also check)
-    const role = userEmail.trim().toLowerCase() === "chokerbayu@gmail.com" ? "pemilik" : "customer";
-    
-    try {
-      const response = await fetch("/api/auth/sync-user", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sbUser.id}`
-        },
-        body: JSON.stringify({ 
-          name: fullName || userEmail.split("@")[0] || "User", 
-          email: userEmail, 
-          phone: userPhone 
-        })
-      });
-      
-      const syncData = await response.json();
-      
-      const userData = {
-        uid: sbUser.id,
+
+    const response = await fetch("/api/auth/sync-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        name: fullName || userEmail.split("@")[0] || "User",
         email: userEmail,
-        displayName: fullName || userEmail.split("@")[0] || "User"
-      };
-      setUser(userData, syncData.role || role);
-    } catch (apiErr) {
-      console.warn("Backend sync notice error:", apiErr);
-      // Fallback local set if sync fails but auth succeeded
-      setUser({
-        uid: sbUser.id,
-        email: userEmail,
-        displayName: fullName
-      }, role);
+        phone: userPhone
+      })
+    });
+
+    const syncData = await response.json();
+    if (!response.ok || !syncData?.success) {
+      throw new Error(syncData?.message || syncData?.error || "Gagal menyinkronkan profil akun.");
     }
+
+    const userData = {
+      uid: sbUser.id,
+      email: userEmail,
+      displayName: fullName || userEmail.split("@")[0] || "User"
+    };
+    setUser(userData, syncData.role || "customer");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -197,9 +193,22 @@ export default function RegisterPage() {
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error("Gagal mendaftarkan akun.");
 
-      await syncUser(authData.user, name.trim(), finalPhone);
+      if (!authData.session?.access_token) {
+        navigate("/login");
+        return;
+      }
 
-      const role = email.trim().toLowerCase() === "chokerbayu@gmail.com" ? "pemilik" : "customer";
+      await syncUser(authData.user, authData.session.access_token, name.trim(), finalPhone);
+
+      const userEmail = authData.user.email || email.trim();
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        throw new Error("Sesi autentikasi tidak tersedia. Silakan masuk kembali.");
+      }
+
+      const { data: syncedSession } = await supabase.auth.getUser(sessionData.session.access_token);
+      const syncedEmail = syncedSession.user?.email || userEmail;
+      const role = syncedEmail.trim().toLowerCase() === "kabay.cs@gmail.com" ? "pemilik" : "customer";
       if (role === "pemilik") {
         navigate("/admin");
       } else {
