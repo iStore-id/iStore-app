@@ -6,7 +6,7 @@ import { AlertCircle, LogIn, CheckCircle2 } from "lucide-react";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { user, role } = useAuthStore();
+  const { user, role, setUser } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,12 +45,40 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const { error: loginError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (loginError) throw loginError;
-      navigate("/");
+      if (!authData.session?.access_token || !authData.user) {
+        throw new Error("Sesi autentikasi tidak tersedia. Silakan coba masuk kembali.");
+      }
+
+      const syncResponse = await fetch("/api/auth/sync-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authData.session.access_token}`
+        },
+        body: JSON.stringify({
+          name: authData.user.user_metadata?.full_name || authData.user.email?.split("@")[0] || "User",
+          email: authData.user.email || "",
+          phone: authData.user.phone || authData.user.user_metadata?.phone
+        })
+      });
+
+      const syncData = await syncResponse.json();
+      if (!syncResponse.ok || !syncData?.success) {
+        throw new Error(syncData?.message || syncData?.error || "Gagal menyinkronkan profil akun.");
+      }
+
+      setUser({
+        uid: authData.user.id,
+        email: authData.user.email || "",
+        displayName: syncData.user?.display_name || authData.user.user_metadata?.full_name || authData.user.email?.split("@")[0] || "User"
+      }, syncData.role || "customer");
+
+      navigate(syncData.role === "pemilik" ? "/admin" : "/");
     } catch (err: any) {
       console.error("Supabase Login error:", err);
       let errorMsg = "Gagal masuk. Periksa kembali email dan password Anda.";
