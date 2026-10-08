@@ -698,7 +698,8 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
                           </button>
                         </div>
                       </td>}
-                    </tr>\n                  );
+                    </tr>
+                  );
                 })
               )}
             </tbody>
