@@ -17,9 +17,10 @@ import {
 
 interface MappingsTabProps {
   addTrigger?: { tab: string; timestamp: number } | null;
+  readOnly?: boolean;
 }
 
-export default function MappingsTab({ addTrigger }: MappingsTabProps) {
+export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTabProps) {
   const { user } = useAuthStore();
 
   // Core Data
@@ -211,6 +212,19 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
   }, [skusMap, formProviderSkuId]);
 
   // Check whether a mapping is considered "Aktif"
+  const getRoutingObservability = (mapping: ProviderMapping) => {
+    const sku = skusMap.get(mapping.providerSkuId) || (mapping.providerSku ? skusByCodeMap.get(mapping.providerSku) : null);
+    const provider = providersMap.get(mapping.providerId);
+    if (mapping.status !== 'APPROVED') return { ready: false, label: 'Belum APPROVED', detail: `Status mapping ${mapping.status}` };
+    if (mapping.routingEligibility !== true) return { ready: false, label: 'Eligibility OFF', detail: 'Routing eligibility belum aktif' };
+    if (!sku) return { ready: false, label: 'SKU Tidak Ditemukan', detail: 'Provider SKU tidak ditemukan' };
+    if (sku.status !== 'active') return { ready: false, label: 'SKU NONAKTIF', detail: 'Provider SKU berstatus inactive' };
+    if (!provider) return { ready: false, label: 'Provider Tidak Ditemukan', detail: 'Provider tidak ditemukan' };
+    if (provider.status !== 'active') return { ready: false, label: 'Provider NONAKTIF', detail: `Provider berstatus ${provider.status}` };
+    if (provider.health?.state === 'maintenance') return { ready: false, label: 'Maintenance', detail: 'Provider sedang maintenance' };
+    return { ready: true, label: 'Siap Dirouting', detail: 'Mapping + SKU + provider memenuhi syarat routing' };
+  };
+
   const isMappingActive = (mapping: ProviderMapping) => {
     const isApprovedOrMapped = mapping.status === 'APPROVED' || mapping.status === 'MAPPED';
     const isEligible = mapping.routingEligibility !== false;
@@ -508,6 +522,7 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
           <button 
             onClick={handleOpenCreate}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+            hidden={readOnly}
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Pemetaan</span>
@@ -534,21 +549,23 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                 <th className="px-5 py-3.5 font-semibold text-slate-900">Supplier</th>
                 <th className="px-5 py-3.5 font-semibold text-slate-900">Produk Supplier</th>
                 <th className="px-5 py-3.5 font-semibold text-slate-900">Kode Supplier</th>
-                <th className="px-5 py-3.5 font-semibold text-slate-900 text-center">Status</th>
-                <th className="px-5 py-3.5 font-semibold text-slate-900 text-right">Aksi</th>
+                <th className="px-5 py-3.5 font-semibold text-slate-900 text-center">Status Mapping</th>
+                <th className="px-5 py-3.5 font-semibold text-slate-900 text-center">Status SKU</th>
+                <th className="px-5 py-3.5 font-semibold text-slate-900 text-center">Routing</th>
+                {!readOnly && <th className="px-5 py-3.5 font-semibold text-slate-900 text-right">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-slate-500">
+                  <td colSpan={readOnly ? 9 : 9} className="px-5 py-10 text-center text-slate-500">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-slate-400" />
                     Memuat pemetaan produk...
                   </td>
                 </tr>
               ) : filteredMappings.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
+                  <td colSpan={readOnly ? 9 : 9} className="px-5 py-12 text-center text-slate-500">
                     <LinkIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="font-medium text-slate-700">Belum ada Pemetaan Produk</p>
                     <p className="text-xs text-slate-400 mt-1">
@@ -563,6 +580,8 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                   const provider = providersMap.get(mapping.providerId);
                   const sku = skusMap.get(mapping.providerSkuId) || (mapping.providerSku ? skusByCodeMap.get(mapping.providerSku) : null);
                   const active = isMappingActive(mapping);
+                  const routing = getRoutingObservability(mapping);
+                  const skuStatus = sku?.status || null;
 
                   return (
                     <tr key={mapping.id} className="hover:bg-slate-50/70 transition-colors">
@@ -608,7 +627,7 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                         </span>
                       </td>
 
-                      {/* 6. Status */}
+                      {/* 6. Status Mapping */}
                       <td className="px-5 py-3.5 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           active 
@@ -620,8 +639,25 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                         </span>
                       </td>
 
-                      {/* 7. Aksi */}
-                      <td className="px-5 py-3.5 text-right">
+                      {/* 7. Status SKU */}
+                      <td className="px-5 py-3.5 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${skuStatus === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : skuStatus === 'inactive' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
+                          {skuStatus === 'active' ? 'AKTIF' : skuStatus === 'inactive' ? 'NONAKTIF' : 'TIDAK DITEMUKAN'}
+                        </span>
+                      </td>
+
+                      {/* 8. Routing Observability */}
+                      <td className="px-5 py-3.5 text-center">
+                        <div className="inline-flex flex-col items-center gap-0.5" title={routing.detail}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${routing.ready ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                            {routing.label}
+                          </span>
+                          <span className="text-[10px] text-slate-400 max-w-[180px] truncate">{routing.detail}</span>
+                        </div>
+                      </td>
+
+                      {/* 9. Aksi */}
+                      {!readOnly && <td className="px-5 py-3.5 text-right">
                         <div className="inline-flex items-center gap-1 justify-end">
                           {/* Quick Toggle Status */}
                           <button
@@ -661,9 +697,7 @@ export default function MappingsTab({ addTrigger }: MappingsTabProps) {
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
+                      </td>\n                      }\n                    </tr>\n                  );
                 })
               )}
             </tbody>
