@@ -508,6 +508,21 @@ class SEOService {
       });
     }
 
+    // 6. Public legal pages
+    const legalPages = [
+      { path: "/terms", priority: "0.5" },
+      { path: "/privacy", priority: "0.5" },
+      { path: "/refund", priority: "0.5" }
+    ];
+    for (const page of legalPages) {
+      urls.push({
+        loc: `${baseUrl}${page.path}`,
+        lastmod: todayIso,
+        changefreq: "monthly",
+        priority: page.priority
+      });
+    }
+
     // 6. Custom safe paths
     if (settings.sitemapPolicy.customPaths && settings.sitemapPolicy.customPaths.length > 0) {
       for (const p of settings.sitemapPolicy.customPaths) {
