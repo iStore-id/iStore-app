@@ -453,6 +453,7 @@ export default function AdminCampaignsPage() {
           <p className="text-xs text-gray-400 mt-1">Klik "Buat Campaign Baru" untuk meluncurkan kampanye pemasaran.</p>
         </div>
       ) : (
+        <>
         <div className="md:hidden space-y-3">
           {filteredCampaigns.map((c) => (
             <div key={c.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
@@ -596,6 +597,7 @@ export default function AdminCampaignsPage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Modal Form: Create / Edit Campaign */}
