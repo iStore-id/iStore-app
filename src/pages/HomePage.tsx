@@ -241,8 +241,6 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Flash Sale Section */}
-      <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
 
       {/* Homepage Store Announcement Ticker */}
       {showCatalogMarquee && (
@@ -261,6 +259,9 @@ export default function HomePage() {
           </motion.div>
         </div>
       )}
+
+      {/* Flash Sale Section */}
+      <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
 
       {/* Campaign Announcement */}
       <CampaignAnnouncement campaigns={activeCampaigns} />
