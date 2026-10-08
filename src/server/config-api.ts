@@ -10,6 +10,11 @@ const DEFAULT_HOMEPAGE_LAYOUT = {
   items: HOMEPAGE_LAYOUT_SECTION_IDS.map((id, order) => ({ id, order, visible: true }))
 };
 
+function normalizeHomepageFeaturedGameIds(value: any) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((id: any) => typeof id === "string" && id.trim() !== ""))].slice(0, 12);
+}
+
 function normalizeHomepageLayout(value: any) {
   if (!value || typeof value !== "object" || !Array.isArray(value.items)) return DEFAULT_HOMEPAGE_LAYOUT;
   const items = value.items;
@@ -271,6 +276,14 @@ export async function getStoreConfig(req: AuthenticatedRequest, res: Response) {
 export async function updateStoreConfig(req: AuthenticatedRequest, res: Response) {
   try {
     const updates = req.body;
+
+    if (updates.homepageFeaturedGameIds !== undefined) {
+      const normalizedFeatured = normalizeHomepageFeaturedGameIds(updates.homepageFeaturedGameIds);
+      if (!Array.isArray(updates.homepageFeaturedGameIds) || normalizedFeatured.length !== updates.homepageFeaturedGameIds.length) {
+        return res.status(400).json({ success: false, message: "Format homepageFeaturedGameIds tidak valid." });
+      }
+      updates.homepageFeaturedGameIds = normalizedFeatured;
+    }
 
     if (updates.homepageLayout !== undefined) {
       const normalizedLayout = normalizeHomepageLayout(updates.homepageLayout);
