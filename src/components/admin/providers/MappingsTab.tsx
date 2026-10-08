@@ -697,7 +697,8 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      </td>\n                      }\n                    </tr>\n                  );
+                      </td>}
+                    </tr>\n                  );
                 })
               )}
             </tbody>
