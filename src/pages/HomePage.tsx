@@ -241,7 +241,25 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Campaign Announcement Ticker */}
+      {/* Homepage Store Announcement Ticker */}
+      {showCatalogMarquee && (
+        <div className="overflow-hidden w-full max-w-7xl mx-auto px-4 py-1.5 sm:py-2">
+          <motion.div
+            animate={{ x: ["100%", "-100%"] }}
+            transition={{
+              repeat: Infinity,
+              repeatType: "loop",
+              duration: 16,
+              ease: "linear",
+            }}
+            className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
+          >
+            {catalogMarqueeText}
+          </motion.div>
+        </div>
+      )}
+
+      {/* Campaign Announcement */}
       <CampaignAnnouncement campaigns={activeCampaigns} />
 
       <LandingPreviewSection />
@@ -296,24 +314,7 @@ export default function HomePage() {
                     : "Hasil Pencarian"}
                 </h2>
               )}
-              {navFilter.type === "all" && !searchQuery ? (
-                showCatalogMarquee ? (
-                  <div className="overflow-hidden w-full max-w-xl py-0.5">
-                    <motion.div
-                      animate={{ x: ["100%", "-100%"] }}
-                      transition={{
-                        repeat: Infinity,
-                        repeatType: "loop",
-                        duration: 16,
-                        ease: "linear",
-                      }}
-                      className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
-                    >
-                      {catalogMarqueeText}
-                    </motion.div>
-                  </div>
-                ) : null
-              ) : (
+              {navFilter.type === "all" && !searchQuery ? null : (
                 <p className="text-slate-500 mt-1 sm:mt-1.5 text-xs sm:text-sm max-w-xl">
                   {navFilter.type === "game"
                     ? `Menampilkan produk untuk game: ${popularGames.find((g) => g.id === navFilter.id)?.name || ""}`
