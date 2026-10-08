@@ -53,6 +53,7 @@ export default function RegisterPage() {
     try {
       const { error: otpError } = await supabase.auth.signInWithOtp({
         phone: e164,
+        options: { channel: "whatsapp" },
       });
 
       if (otpError) throw otpError;
@@ -243,7 +244,10 @@ export default function RegisterPage() {
             phone={normalizedPhone}
             loading={loading}
             onVerify={handleVerifyOtp}
-            onResend={() => supabase!.auth.signInWithOtp({ phone: normalizedPhone }).then(() => {})}
+            onResend={() => supabase!.auth.signInWithOtp({
+              phone: normalizedPhone,
+              options: { channel: "whatsapp" },
+            }).then(() => {})}
           />
           <button 
             onClick={() => setShowOtp(false)}
