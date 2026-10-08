@@ -5,6 +5,29 @@ import { initStoreConfiguration, getStoreConfiguration, updateStoreConfiguration
 import { StoreConfiguration } from "../types/core.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
+const HOMEPAGE_LAYOUT_SECTION_IDS = ["hero","ticker","flashSale","campaign","landing","navigation","catalog","blog","faq"] as const;
+const DEFAULT_HOMEPAGE_LAYOUT = {
+  items: HOMEPAGE_LAYOUT_SECTION_IDS.map((id, order) => ({ id, order, visible: true }))
+};
+
+function normalizeHomepageLayout(value: any) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.items)) return DEFAULT_HOMEPAGE_LAYOUT;
+  const items = value.items;
+  const valid = items.length === HOMEPAGE_LAYOUT_SECTION_IDS.length &&
+    items.every((item: any) =>
+      item &&
+      HOMEPAGE_LAYOUT_SECTION_IDS.includes(item.id as any) &&
+      Number.isInteger(item.order) &&
+      item.order >= 0 &&
+      item.order < HOMEPAGE_LAYOUT_SECTION_IDS.length &&
+      typeof item.visible === "boolean"
+    ) &&
+    new Set(items.map((item: any) => item.id)).size === HOMEPAGE_LAYOUT_SECTION_IDS.length &&
+    new Set(items.map((item: any) => item.order)).size === HOMEPAGE_LAYOUT_SECTION_IDS.length;
+  if (!valid) return DEFAULT_HOMEPAGE_LAYOUT;
+  return { items: items.map((item: any) => ({ id: item.id, order: item.order, visible: item.visible })).sort((a: any, b: any) => a.order - b.order) };
+}
+
 export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Response) {
   try {
     const storeConfig = await getStoreConfiguration();
@@ -152,7 +175,8 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
           },
           socialMedia: {},
           catalogMarqueeText: "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
-          showCatalogMarquee: true
+          showCatalogMarquee: true,
+          homepageLayout: DEFAULT_HOMEPAGE_LAYOUT
         }
       });
     }
@@ -167,6 +191,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         tagline: config.basicInformation?.tagline || "",
         catalogMarqueeText: config.catalogMarqueeText?.trim() || "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
         showCatalogMarquee: config.showCatalogMarquee ?? true,
+        homepageLayout: normalizeHomepageLayout(config.homepageLayout),
         primaryColor: config.primaryColor || "#EE4D2D",
         secondaryColor: config.secondaryColor || "#212121",
         brandTextColor: config.brandTextColor || config.primaryColor || "#212121",
@@ -246,6 +271,14 @@ export async function getStoreConfig(req: AuthenticatedRequest, res: Response) {
 export async function updateStoreConfig(req: AuthenticatedRequest, res: Response) {
   try {
     const updates = req.body;
+
+    if (updates.homepageLayout !== undefined) {
+      const normalizedLayout = normalizeHomepageLayout(updates.homepageLayout);
+      if (normalizedLayout === DEFAULT_HOMEPAGE_LAYOUT && updates.homepageLayout?.items) {
+        return res.status(400).json({ success: false, message: "Format homepageLayout tidak valid." });
+      }
+      updates.homepageLayout = normalizedLayout;
+    }
 
     // Server-side URL validation for socialMedia
     if (updates.basicInformation?.socialMedia) {
