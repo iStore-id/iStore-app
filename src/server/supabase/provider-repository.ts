@@ -495,7 +495,20 @@ export class SupabaseProviderRepository {
       };
     }
 
-    // 2. Fetch provider details
+    // 2. Fetch provider SKU details
+    const providerSkuIds = Array.from(new Set(mappings.map(m => m.provider_sku_id)));
+    const { data: providerSkus, error: skuError } = await client
+      .from("provider_skus")
+      .select("id, status")
+      .in("id", providerSkuIds);
+
+    if (skuError) {
+      throw new Error(`Routing error querying provider SKUs: ${skuError.message}`);
+    }
+
+    const providerSkuMap = new Map<string, any>((providerSkus || []).map(sku => [sku.id, sku]));
+
+    // 3. Fetch provider details
     const providerIds = Array.from(new Set(mappings.map(m => m.provider_id)));
     const { data: providers, error: provError } = await client
       .from("providers")
@@ -508,9 +521,11 @@ export class SupabaseProviderRepository {
 
     const providerMap = new Map<string, any>((providers || []).map(p => [p.id, p]));
 
-    // 3. Filter eligible providers
+    // 4. Filter eligible provider mappings
     const eligibleMappings = mappings.filter(m => {
+      const sku = providerSkuMap.get(m.provider_sku_id);
       const p = providerMap.get(m.provider_id);
+      if (!sku || sku.status !== "active") return false;
       if (!p) return false;
       if (p.status !== "active") return false;
       if (p.health_state === "maintenance") return false;
@@ -532,7 +547,7 @@ export class SupabaseProviderRepository {
       };
     }
 
-    // 4. Sort: mapping priority DESC -> provider priority DESC -> created_at ASC
+    // 5. Sort: mapping priority DESC -> provider priority DESC -> created_at ASC
     eligibleMappings.sort((a, b) => {
       if (b.priority !== a.priority) return b.priority - a.priority;
       const provA = providerMap.get(a.provider_id);
