@@ -70,6 +70,13 @@ export class ProviderMappingService {
     const mapping = await providerRepo.getMapping(id);
     if (!mapping) throw new Error("Mapping not found");
     
+    // Provider SKU must be active before approval
+    const providerSku = await providerRepo.getProviderSkuById(mapping.providerSkuId);
+    if (!providerSku) throw new Error("Provider SKU not found");
+    if (providerSku.status !== "active") {
+      throw new Error("Cannot approve mapping for an inactive provider SKU.");
+    }
+
     // Check uniqueness constraint before approval
     const existingApproved = await providerRepo.getMappingBySkuAndStatus(mapping.providerSkuId, 'APPROVED');
     if (existingApproved && existingApproved.id !== id) {
