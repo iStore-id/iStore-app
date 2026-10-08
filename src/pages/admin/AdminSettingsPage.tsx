@@ -1,8 +1,45 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuthStore } from "../../store/auth-store";
-import { Store, Save, Loader2, Info } from "lucide-react";
+import { Store, Save, Loader2, Info, ArrowUp, ArrowDown, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { StoreConfiguration } from "../../types/core";
+
+const DEFAULT_HOMEPAGE_LAYOUT = [
+  { id: "hero", order: 0, visible: true },
+  { id: "ticker", order: 1, visible: true },
+  { id: "flashSale", order: 2, visible: true },
+  { id: "campaign", order: 3, visible: true },
+  { id: "landing", order: 4, visible: true },
+  { id: "navigation", order: 5, visible: true },
+  { id: "catalog", order: 6, visible: true },
+  { id: "blog", order: 7, visible: true },
+  { id: "faq", order: 8, visible: true }
+] as const;
+
+const HOMEPAGE_LAYOUT_LABELS: Record<string, string> = {
+  hero: "Hero / Banner",
+  ticker: "Teks Berjalan / Pengumuman",
+  flashSale: "Flash Sale",
+  campaign: "Campaign Announcement",
+  landing: "Landing / Informasi",
+  navigation: "Navigasi Kategori",
+  catalog: "Katalog Produk",
+  blog: "Blog & Berita",
+  faq: "FAQ"
+};
+
+function normalizeHomepageLayout(value: any) {
+  const defaults = DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item }));
+  if (!Array.isArray(value?.items)) return defaults;
+  const ids = new Set(value.items.map((item: any) => item?.id));
+  const valid = value.items.length === defaults.length &&
+    value.items.every((item: any) => ids.has(item.id) && typeof item.visible === "boolean");
+  if (!valid || ids.size !== defaults.length) return defaults;
+  return value.items
+    .map((item: any) => ({ id: item.id, order: Number.isInteger(item.order) ? item.order : 999, visible: item.visible }))
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((item: any, index: number) => ({ ...item, order: index }));
+}
 
 export default function AdminSettingsPage() {
   const { role, user } = useAuthStore();
@@ -11,6 +48,8 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [homepageLayout, setHomepageLayout] = useState<any[]>(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
+  const [layoutSaving, setLayoutSaving] = useState(false);
 
   useEffect(() => {
     fetchConfig();
@@ -29,6 +68,7 @@ export default function AdminSettingsPage() {
       const data = await res.json();
       if (data.success) {
         setConfig(data.data);
+        setHomepageLayout(normalizeHomepageLayout(data.data.homepageLayout));
       } else {
         setError(data.message || "Gagal memuat konfigurasi");
       }
@@ -75,6 +115,51 @@ export default function AdminSettingsPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const moveHomepageItem = (index: number, direction: -1 | 1) => {
+    setHomepageLayout(current => {
+      const next = [...current];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return current;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((item, itemIndex) => ({ ...item, order: itemIndex }));
+    });
+  };
+
+  const resetHomepageLayout = () => {
+    setHomepageLayout(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
+  };
+
+  const handleSaveHomepageLayout = async () => {
+    setLayoutSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch("/api/admin/store-config", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify({ homepageLayout: { items: homepageLayout.map((item, index) => ({ ...item, order: index })) } })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConfig(data.data);
+        setHomepageLayout(normalizeHomepageLayout(data.data.homepageLayout));
+        setSuccessMsg("Tata letak Homepage berhasil disimpan");
+        window.dispatchEvent(new Event("store-config-updated"));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setError(data.message || "Gagal menyimpan tata letak Homepage");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLayoutSaving(false);
     }
   };
 
@@ -236,6 +321,41 @@ export default function AdminSettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+              <h4 className="font-medium text-slate-800">Tata Letak Homepage</h4>
+              <p className="text-xs text-slate-500 mt-1">Atur urutan dan tampil/sembunyikan bagian Homepage. Fungsi dan rantai data setiap bagian tetap sama.</p>
+            </div>
+            <button type="button" onClick={resetHomepageLayout} className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50">
+              <RotateCcw className="w-3.5 h-3.5" />
+              Urutan Default
+            </button>
+          </div>
+          <div className="space-y-2">
+            {homepageLayout.map((item, index) => (
+              <div key={item.id} className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white">
+                <div className="w-7 text-center text-xs font-bold text-slate-400">{index + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-800">{HOMEPAGE_LAYOUT_LABELS[item.id] || item.id}</div>
+                  <div className="text-[11px] text-slate-400">{item.visible ? "Tampil" : "Disembunyikan"}</div>
+                </div>
+                <button type="button" onClick={() => moveHomepageItem(index, -1)} disabled={index === 0 || layoutSaving} className="p-2 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30" aria-label="Pindah ke atas"><ArrowUp className="w-4 h-4" /></button>
+                <button type="button" onClick={() => moveHomepageItem(index, 1)} disabled={index === homepageLayout.length - 1 || layoutSaving} className="p-2 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30" aria-label="Pindah ke bawah"><ArrowDown className="w-4 h-4" /></button>
+                <button type="button" onClick={() => setHomepageLayout(current => current.map((entry, entryIndex) => entryIndex === index ? { ...entry, visible: !entry.visible } : entry))} disabled={layoutSaving} className="p-2 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30" aria-label={item.visible ? "Sembunyikan bagian" : "Tampilkan bagian"}>
+                  {item.visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end mt-4">
+            <button type="button" onClick={handleSaveHomepageLayout} disabled={layoutSaving} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-70">
+              {layoutSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              Simpan Tata Letak
+            </button>
           </div>
         </div>
 
