@@ -25,7 +25,7 @@ interface FlashSaleGridProps {
   allowedIds?: string[];
 }
 
-const FLASH_SALE_MARQUEE_SPEED = 120; // px/sec
+const FLASH_SALE_MARQUEE_SPEED = 80; // px/sec
 
 export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
   const [flashSales, setFlashSales] = useState<FlashSaleItem[]>([]);
