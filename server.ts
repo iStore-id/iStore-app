@@ -260,10 +260,10 @@ export async function initServerLogic() {
     });
   });
 
-  // Synchronize authenticated Firebase user with Firestore and guarantee owner role
+  // Synchronize authenticated Supabase user with the canonical public profile and guarantee owner role
   app.post("/api/auth/sync-user", optionalAuth, async (req: AuthenticatedRequest, res) => {
     if (!req.user || !req.user.uid) {
-      return res.status(401).json({ success: false, message: "Unauthorized. Valid Firebase ID Token required." });
+      return res.status(401).json({ success: false, message: "Unauthorized. Valid Supabase access token required." });
     }
 
     const uid = req.user.uid;
