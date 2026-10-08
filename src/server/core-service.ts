@@ -65,6 +65,19 @@ export async function initStoreConfiguration(ownerActor: {uid: string, email: st
       buttonStyle: "solid",
       themePreference: "system",
       showGlobalBorders: true,
+      homepageLayout: {
+        items: [
+          { id: "hero", order: 0, visible: true },
+          { id: "ticker", order: 1, visible: true },
+          { id: "flashSale", order: 2, visible: true },
+          { id: "campaign", order: 3, visible: true },
+          { id: "landing", order: 4, visible: true },
+          { id: "navigation", order: 5, visible: true },
+          { id: "catalog", order: 6, visible: true },
+          { id: "blog", order: 7, visible: true },
+          { id: "faq", order: 8, visible: true }
+        ]
+      },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
