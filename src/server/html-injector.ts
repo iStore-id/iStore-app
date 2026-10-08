@@ -80,7 +80,15 @@ interface MetaInjectionParams {
   description: string;
   canonicalUrl: string;
   ogImage?: string;
+  ogImageAlt?: string;
+  ogImageWidth?: number;
+  ogImageHeight?: number;
   ogType?: string;
+  siteName?: string;
+  twitterHandle?: string;
+  twitterCreator?: string;
+  facebookAppId?: string;
+  twitterCardType?: string;
   jsonLd?: any;
   googleSiteVerification?: string;
   ga4Enabled?: boolean;
@@ -132,13 +140,22 @@ function injectMetaToHtml(template: string, meta: MetaInjectionParams): string {
   let injectedHead = `\n    <link rel="canonical" href="${safeUrl}" />\n`;
   injectedHead += `    <meta property="og:url" content="${safeUrl}" />\n`;
   injectedHead += `    <meta property="og:type" content="${safeType}" />\n`;
+  if (meta.siteName) {
+    injectedHead += `    <meta property="og:site_name" content="${escapeHtml(meta.siteName)}" />\n`;
+  }
   if (safeImage) {
     injectedHead += `    <meta property="og:image" content="${safeImage}" />\n`;
     injectedHead += `    <meta name="twitter:image" content="${safeImage}" />\n`;
+    if (meta.ogImageWidth) injectedHead += `    <meta property="og:image:width" content="${meta.ogImageWidth}" />\n`;
+    if (meta.ogImageHeight) injectedHead += `    <meta property="og:image:height" content="${meta.ogImageHeight}" />\n`;
+    if (meta.ogImageAlt) injectedHead += `    <meta property="og:image:alt" content="${escapeHtml(meta.ogImageAlt)}" />\n`;
   }
-  injectedHead += `    <meta name="twitter:card" content="summary_large_image" />\n`;
+  injectedHead += `    <meta name="twitter:card" content="${escapeHtml(meta.twitterCardType || "summary_large_image")}" />\n`;
   injectedHead += `    <meta name="twitter:title" content="${safeTitle}" />\n`;
   injectedHead += `    <meta name="twitter:description" content="${safeDesc}" />\n`;
+  if (meta.twitterHandle) injectedHead += `    <meta name="twitter:site" content="${escapeHtml(meta.twitterHandle)}" />\n`;
+  if (meta.twitterCreator) injectedHead += `    <meta name="twitter:creator" content="${escapeHtml(meta.twitterCreator)}" />\n`;
+  if (meta.facebookAppId) injectedHead += `    <meta property="fb:app_id" content="${escapeHtml(meta.facebookAppId)}" />\n`;
 
   if (meta.favicon && /^https?:\/\//i.test(meta.favicon.trim())) {
     const safeFavicon = escapeHtml(meta.favicon.trim());
@@ -177,7 +194,6 @@ export async function serveGameDetailHtml(req: Request, res: Response, next: Nex
     if (!template || !slug) {
       return next();
     }
-
     const dynamicCatalogService = DynamicCatalogService.getInstance();
     const merged = await dynamicCatalogService.getMergedGameDetail(slug);
 
@@ -249,7 +265,15 @@ export async function serveGameDetailHtml(req: Request, res: Response, next: Nex
       description,
       canonicalUrl,
       ogImage,
+      ogImageAlt: seoSettings.defaultOgImage?.altText,
+      ogImageWidth: seoSettings.defaultOgImage?.width,
+      ogImageHeight: seoSettings.defaultOgImage?.height,
       ogType: "product",
+      siteName: seoSettings.siteName,
+      twitterHandle: seoSettings.socialMetadata?.twitterHandle,
+      twitterCreator: seoSettings.socialMetadata?.twitterCreator,
+      facebookAppId: seoSettings.socialMetadata?.facebookAppId,
+      twitterCardType: seoSettings.socialMetadata?.twitterCardType,
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
@@ -348,7 +372,15 @@ export async function serveBlogDetailHtml(req: Request, res: Response, next: Nex
       description,
       canonicalUrl,
       ogImage,
+      ogImageAlt: seoSettings.defaultOgImage?.altText,
+      ogImageWidth: seoSettings.defaultOgImage?.width,
+      ogImageHeight: seoSettings.defaultOgImage?.height,
       ogType: "article",
+      siteName: seoSettings.siteName,
+      twitterHandle: seoSettings.socialMetadata?.twitterHandle,
+      twitterCreator: seoSettings.socialMetadata?.twitterCreator,
+      facebookAppId: seoSettings.socialMetadata?.facebookAppId,
+      twitterCardType: seoSettings.socialMetadata?.twitterCardType,
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
@@ -357,8 +389,7 @@ export async function serveBlogDetailHtml(req: Request, res: Response, next: Nex
     });
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-    return res.status(200).send(injectedHtml);
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");    return res.status(200).send(injectedHtml);
   } catch (error) {
     console.warn("[HTML Injector] Blog detail render fallback to SPA:", error);
     return next();
@@ -408,7 +439,15 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
       description,
       canonicalUrl,
       ogImage,
+      ogImageAlt: seoSettings.defaultOgImage?.altText,
+      ogImageWidth: seoSettings.defaultOgImage?.width,
+      ogImageHeight: seoSettings.defaultOgImage?.height,
       ogType: "website",
+      siteName: seoSettings.siteName,
+      twitterHandle: seoSettings.socialMetadata?.twitterHandle,
+      twitterCreator: seoSettings.socialMetadata?.twitterCreator,
+      facebookAppId: seoSettings.socialMetadata?.facebookAppId,
+      twitterCardType: seoSettings.socialMetadata?.twitterCardType,
       jsonLd,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
@@ -470,7 +509,16 @@ export async function serveLegalHtml(req: Request, res: Response, next: NextFunc
       title,
       description,
       canonicalUrl,
+      ogImage: seoSettings.defaultOgImage?.url,
+      ogImageAlt: seoSettings.defaultOgImage?.altText,
+      ogImageWidth: seoSettings.defaultOgImage?.width,
+      ogImageHeight: seoSettings.defaultOgImage?.height,
       ogType: "website",
+      siteName: seoSettings.siteName,
+      twitterHandle: seoSettings.socialMetadata?.twitterHandle,
+      twitterCreator: seoSettings.socialMetadata?.twitterCreator,
+      facebookAppId: seoSettings.socialMetadata?.facebookAppId,
+      twitterCardType: seoSettings.socialMetadata?.twitterCardType,
       googleSiteVerification: seoSettings.googleSiteVerification,
       ga4Enabled: seoSettings.ga4Enabled,
       ga4MeasurementId: seoSettings.ga4MeasurementId,
