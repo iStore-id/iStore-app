@@ -226,9 +226,7 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
   };
 
   const isMappingActive = (mapping: ProviderMapping) => {
-    const isApprovedOrMapped = mapping.status === 'APPROVED' || mapping.status === 'MAPPED';
-    const isEligible = mapping.routingEligibility !== false;
-    return isApprovedOrMapped && isEligible;
+    return mapping.status === 'APPROVED' && mapping.routingEligibility === true;
   };
 
   // Open Create Form Modal
