@@ -60,7 +60,7 @@ export class PricingService {
     this.rulesCache = null;
   }
 
-  async resolvePricingRule(variant: ProductVariant, product: any, context: { userId?: string } = {}): Promise<PricingRule | null> {
+  async resolvePricingRule(variant: ProductVariant, product: any, context: { userId?: string; memberPlanId?: string | null } = {}): Promise<PricingRule | null> {
     const now = new Date().toISOString();
     const nowMs = Date.now();
     
@@ -79,8 +79,8 @@ export class PricingService {
     
     if (!rulesData || rulesData.length === 0) return null;
     
-    let memberPlanId: string | null = null;
-    if (context.userId) {
+    let memberPlanId: string | null = context.memberPlanId ?? null;
+    if (context.userId && context.memberPlanId === undefined) {
       const { MembershipService } = await import("./membership-service.js");
       const membership = await MembershipService.getInstance().getCustomerMembership(context.userId);
       if (membership && membership.status === 'ACTIVE') {
@@ -260,7 +260,48 @@ export class PricingService {
     }
   }
 
-  async resolveEffectivePrice(variant: ProductVariant, context: { userId?: string } = {}, product?: any): Promise<{ finalPrice: number, ruleId?: string }> {
+  async resolveEffectivePrices(
+    variants: ProductVariant[],
+    context: { userId?: string } = {},
+    product?: any
+  ): Promise<Map<string, { finalPrice: number, ruleId?: string }>> {
+    if (variants.length === 0) return new Map();
+
+    let productObj = product;
+    if (!productObj && !variants[0].productId.startsWith("virtual-product-")) {
+      const { data: productRow } = await supabaseAdmin!
+        .from("products")
+        .select("*")
+        .eq("id", variants[0].productId)
+        .maybeSingle();
+      productObj = productRow || {};
+    }
+    if (!productObj) productObj = {};
+
+    let memberPlanId: string | null = null;
+    if (context.userId) {
+      const { MembershipService } = await import("./membership-service.js");
+      const membership = await MembershipService.getInstance().getCustomerMembership(context.userId);
+      if (membership && membership.status === 'ACTIVE') {
+        memberPlanId = membership.plan_id;
+      }
+    }
+
+    const results = new Map<string, { finalPrice: number, ruleId?: string }>();
+    for (const variant of variants) {
+      results.set(
+        variant.id,
+        await this.resolveEffectivePrice(
+          variant,
+          { userId: context.userId, memberPlanId },
+          productObj
+        )
+      );
+    }
+    return results;
+  }
+
+  async resolveEffectivePrice(variant: ProductVariant, context: { userId?: string; memberPlanId?: string | null } = {}, product?: any): Promise<{ finalPrice: number, ruleId?: string }> {
     let productObj = product;
     
     if (!productObj) {
