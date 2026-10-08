@@ -31,7 +31,9 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
   const [flashSales, setFlashSales] = useState<FlashSaleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [setAWidth, setSetAWidth] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const setARef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   
   // Motion & Drag State (Single Source of Truth)
@@ -68,25 +70,24 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
     fetchFlashSales();
   }, [allowedIdsStr]);
 
-  // Geometry Tracking: Measure Set A width for speed calculation
+  // Geometry Tracking: the loop sequence must be wider than the viewport.
+  // This prevents a short 1–2 item sequence from resetting before all cards
+  // have completely exited left and the next sequence enters from the right.
   useEffect(() => {
-    if (flashSales.length === 0 || !setARef.current) return;
+    if (flashSales.length === 0 || !setARef.current || !viewportRef.current) return;
 
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const width = entry.contentRect.width;
-        if (width > 0) {
-          setSetAWidth(width);
-        }
-      }
-    });
+    const updateGeometry = () => {
+      const viewport = viewportRef.current?.getBoundingClientRect().width ?? 0;
+      const sequence = setARef.current?.getBoundingClientRect().width ?? 0;
 
+      if (viewport > 0) setViewportWidth(viewport);
+      if (sequence > 0) setSetAWidth(sequence);
+    };
+
+    const observer = new ResizeObserver(updateGeometry);
     observer.observe(setARef.current);
-    
-    const initialWidth = setARef.current.getBoundingClientRect().width;
-    if (initialWidth > 0) {
-      setSetAWidth(initialWidth);
-    }
+    observer.observe(viewportRef.current);
+    updateGeometry();
 
     return () => observer.disconnect();
   }, [flashSales.length, loading]);
@@ -171,7 +172,15 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
     return null;
   }
 
-  const sequenceItems = flashSales;
+  const baseSequenceWidth = setAWidth > 0 ? setAWidth : 1;
+  const sequenceRepeatCount = Math.max(
+    1,
+    Math.ceil((viewportWidth + baseSequenceWidth) / baseSequenceWidth)
+  );
+  const sequenceItems = Array.from(
+    { length: sequenceRepeatCount },
+    () => flashSales
+  ).flat();
 
   return (
     <section className="w-full py-4 sm:py-5 lg:py-6 border-b border-slate-200/70 bg-transparent overflow-hidden">
@@ -191,6 +200,7 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
       </div>
 
       <div 
+        ref={viewportRef}
         className="flash-sale-viewport relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent_0%,black_16px,black_calc(100%-16px),transparent_100%)] sm:[mask-image:linear-gradient(to_right,transparent_0%,black_32px,black_calc(100%-32px),transparent_100%)] touch-pan-y select-none"
         aria-label="Flash sale conveyor marquee"
         onPointerDown={handlePointerDown}
