@@ -16,10 +16,34 @@ import BlogPreviewSection from "../components/home/BlogPreviewSection";
 import { PublicFAQItem } from "../types/faq";
 import { useSEO } from "../lib/seo";
 
+const DEFAULT_HOMEPAGE_LAYOUT = [
+  { id: "hero", order: 0, visible: true },
+  { id: "ticker", order: 1, visible: true },
+  { id: "flashSale", order: 2, visible: true },
+  { id: "campaign", order: 3, visible: true },
+  { id: "landing", order: 4, visible: true },
+  { id: "navigation", order: 5, visible: true },
+  { id: "catalog", order: 6, visible: true },
+  { id: "blog", order: 7, visible: true },
+  { id: "faq", order: 8, visible: true }
+] as const;
+
+function normalizeHomepageLayout(value: any) {
+  const defaults = DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item }));
+  if (!Array.isArray(value?.items)) return defaults;
+  const ids = new Set(value.items.map((item: any) => item?.id));
+  if (value.items.length !== defaults.length || ids.size !== defaults.length || !value.items.every((item: any) => ids.has(item?.id) && typeof item?.visible === "boolean")) return defaults;
+  return value.items
+    .map((item: any) => ({ id: item.id, order: Number.isInteger(item.order) ? item.order : 999, visible: item.visible }))
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((item: any, index: number) => ({ ...item, order: index }));
+}
+
 export default function HomePage() {
   const [storeName, setStoreName] = useState("Toko Kami");
   const [catalogMarqueeText, setCatalogMarqueeText] = useState("Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.");
   const [showCatalogMarquee, setShowCatalogMarquee] = useState<boolean>(true);
+  const [homepageLayout, setHomepageLayout] = useState<any[]>(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const location = useLocation();
 
@@ -36,6 +60,7 @@ export default function HomePage() {
           if (config.showCatalogMarquee !== undefined) {
             setShowCatalogMarquee(config.showCatalogMarquee);
           }
+          setHomepageLayout(normalizeHomepageLayout(config.homepageLayout));
         }
       });
     };
@@ -230,19 +255,17 @@ export default function HomePage() {
     ? heroBanners.filter(b => bannerIdsFilter.includes(b.id))
     : heroBanners;
 
-  return (
-    <div className="flex flex-col w-full min-h-screen">
-      <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />
-      
-      {/* Premium Hero Section */}
+  const homepageSections = {
+    hero: (
+{/* Premium Hero Section */}
       {displayedBanners.length > 0 && (
         <section className="w-full relative overflow-hidden border-b border-slate-200/80 [.public-storefront[data-theme='dark']_&]:border-slate-900 transition-colors duration-300">
           <HeroBannerCarousel banners={displayedBanners} />
         </section>
       )}
-
-
-      {/* Homepage Store Announcement Ticker */}
+    ),
+    ticker: (
+{/* Homepage Store Announcement Ticker */}
       {showCatalogMarquee && (
         <div className="overflow-hidden w-full max-w-7xl mx-auto px-4 py-1.5 sm:py-2">
           <motion.div
@@ -259,16 +282,20 @@ export default function HomePage() {
           </motion.div>
         </div>
       )}
-
-      {/* Flash Sale Section */}
+    ),
+    flashSale: (
+{/* Flash Sale Section */}
       <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
-
-      {/* Campaign Announcement */}
+    ),
+    campaign: (
+{/* Campaign Announcement */}
       <CampaignAnnouncement campaigns={activeCampaigns} />
-
-      <LandingPreviewSection />
-
-      {/* Unified Storefront Navigation Dock */}
+    ),
+    landing: (
+<LandingPreviewSection />
+    ),
+    navigation: (
+{/* Unified Storefront Navigation Dock */}
       {(popularGames.length > 0 || activeCategories.length > 0) && (
         <section className="py-2 sm:py-2.5 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200/80 sticky top-16 z-20 shadow-xs">
           <div className="max-w-7xl mx-auto">
@@ -299,8 +326,9 @@ export default function HomePage() {
           </div>
         </section>
       )}
-
-      {/* Popular Games / Catalog */}
+    ),
+    catalog: (
+{/* Popular Games / Catalog */}
       <section id="katalog" className="pt-4 sm:pt-6 pb-8 sm:pb-10 lg:pb-12 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
@@ -503,11 +531,13 @@ export default function HomePage() {
           )}
         </div>
       </section>
-
-      {/* Blog & Berita Preview Section */}
+    ),
+    blog: (
+{/* Blog & Berita Preview Section */}
       <BlogPreviewSection />
-
-      {/* Customer FAQ Preview Section */}
+    ),
+    faq: (
+{/* Customer FAQ Preview Section */}
       {homeFaqs.length > 0 && (
         <section className="py-8 sm:py-10 lg:py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-150">
           <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
@@ -542,6 +572,19 @@ export default function HomePage() {
           </div>
         </section>
       )}
+    )
+  };
+
+  const orderedHomepageSections = homepageLayout
+    .filter(item => item.visible && homepageSections[item.id as keyof typeof homepageSections])
+    .sort((a, b) => a.order - b.order)
+    .map(item => homepageSections[item.id as keyof typeof homepageSections]);
+
+  return (
+    <div className="flex flex-col w-full min-h-screen">
+      <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />
+
+      {orderedHomepageSections}
     </div>
   );
 }
