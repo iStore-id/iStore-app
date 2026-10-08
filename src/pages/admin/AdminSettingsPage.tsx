@@ -50,6 +50,9 @@ export default function AdminSettingsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [homepageLayout, setHomepageLayout] = useState<any[]>(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
   const [layoutSaving, setLayoutSaving] = useState(false);
+  const [featuredGameIds, setFeaturedGameIds] = useState<string[]>([]);
+  const [featuredGames, setFeaturedGames] = useState<any[]>([]);
+  const [featuredSaving, setFeaturedSaving] = useState(false);
 
   useEffect(() => {
     fetchConfig();
@@ -69,6 +72,14 @@ export default function AdminSettingsPage() {
       if (data.success) {
         setConfig(data.data);
         setHomepageLayout(normalizeHomepageLayout(data.data.homepageLayout));
+        setFeaturedGameIds(Array.isArray(data.data.homepageFeaturedGameIds) ? data.data.homepageFeaturedGameIds : []);
+        try {
+          const gamesRes = await fetch("/api/public/catalog/games");
+          const gamesData = await gamesRes.json();
+          if (gamesData.success && Array.isArray(gamesData.data)) setFeaturedGames(gamesData.data);
+        } catch (catalogError) {
+          console.warn("[AdminSettings] Gagal memuat pilihan game unggulan:", catalogError);
+        }
       } else {
         setError(data.message || "Gagal memuat konfigurasi");
       }
@@ -130,6 +141,36 @@ export default function AdminSettingsPage() {
 
   const resetHomepageLayout = () => {
     setHomepageLayout(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
+  };
+
+  const toggleFeaturedGame = (gameId: string) => {
+    setFeaturedGameIds(current => current.includes(gameId)
+      ? current.filter(id => id !== gameId)
+      : current.length >= 12 ? current : [...current, gameId]
+    );
+  };
+
+  const handleSaveFeaturedGames = async () => {
+    setFeaturedSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch("/api/admin/store-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+        body: JSON.stringify({ homepageFeaturedGameIds: featuredGameIds })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConfig(data.data);
+        setFeaturedGameIds(Array.isArray(data.data.homepageFeaturedGameIds) ? data.data.homepageFeaturedGameIds : []);
+        setSuccessMsg("Produk unggulan Homepage berhasil disimpan");
+        window.dispatchEvent(new Event("store-config-updated"));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else setError(data.message || "Gagal menyimpan produk unggulan Homepage");
+    } catch (err: any) { setError(err.message); }
+    finally { setFeaturedSaving(false); }
   };
 
   const handleSaveHomepageLayout = async () => {
@@ -321,6 +362,33 @@ export default function AdminSettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+            <div>
+              <h4 className="font-medium text-slate-800">Produk Unggulan Homepage</h4>
+              <p className="text-xs text-slate-500 mt-1">Pilih maksimal 12 game/layanan untuk etalase utama. Ini hanya mengatur tampilan; harga, variant, mapping, dan checkout tetap sama.</p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">{featuredGameIds.length}/12 dipilih</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-80 overflow-y-auto p-1">
+            {featuredGames.map((game) => {
+              const selected = featuredGameIds.includes(game.id);
+              return <button type="button" key={game.id} onClick={() => toggleFeaturedGame(game.id)} disabled={featuredSaving} className={`text-left p-2 rounded-xl border transition-colors ${selected ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+                <div className="flex items-center gap-2">
+                  <img src={game.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                  <span className="text-xs font-semibold text-slate-700 line-clamp-2">{game.name}</span>
+                </div>
+              </button>;
+            })}
+          </div>
+          <div className="flex justify-end mt-4">
+            <button type="button" onClick={handleSaveFeaturedGames} disabled={featuredSaving} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-70">
+              {featuredSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              Simpan Produk Unggulan
+            </button>
           </div>
         </div>
 
