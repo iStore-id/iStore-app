@@ -127,6 +127,7 @@ export default function RegisterPage() {
       displayName: fullName || userEmail.split("@")[0] || "User"
     };
     setUser(userData, syncData.role || "customer");
+    return syncData.role || "customer";
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -198,17 +199,8 @@ export default function RegisterPage() {
         return;
       }
 
-      await syncUser(authData.user, authData.session.access_token, name.trim(), finalPhone);
+      const role = await syncUser(authData.user, authData.session.access_token, name.trim(), finalPhone);
 
-      const userEmail = authData.user.email || email.trim();
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.access_token) {
-        throw new Error("Sesi autentikasi tidak tersedia. Silakan masuk kembali.");
-      }
-
-      const { data: syncedSession } = await supabase.auth.getUser(sessionData.session.access_token);
-      const syncedEmail = syncedSession.user?.email || userEmail;
-      const role = syncedEmail.trim().toLowerCase() === "kabay.cs@gmail.com" ? "pemilik" : "customer";
       if (role === "pemilik") {
         navigate("/admin");
       } else {
