@@ -38,12 +38,13 @@ const AdminProvidersPage = () => {
     { id: 'skus', title: 'Produk Supplier', icon: Package },
     { id: 'mappings', title: 'Hubungan Produk', icon: LinkIcon },
     { id: 'routing', title: 'Pengaturan Jalur', icon: GitBranch },
+    { id: 'approval', title: 'Kandidat Approval', icon: ListChecks },
     { id: 'discovery', title: 'Tarik Produk', icon: Activity },
   ];
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['providers', 'skus', 'mappings', 'routing', 'discovery'].includes(tabParam)) {
+    if (tabParam && ['providers', 'skus', 'mappings', 'routing', 'approval', 'discovery'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -220,6 +221,22 @@ const AdminProvidersPage = () => {
               </div>
             </div>
             <MappingsTab readOnly />
+          </div>
+        );
+      case 'approval':
+        return (
+          <div className="space-y-4">
+            <div className="p-4 bg-amber-50/60 border border-amber-100 rounded-xl flex items-start gap-3">
+              <ListChecks className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Kandidat Approval (Read-Only)</h3>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  Owner dapat meninjau kandidat berdasarkan status Variant, Product, Game Master, SKU supplier, nama, base cost, operator, kategori, dan type.
+                  Halaman ini tidak melakukan approve/reject dan tidak mengubah data produksi.
+                </p>
+              </div>
+            </div>
+            <MappingsTab readOnly approvalReview />
           </div>
         );
       case 'discovery':
