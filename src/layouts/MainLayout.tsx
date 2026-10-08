@@ -450,11 +450,18 @@ export default function MainLayout() {
 
   const hasCustomFooterColor = branding?.footerBackgroundMode === "color" && Boolean(branding?.footerBackgroundColor);
   const hasCustomFooterImage = branding?.footerBackgroundMode === "image" && Boolean(branding?.footerBackgroundImage);
+  // Preserve editable footer branding, but never let a saved light footer color
+  // override the resolved dark customer theme (or vice versa).
+  const effectiveFooterColor = hasCustomFooterColor && branding?.footerBackgroundColor
+    ? (dashboardIsDark
+        ? (isHexDark(branding.footerBackgroundColor) ? branding.footerBackgroundColor : dashboardSurface)
+        : (isHexDark(branding.footerBackgroundColor) ? branding.footerBackgroundColor : branding.footerBackgroundColor))
+    : dashboardSurface;
   const footerBackground = branding?.footerBackgroundMode === "color" && hasCustomFooterColor
-    ? branding?.footerBackgroundColor
+    ? effectiveFooterColor
     : (branding?.footerBackgroundMode === "image" && hasCustomFooterImage ? "transparent" : dashboardSurface);
-  const footerIsDark = branding?.footerBackgroundMode === "color" && hasCustomFooterColor && branding?.footerBackgroundColor
-    ? isHexDark(branding.footerBackgroundColor)
+  const footerIsDark = branding?.footerBackgroundMode === "color" && hasCustomFooterColor
+    ? isHexDark(effectiveFooterColor)
     : dashboardIsDark;
   const footerText = footerIsDark ? '#f8fafc' : dashboardText;
   const footerTextSecondary = footerIsDark ? '#cbd5e1' : dashboardTextSecondary;
