@@ -462,7 +462,10 @@ export default function AdminGamesPage() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          categoryIds: [targetCategoryId]
+          categoryIds: Array.from(new Set([
+            ...(movingGameCategory.categoryIds || []).filter(Boolean),
+            targetCategoryId
+          ]))
         })
       });
 
@@ -2085,7 +2088,9 @@ export default function AdminGamesPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Pindahkan Kategori</h2>
+                  <h2 className="text-lg font-bold text-slate-900">
+                    {((movingGameCategory.categoryIds || []).length > 1) ? "Tambah Kategori" : "Pindahkan Kategori"}
+                  </h2>
                   <p className="text-sm text-slate-500 mt-1">
                     Game: <span className="font-semibold text-slate-700">{movingGameCategory.name}</span>
                   </p>
@@ -2135,9 +2140,18 @@ export default function AdminGamesPage() {
                         </option>
                       ))}
                   </select>
-                  <p className="mt-2 text-[11px] text-slate-400">
-                    Aksi ini memindahkan Game Master ke satu kategori tujuan. Produk, variant, mapping, dan supplier tidak diubah.
+                  <p className="mt-2 text-[11px] text-slate-500">
+                    Kategori yang sudah dimiliki Game akan tetap dipertahankan. Kategori tujuan akan ditambahkan. Produk, variant, mapping, dan supplier tidak diubah.
                   </p>
+                  {(movingGameCategory.categoryIds || []).length > 1 && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                      <div className="font-semibold">Game ini memiliki beberapa kategori.</div>
+                      <div className="mt-1">
+                        Untuk mencegah kategori lain terhapus tanpa sengaja, fitur ini tidak menghapus kategori lama.
+                        Jika ingin menghapus kategori tertentu, gunakan <span className="font-semibold">Edit Game → Kategori</span>.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2159,7 +2173,10 @@ export default function AdminGamesPage() {
                   disabled={!targetCategoryId || isSubmittingCategoryMove}
                   className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {isSubmittingCategoryMove ? "Memindahkan..." : "Pindahkan"}
+                  {isSubmittingCategoryMove
+                    ? "Menyimpan..."
+                    : ((movingGameCategory.categoryIds || []).length > 1 ? "Tambahkan Kategori" : "Pindahkan")
+                  }
                 </button>
               </div>
             </motion.div>
