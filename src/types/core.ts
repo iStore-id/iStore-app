@@ -75,6 +75,7 @@ export interface StoreConfiguration {
   catalogMarqueeText?: string;
   showCatalogMarquee?: boolean;
   homepageLayout?: HomepageLayoutConfig;
+  homepageFeaturedGameIds?: string[];
   
   // Custom Homepage Background Settings
   homepageBackgroundColor?: string;
