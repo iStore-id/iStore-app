@@ -312,21 +312,49 @@ export default function AdminCampaignsPage() {
   const getStatusBadge = (status: Campaign['status']) => {
     switch (status) {
       case 'ACTIVE':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">ACTIVE</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Aktif</span>;
       case 'SCHEDULED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">SCHEDULED</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Terjadwal</span>;
       case 'DRAFT':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">DRAFT</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Draft</span>;
       case 'ENDED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">ENDED</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">Berakhir</span>;
       case 'INACTIVE':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">INACTIVE</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">Nonaktif</span>;
       case 'ARCHIVED':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">ARCHIVED</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">Arsip</span>;
       default:
         return null;
     }
   };
+
+  const statusLabels: Record<Campaign['status'], string> = {
+    ACTIVE: "Aktif",
+    SCHEDULED: "Terjadwal",
+    DRAFT: "Draft",
+    ENDED: "Berakhir",
+    INACTIVE: "Nonaktif",
+    ARCHIVED: "Arsip"
+  };
+
+  const targetLabels: Record<NonNullable<Campaign['targetType']>, string> = {
+    all: "Semua pelanggan",
+    game: "Game",
+    category: "Kategori",
+    product: "Produk",
+    custom_url: "URL khusus"
+  };
+
+  const statusCounts = campaigns.reduce<Record<string, number>>((counts, campaign) => {
+    counts[campaign.status] = (counts[campaign.status] || 0) + 1;
+    return counts;
+  }, {});
+
+  const componentCount = (c: Campaign) =>
+    (c.promoIds?.length || 0) +
+    (c.flashSaleIds?.length || 0) +
+    (c.bannerIds?.length || 0) +
+    (c.popupIds?.length || 0);
 
   const filteredCampaigns = campaigns.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -340,7 +368,7 @@ export default function AdminCampaignsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="ui-page-title text-gray-900">Campaign Management</h1>
+          <h1 className="ui-page-title text-gray-900">Campaign</h1>
           <p className="text-sm text-gray-500">
             Koordinasi dan orkestrasi kampanye promosi, event musiman, diskon, dan banner terintegrasi.
           </p>
@@ -369,6 +397,21 @@ export default function AdminCampaignsPage() {
         </div>
       )}
 
+      {/* Status Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {(["ACTIVE", "SCHEDULED", "DRAFT", "ENDED", "INACTIVE", "ARCHIVED"] as Campaign['status'][]).map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setStatusFilter(status)}
+            className={`text-left bg-white p-3 rounded-xl border shadow-sm transition ${statusFilter === status ? "border-indigo-500 ring-1 ring-indigo-500" : "border-gray-200 hover:border-gray-300"}`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{statusLabels[status]}</p>
+            <p className="mt-1 text-xl font-bold text-gray-900">{statusCounts[status] || 0}</p>
+          </button>
+        ))}
+      </div>
+
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
         <div className="relative w-full sm:w-80">
@@ -390,12 +433,12 @@ export default function AdminCampaignsPage() {
             className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">Semua Status</option>
-            <option value="ACTIVE">Active</option>
-            <option value="SCHEDULED">Scheduled</option>
+            <option value="ACTIVE">Aktif</option>
+            <option value="SCHEDULED">Terjadwal</option>
             <option value="DRAFT">Draft</option>
-            <option value="ENDED">Ended</option>
-            <option value="INACTIVE">Inactive</option>
-            <option value="ARCHIVED">Archived</option>
+            <option value="ENDED">Berakhir</option>
+            <option value="INACTIVE">Nonaktif</option>
+            <option value="ARCHIVED">Arsip</option>
           </select>
         </div>
       </div>
@@ -410,15 +453,62 @@ export default function AdminCampaignsPage() {
           <p className="text-xs text-gray-400 mt-1">Klik "Buat Campaign Baru" untuk meluncurkan kampanye pemasaran.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="md:hidden space-y-3">
+          {filteredCampaigns.map((c) => (
+            <div key={c.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+              <div className="flex gap-3">
+                {c.mediaUrl ? (
+                  <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                    <img src={c.mediaUrl} alt={c.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                    <Megaphone className="w-6 h-6" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{c.title}</p>
+                      <p className="text-xs text-gray-500 truncate">Internal: {c.name}</p>
+                    </div>
+                    {getStatusBadge(c.status)}
+                  </div>
+                  <p className="text-xs text-gray-400 line-clamp-2 mt-1">{c.description}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-gray-400">Jadwal</p>
+                  <p className="font-medium text-gray-700">{new Date(c.startAt).toLocaleDateString("id-ID")}{c.endAt ? ` - ${new Date(c.endAt).toLocaleDateString("id-ID")}` : ""}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-2">
+                  <p className="text-gray-400">Target</p>
+                  <p className="font-medium text-gray-700">{targetLabels[c.targetType || "all"]}</p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 text-slate-600 font-medium">{componentCount(c)} komponen</span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 text-gray-600 font-medium">Prioritas {c.priority}</span>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-1">
+                <button onClick={() => openEditModal(c)} className="text-gray-600 hover:text-indigo-600 p-2 rounded-lg hover:bg-gray-100" title="Edit Campaign"><Edit2 className="w-4 h-4" /></button>
+                {!c.isArchived && <button onClick={() => handleArchive(c.id)} className="text-gray-500 hover:text-purple-600 p-2 rounded-lg hover:bg-purple-50" title="Arsipkan Campaign"><Archive className="w-4 h-4" /></button>}
+                <button onClick={() => handleDelete(c.id)} className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50" title="Hapus Campaign"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hidden md:block">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[820px] text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Campaign</th>
                   <th className="py-3 px-4">Status & Jadwal</th>
                   <th className="py-3 px-4">Komponen Terhubung</th>
-                  <th className="py-3 px-4">Prioritas</th>
+                  <th className="py-3 px-4">Prioritas & Target</th>
                   <th className="py-3 px-4 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -479,11 +569,14 @@ export default function AdminCampaignsPage() {
                          (!c.flashSaleIds || c.flashSaleIds.length === 0) && 
                          (!c.bannerIds || c.bannerIds.length === 0) && 
                          (!c.popupIds || c.popupIds.length === 0) && (
-                          <span className="text-gray-400 text-xs italic">Tanpa komponen</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100 text-gray-500 font-medium"><Layers className="w-3 h-3" /> Tanpa komponen</span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-mono text-gray-600">{c.priority}</td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm font-mono text-gray-600">{c.priority}</div>
+                      <div className="text-[11px] text-gray-400">{targetLabels[c.targetType || "all"]}</div>
+                    </td>
                     <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
                       <button onClick={() => openEditModal(c)} className="text-gray-600 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-gray-100 transition" title="Edit Campaign">
                         <Edit2 className="w-4 h-4" />
