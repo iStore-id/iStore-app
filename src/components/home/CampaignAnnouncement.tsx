@@ -58,7 +58,7 @@ export const CampaignAnnouncement: React.FC<{ campaigns: any[] }> = ({ campaigns
         <img
           src={currentCampaign.mediaUrl}
           alt={currentCampaign.title}
-          className="w-full h-full object-contain pointer-events-none"
+          className="w-full h-full object-cover pointer-events-none"
           referrerPolicy="no-referrer"
         />
       ) : (
@@ -68,8 +68,8 @@ export const CampaignAnnouncement: React.FC<{ campaigns: any[] }> = ({ campaigns
       )}
 
       {/* Elegant Dark Gradient Overlay for legible Text */}
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/45 to-transparent flex flex-col justify-center px-5 sm:px-8 text-white pointer-events-none">
-        <div className="max-w-[75%] sm:max-w-[60%] space-y-1">
+      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/35 to-transparent flex flex-col justify-center px-5 sm:px-10 text-white pointer-events-none">
+        <div className="max-w-[82%] sm:max-w-[58%] space-y-1.5">
           {/* Badge & Paginate info */}
           <div className="flex items-center gap-1.5 text-brand-400">
             <Megaphone className="w-3 h-3 shrink-0" />
@@ -83,16 +83,16 @@ export const CampaignAnnouncement: React.FC<{ campaigns: any[] }> = ({ campaigns
             )}
           </div>
 
-          <h3 className="font-bold text-xs sm:text-base text-white leading-tight truncate">
+          <h3 className="font-bold text-base sm:text-2xl text-white leading-tight line-clamp-2 drop-shadow-sm">
             {currentCampaign.title}
           </h3>
 
-          <p className="text-[10px] sm:text-xs text-slate-300 line-clamp-2 leading-snug">
+          <p className="text-xs sm:text-sm text-slate-200 line-clamp-2 leading-snug">
             {currentCampaign.description || "Dapatkan promo eksklusif dan penawaran game seru sebelum masa berlaku habis."}
           </p>
 
           {url && (
-            <div className="flex items-center text-[10px] sm:text-xs font-semibold text-brand-400 mt-1">
+            <div className="inline-flex items-center text-xs sm:text-sm font-semibold text-white bg-brand-500 hover:bg-brand-600 px-3 py-1.5 rounded-lg mt-2 shadow-sm transition-colors">
               Selengkapnya <ArrowRight className="w-3 h-3 ml-1" />
             </div>
           )}
@@ -105,7 +105,7 @@ export const CampaignAnnouncement: React.FC<{ campaigns: any[] }> = ({ campaigns
     <div className="w-full py-2 bg-slate-50/10 dark:bg-slate-950/5 border-b border-slate-100 dark:border-slate-900/30 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         <div 
-          className="w-full h-[120px] rounded-2xl overflow-hidden border shadow-sm hover:shadow-md hover:border-brand-300/30 dark:hover:border-brand-900/30 transition-all duration-300 relative bg-slate-950"
+          className="w-full h-[168px] sm:h-[210px] rounded-2xl overflow-hidden border shadow-sm hover:shadow-md hover:border-brand-300/30 dark:hover:border-brand-900/30 transition-all duration-300 relative bg-slate-950"
           style={{ borderColor: "var(--border-color)" }}
         >
           <AnimatePresence initial={false} custom={direction}>
