@@ -241,6 +241,9 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* Flash Sale Section */}
+      <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
+
       {/* Homepage Store Announcement Ticker */}
       {showCatalogMarquee && (
         <div className="overflow-hidden w-full max-w-7xl mx-auto px-4 py-1.5 sm:py-2">
