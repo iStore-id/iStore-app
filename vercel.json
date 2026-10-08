@@ -34,6 +34,22 @@
       "dest": "/payment-logos/$1"
     },
     {
+      "src": "/terms",
+      "dest": "/api"
+    },
+    {
+      "src": "/privacy",
+      "dest": "/api"
+    },
+    {
+      "src": "/refund",
+      "dest": "/api"
+    },
+    {
+      "src": "/faq",
+      "dest": "/api"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
