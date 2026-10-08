@@ -18,9 +18,10 @@ import {
 interface MappingsTabProps {
   addTrigger?: { tab: string; timestamp: number } | null;
   readOnly?: boolean;
+  approvalReview?: boolean;
 }
 
-export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTabProps) {
+export default function MappingsTab({ addTrigger, readOnly = false, approvalReview = false }: MappingsTabProps) {
   const { user } = useAuthStore();
 
   // Core Data
@@ -37,6 +38,11 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
   const [search, setSearch] = useState('');
   const [filterSupplier, setFilterSupplier] = useState('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [approvalFilter, setApprovalFilter] = useState<'ALL' | 'SAFE' | 'REVIEW' | 'DO_NOT_APPROVE'>('ALL');
+  const [approvalMappings, setApprovalMappings] = useState<ProviderMapping[]>([]);
+  const [approvalLoading, setApprovalLoading] = useState(false);
+  const [approvalPage, setApprovalPage] = useState(1);
+  const [approvalTotal, setApprovalTotal] = useState(0);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Pagination States
@@ -210,6 +216,120 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
     if (!formProviderSkuId) return null;
     return skusMap.get(formProviderSkuId) || null;
   }, [skusMap, formProviderSkuId]);
+
+  const getApprovalClassification = (mapping: ProviderMapping) => {
+    const variant = variantsMap.get(mapping.variantId);
+    const product = variant ? productsMap.get(variant.productId) : null;
+    const game = product ? games.find(g => g.id === product.gameId) : null;
+    const provider = providersMap.get(mapping.providerId);
+    const sku = skusMap.get(mapping.providerSkuId) || (mapping.providerSku ? skusByCodeMap.get(mapping.providerSku) : null);
+
+    if (!variant || variant.status !== 'active' || variant.availability !== 'available') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Variant tidak aktif atau tidak tersedia.' };
+    }
+    if (!product || product.status !== 'active') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Produk iStore tidak aktif atau tidak ditemukan.' };
+    }
+    if (!game || game.status !== 'active') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Game Master tidak aktif atau tidak ditemukan.' };
+    }
+    if (mapping.status !== 'NEEDS_REVIEW') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: `Status mapping ${mapping.status}; bukan kandidat approval.` };
+    }
+    if (!sku) {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Provider SKU tidak ditemukan.' };
+    }
+    if (sku.status !== 'active') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Provider SKU NONAKTIF.' };
+    }
+    if (!provider || provider.status !== 'active' || provider.health?.state === 'maintenance') {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Provider tidak memenuhi syarat routing saat ini.' };
+    }
+
+    const variantName = (variant.name || variant.displayName || '').trim().toLowerCase();
+    const skuName = (sku.name || '').trim().toLowerCase();
+    const variantCost = Number(variant.pricing?.baseCost);
+    const skuCost = Number(sku.metadata?.baseCost);
+    const nameMatches = Boolean(variantName && skuName && variantName === skuName);
+    const costMatches = Number.isFinite(variantCost) && Number.isFinite(skuCost) && variantCost === skuCost;
+    const operator = String(sku.metadata?.operator || '').trim().toLowerCase();
+    const gameName = String(game.name || '').trim().toLowerCase();
+    const category = String(sku.metadata?.category || '').trim().toLowerCase();
+    const type = String(sku.metadata?.type || sku.type || '').trim().toLowerCase();
+
+    if (!nameMatches) {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Nama Variant dan SKU supplier tidak cocok.' };
+    }
+    if (!costMatches) {
+      return { status: 'DO_NOT_APPROVE' as const, label: 'DO NOT APPROVE', reason: 'Base cost Variant dan SKU supplier tidak cocok atau tidak tersedia.' };
+    }
+
+    const isGameCategory = category === 'topup game' || category.includes('topup game');
+    const operatorMatches = operator === gameName || operator.includes(gameName) || gameName.includes(operator);
+    if ((isGameCategory && !operatorMatches) || (isGameCategory && type && !type.includes('topup'))) {
+      return { status: 'REVIEW' as const, label: 'REVIEW MANUAL', reason: `Operator/type supplier perlu diverifikasi: ${sku.metadata?.operator || '-'} / ${sku.metadata?.type || sku.type || '-'}.` };
+    }
+
+    return { status: 'SAFE' as const, label: 'SAFE TO APPROVE', reason: 'Variant aktif + SKU aktif + nama + base cost cocok dan relasi supplier konsisten.' };
+  };
+
+  const approvalCounts = useMemo(() => {
+    const counts = { SAFE: 0, REVIEW: 0, DO_NOT_APPROVE: 0 };
+    approvalMappings.forEach(m => { counts[getApprovalClassification(m).status]++; });
+    return counts;
+  }, [approvalMappings, variantsMap, productsMap, providersMap, skusMap, skusByCodeMap, games]);
+
+  const approvalFilteredMappings = useMemo(() => {
+    const filtered = approvalMappings.filter(m => approvalFilter === 'ALL' || getApprovalClassification(m).status === approvalFilter);
+    return filtered;
+  }, [approvalMappings, approvalFilter, variantsMap, productsMap, providersMap, skusMap, skusByCodeMap, games]);
+
+  const pagedApprovalMappings = useMemo(() => {
+    const start = (approvalPage - 1) * pageSize;
+    return approvalFilteredMappings.slice(start, start + pageSize);
+  }, [approvalFilteredMappings, approvalPage]);
+
+  const fetchApprovalCandidates = async () => {
+    try {
+      setApprovalLoading(true);
+      const token = await user?.getIdToken();
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const collected: ProviderMapping[] = [];
+      let pageNum = 1;
+      const batchSize = 200;
+      let reportedTotal = 0;
+
+      while (true) {
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          pageSize: String(batchSize),
+          providerId: 'ALL',
+          status: 'NEEDS_REVIEW',
+          search: ''
+        });
+        const response = await fetch(`/api/admin/providers/mappings?${params.toString()}`, { headers });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || 'Gagal memuat kandidat approval.');
+        const rows = Array.isArray(data.data) ? data.data : Array.isArray(data.data?.data) ? data.data.data : [];
+        reportedTotal = Number(data.total || 0);
+        collected.push(...rows);
+        if (rows.length === 0 || collected.length >= reportedTotal || rows.length < batchSize) break;
+        pageNum++;
+      }
+
+      setApprovalMappings(collected);
+      setApprovalTotal(reportedTotal || collected.length);
+      setApprovalPage(1);
+    } catch (err: any) {
+      showNotification('error', err.message || 'Gagal memuat kandidat approval.');
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (approvalReview) fetchApprovalCandidates();
+  }, [approvalReview]);
 
   // Check whether a mapping is considered "Aktif"
   const getRoutingObservability = (mapping: ProviderMapping) => {
@@ -450,6 +570,97 @@ export default function MappingsTab({ addTrigger, readOnly = false }: MappingsTa
       return true;
     });
   }, [mappings, variantsMap, productsMap, providersMap, skusMap, skusByCodeMap, search, filterSupplier, filterStatus]);
+
+  if (approvalReview) {
+    return (
+      <div className="space-y-4">
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Kandidat Approval — Read-Only</h3>
+              <p className="text-xs text-slate-500 mt-1">Daftar ini hanya membantu Owner meninjau. Tidak ada tombol approve/reject dan tidak mengubah mapping.</p>
+            </div>
+            <button onClick={fetchApprovalCandidates} disabled={approvalLoading} className="px-3 py-2 border border-slate-200 bg-white rounded-lg text-xs font-semibold text-slate-700 disabled:opacity-50">
+              <RefreshCw className={`w-3.5 h-3.5 inline mr-1.5 ${approvalLoading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
+            {[
+              ['SAFE', 'SAFE TO APPROVE', 'emerald'],
+              ['REVIEW', 'REVIEW MANUAL', 'amber'],
+              ['DO_NOT_APPROVE', 'DO NOT APPROVE', 'red']
+            ].map(([value, label, tone]) => (
+              <button key={value} onClick={() => { setApprovalFilter(value as any); setApprovalPage(1); }} className={`text-left p-3 rounded-lg border ${approvalFilter === value ? `border-${tone}-300 bg-${tone}-50` : 'border-slate-200 bg-white'}`}>
+                <div className="text-[10px] font-bold uppercase text-slate-500">{label}</div>
+                <div className="text-lg font-bold text-slate-900 mt-1">{approvalCounts[value as keyof typeof approvalCounts]}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <select value={approvalFilter} onChange={e => { setApprovalFilter(e.target.value as any); setApprovalPage(1); }} className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+            <option value="ALL">Semua Kandidat</option>
+            <option value="SAFE">SAFE TO APPROVE</option>
+            <option value="REVIEW">REVIEW MANUAL</option>
+            <option value="DO_NOT_APPROVE">DO NOT APPROVE</option>
+          </select>
+          <span className="text-xs text-slate-500">{approvalFilteredMappings.length} kandidat tampil dari {approvalTotal} NEEDS_REVIEW.</span>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs min-w-[1050px]">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">Game / Produk</th>
+                  <th className="px-4 py-3">Variant</th>
+                  <th className="px-4 py-3">SKU Supplier</th>
+                  <th className="px-4 py-3">Cost iStore</th>
+                  <th className="px-4 py-3">Cost Supplier</th>
+                  <th className="px-4 py-3">Operator</th>
+                  <th className="px-4 py-3">Kategori / Type</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {approvalLoading ? (
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />Memuat kandidat...</td></tr>
+                ) : pagedApprovalMappings.length === 0 ? (
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-slate-500">Tidak ada kandidat pada filter ini.</td></tr>
+                ) : pagedApprovalMappings.map(mapping => {
+                  const variant = variantsMap.get(mapping.variantId);
+                  const product = variant ? productsMap.get(variant.productId) : null;
+                  const game = product ? games.find(g => g.id === product.gameId) : null;
+                  const sku = skusMap.get(mapping.providerSkuId) || (mapping.providerSku ? skusByCodeMap.get(mapping.providerSku) : null);
+                  const classification = getApprovalClassification(mapping);
+                  return (
+                    <tr key={mapping.id}>
+                      <td className="px-4 py-3 font-medium text-slate-900">{game?.name || '-'} / {product?.name || '-'}</td>
+                      <td className="px-4 py-3 text-slate-700">{variant?.name || variant?.displayName || '-'}</td>
+                      <td className="px-4 py-3"><div className="font-mono font-semibold">{sku?.providerSku || mapping.providerSku || '-'}</div><div className="text-slate-400">{sku?.name || '-'}</div></td>
+                      <td className="px-4 py-3 font-mono">{Number(variant?.pricing?.baseCost || 0).toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3 font-mono">{Number(sku?.metadata?.baseCost || 0).toLocaleString('id-ID')}</td>
+                      <td className="px-4 py-3">{sku?.metadata?.operator || '-'}</td>
+                      <td className="px-4 py-3">{sku?.metadata?.category || '-'} / {sku?.metadata?.type || sku?.type || '-'}</td>
+                      <td className="px-4 py-3 text-center"><div className="inline-flex flex-col items-center" title={classification.reason}><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${classification.status === 'SAFE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : classification.status === 'REVIEW' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>{classification.label}</span><span className="text-[9px] text-slate-400 max-w-[180px] truncate mt-0.5">{classification.reason}</span></div></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {approvalFilteredMappings.length > pageSize && (
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs">
+              <span>Halaman {approvalPage} dari {Math.ceil(approvalFilteredMappings.length / pageSize)}</span>
+              <div className="flex gap-1.5">
+                <button onClick={() => setApprovalPage(p => Math.max(1, p - 1))} disabled={approvalPage === 1} className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg disabled:opacity-50">Sebelumnya</button>
+                <button onClick={() => setApprovalPage(p => Math.min(Math.ceil(approvalFilteredMappings.length / pageSize), p + 1))} disabled={approvalPage >= Math.ceil(approvalFilteredMappings.length / pageSize)} className="px-3 py-1.5 border border-slate-200 bg-white rounded-lg disabled:opacity-50">Selanjutnya</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
