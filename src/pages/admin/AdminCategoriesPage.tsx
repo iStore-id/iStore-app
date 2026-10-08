@@ -145,7 +145,8 @@ export default function AdminCategoriesPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left">
           <thead className="bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
@@ -216,7 +217,8 @@ export default function AdminCategoriesPage() {
               ))
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       <AnimatePresence>
