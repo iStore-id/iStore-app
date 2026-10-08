@@ -237,8 +237,8 @@ export default function RegisterPage() {
 
   if (showOtp) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
-        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-8 sm:py-12" style={getAuthBackgroundStyle()}>
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100">
           <OtpInput 
             phone={normalizedPhone}
             loading={loading}
@@ -265,7 +265,7 @@ export default function RegisterPage() {
             <img 
               src={storeLogo} 
               alt={storeName} 
-              className="h-16 max-w-[180px] object-contain mx-auto mb-4"
+              className="h-14 sm:h-16 max-w-[180px] object-contain mx-auto mb-4"
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -284,7 +284,7 @@ export default function RegisterPage() {
         <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
           <button
             onClick={() => { setRegMethod("email"); setError(""); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`flex-1 flex items-center justify-center gap-2 min-h-[44px] py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             style={regMethod === "email" ? { color: primaryColor } : {}}
           >
             <Mail className="w-4 h-4" />
@@ -315,7 +315,7 @@ export default function RegisterPage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+              className="w-full min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
               style={{ "--tw-ring-color": primaryColor } as any}
               placeholder="John Doe"
             />
@@ -367,7 +367,7 @@ export default function RegisterPage() {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg active:scale-[0.98]"
+            className="w-full min-h-[44px] text-white font-semibold py-3 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg active:scale-[0.98]"
             style={{ backgroundColor: primaryColor, boxShadow: `0 10px 15px -3px ${primaryColor}40` }}
           >
             {loading ? (
