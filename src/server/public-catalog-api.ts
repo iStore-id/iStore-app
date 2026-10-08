@@ -36,9 +36,21 @@ export async function getPublicGames(req: Request, res: Response) {
 
 async function resolveEnrichedVariants(productId: string, userId?: string) {
   const variants = await dynamicCatalogService.getMergedVariants(productId);
+
+  // Resolve product context once instead of querying products once per variant.
+  const product = productId.startsWith("virtual-product-")
+    ? null
+    : await supabaseCatalogRepo.getProduct(productId);
+  const pricingResults = await pricingService.resolveEffectivePrices(
+    variants,
+    { userId },
+    product
+      ? { game_id: product.gameId, category_ids: product.categoryIds }
+      : undefined
+  );
   
-  const formattedVariants = await Promise.all(variants.map(async (v) => {
-    const { finalPrice } = await pricingService.resolveEffectivePrice(v, { userId });
+  const formattedVariants = variants.map((v) => {
+    const { finalPrice } = pricingResults.get(v.id) || { finalPrice: v.pricing?.sellingPrice || 0 };
     return {
       id: v.id,
       productId: v.productId,
@@ -50,7 +62,7 @@ async function resolveEnrichedVariants(productId: string, userId?: string) {
       sortOrder: v.sortOrder,
       sellingPrice: finalPrice
     };
-  }));
+  });
 
   // Fail-safe and optimized bulk flash sale fetching
   let activeFlashSales: any[] = [];
