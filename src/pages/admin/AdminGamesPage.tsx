@@ -76,6 +76,11 @@ export default function AdminGamesPage() {
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [selectedCategoryIdsInModal, setSelectedCategoryIdsInModal] = useState<string[]>([]);
 
+  // Minimal manual category move
+  const [movingGameCategory, setMovingGameCategory] = useState<Game | null>(null);
+  const [targetCategoryId, setTargetCategoryId] = useState("");
+  const [isSubmittingCategoryMove, setIsSubmittingCategoryMove] = useState(false);
+
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     type: "game" | "category";
@@ -433,6 +438,49 @@ export default function AdminGamesPage() {
       }
     } catch (err) {
       console.error("Error saving game:", err);
+    }
+  };
+
+  const handleExecuteMoveGameCategory = async () => {
+    if (!movingGameCategory || !targetCategoryId) return;
+
+    if ((movingGameCategory.categoryIds || []).length === 1 && movingGameCategory.categoryIds?.[0] === targetCategoryId) {
+      setError("Game sudah berada di kategori tersebut.");
+      return;
+    }
+
+    try {
+      setIsSubmittingCategoryMove(true);
+      setError(null);
+      const token = await user?.getIdToken();
+      if (!token) throw new Error("Sesi login berakhir.");
+
+      const res = await fetch(`/api/admin/games/${movingGameCategory.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          categoryIds: [targetCategoryId]
+        })
+      });
+
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.message || "Gagal memindahkan kategori.");
+      }
+
+      const targetCategory = categories.find(c => c.id === targetCategoryId);
+      showToast(`Game "${movingGameCategory.name}" dipindahkan ke kategori "${targetCategory?.name || targetCategoryId}".`);
+      setMovingGameCategory(null);
+      setTargetCategoryId("");
+      await fetchAllData();
+    } catch (err: any) {
+      console.error("Error moving game category:", err);
+      setError(err.message || "Gagal memindahkan kategori.");
+    } finally {
+      setIsSubmittingCategoryMove(false);
     }
   };
 
@@ -1763,6 +1811,16 @@ export default function AdminGamesPage() {
                               {game.status === 'active' ? 'Aktif' : 'Nonaktif'}
                             </span>
 
+                            <button
+                              onClick={() => {
+                                setMovingGameCategory(game);
+                                setTargetCategoryId("");
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Pindahkan Kategori"
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                            </button>
                             <button 
                               onClick={() => { setEditingGame(game); setIsGameModalOpen(true); }}
                               className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -2009,6 +2067,105 @@ export default function AdminGamesPage() {
           </div>
         </div>
       )}
+
+      {/* Minimal Manual Category Move Modal */}
+      <AnimatePresence>
+        {movingGameCategory && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Pindahkan Kategori</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Game: <span className="font-semibold text-slate-700">{movingGameCategory.name}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMovingGameCategory(null);
+                    setTargetCategoryId("");
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"
+                  aria-label="Tutup"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Kategori Saat Ini</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(movingGameCategory.categoryIds || []).length > 0 ? (
+                      (movingGameCategory.categoryIds || []).map(id => (
+                        <span key={id} className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold">
+                          {categories.find(c => c.id === id)?.name || id}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-slate-400">Belum ada kategori</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pindahkan ke</label>
+                  <select
+                    value={targetCategoryId}
+                    onChange={(e) => setTargetCategoryId(e.target.value)}
+                    className="mt-2 w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Pilih kategori tujuan...</option>
+                    {categories
+                      .filter(c => c.status === "active")
+                      .map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Aksi ini memindahkan Game Master ke satu kategori tujuan. Produk, variant, mapping, dan supplier tidak diubah.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMovingGameCategory(null);
+                    setTargetCategoryId("");
+                  }}
+                  disabled={isSubmittingCategoryMove}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteMoveGameCategory}
+                  disabled={!targetCategoryId || isSubmittingCategoryMove}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {isSubmittingCategoryMove ? "Memindahkan..." : "Pindahkan"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Game Modal (CRUD) */}
       <AnimatePresence>
