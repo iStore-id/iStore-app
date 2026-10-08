@@ -65,6 +65,7 @@ export async function initStoreConfiguration(ownerActor: {uid: string, email: st
       buttonStyle: "solid",
       themePreference: "system",
       showGlobalBorders: true,
+      homepageFeaturedGameIds: [],
       homepageLayout: {
         items: [
           { id: "hero", order: 0, visible: true },
