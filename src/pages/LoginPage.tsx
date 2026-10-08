@@ -135,14 +135,14 @@ export default function LoginPage() {
   const storeLogo = config?.logo;
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center px-4 py-12" style={getAuthBackgroundStyle()}>
-      <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-100">
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center px-4 py-6 sm:py-12" style={getAuthBackgroundStyle()}>
+      <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-xl border border-slate-100">
+        <div className="text-center mb-6 sm:mb-8">
           {storeLogo ? (
             <img 
               src={storeLogo} 
               alt={storeName} 
-              className="h-16 max-w-[180px] object-contain mx-auto mb-4"
+              className="h-14 sm:h-16 max-w-[180px] object-contain mx-auto mb-4"
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -181,7 +181,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
               style={{ "--tw-ring-color": primaryColor } as any}
               placeholder="nama@email.com"
             />
