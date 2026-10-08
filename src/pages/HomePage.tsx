@@ -257,75 +257,79 @@ export default function HomePage() {
 
   const homepageSections = {
     hero: (
-{/* Premium Hero Section */}
-      {displayedBanners.length > 0 && (
-        <section className="w-full relative overflow-hidden border-b border-slate-200/80 [.public-storefront[data-theme='dark']_&]:border-slate-900 transition-colors duration-300">
-          <HeroBannerCarousel banners={displayedBanners} />
-        </section>
-      )}
+      <>
+        {/* Premium Hero Section */}
+        {displayedBanners.length > 0 && (
+          <section className="w-full relative overflow-hidden border-b border-slate-200/80 [.public-storefront[data-theme='dark']_&]:border-slate-900 transition-colors duration-300">
+            <HeroBannerCarousel banners={displayedBanners} />
+          </section>
+        )}
+      </>
     ),
     ticker: (
-{/* Homepage Store Announcement Ticker */}
-      {showCatalogMarquee && (
-        <div className="overflow-hidden w-full max-w-7xl mx-auto px-4 py-1.5 sm:py-2">
-          <motion.div
-            animate={{ x: ["100%", "-100%"] }}
-            transition={{
-              repeat: Infinity,
-              repeatType: "loop",
-              duration: 16,
-              ease: "linear",
-            }}
-            className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
-          >
-            {catalogMarqueeText}
-          </motion.div>
-        </div>
-      )}
+      <>
+        {/* Homepage Store Announcement Ticker */}
+        {showCatalogMarquee && (
+          <div className="overflow-hidden w-full max-w-7xl mx-auto px-4 py-1.5 sm:py-2">
+            <motion.div
+              animate={{ x: ["0%", "-100%"] }}
+              transition={{
+                repeat: Infinity,
+                repeatType: "loop",
+                duration: 16,
+                ease: "linear",
+              }}
+              className="whitespace-nowrap inline-block text-slate-500 text-xs sm:text-sm will-change-transform"
+            >
+              {catalogMarqueeText}
+            </motion.div>
+          </div>
+        )}
+      </>
     ),
     flashSale: (
-{/* Flash Sale Section */}
       <FlashSaleGrid allowedIds={flashSaleIdsFilter} />
     ),
     campaign: (
-{/* Campaign Announcement */}
       <CampaignAnnouncement campaigns={activeCampaigns} />
     ),
     landing: (
-<LandingPreviewSection />
+      <LandingPreviewSection />
     ),
     navigation: (
-{/* Unified Storefront Navigation Dock */}
-      {(popularGames.length > 0 || activeCategories.length > 0) && (
-        <section className="py-2 sm:py-2.5 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200/80 sticky top-16 z-20 shadow-xs">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth">
-              {/* Dynamic Active Non-Game Categories */}
-              {activeCategories.map((cat) => {
-                const isSelected = navFilter.type === "category" && navFilter.id === cat.id;
-                return (
-                  <button
-                    key={cat.id || cat.slug || cat.name}
-                    type="button"
-                    onClick={() => setNavFilter(isSelected ? { type: "all" } : { type: "category", id: cat.id, name: cat.name })}
-                    className={`inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl transition-all duration-150 border cursor-pointer shrink-0 text-xs font-semibold whitespace-nowrap select-none ${
-                      isSelected
-                        ? "bg-brand-600 border-brand-600 text-white shadow-xs font-bold"
-                        : "border-slate-200/80 bg-slate-50/80 text-slate-600 hover:text-slate-900 hover:bg-slate-100 hover:border-slate-300"
-                    }`}
-                  >
-                    <CategoryIcon 
-                    iconName={cat.icon} 
-                      className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-slate-500"}`} 
-                    />
-                    <span>{cat.name.toUpperCase()}</span>
-                  </button>
-                );
-              })}
+      <>
+        {/* Unified Storefront Navigation Dock */}
+        {(popularGames.length > 0 || activeCategories.length > 0) && (
+          <section className="py-2 sm:py-2.5 bg-white/95 backdrop-blur-md px-4 border-b border-slate-200/80 sticky top-16 z-20 shadow-xs">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth">
+                {/* Dynamic Active Non-Game Categories */}
+                {activeCategories.map((cat) => {
+                  const isSelected = navFilter.type === "category" && navFilter.id === cat.id;
+                  return (
+                    <button
+                      key={cat.id || cat.slug || cat.name}
+                      type="button"
+                      onClick={() => setNavFilter(isSelected ? { type: "all" } : { type: "category", id: cat.id, name: cat.name })}
+                      className={`inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl transition-all duration-150 border cursor-pointer shrink-0 text-xs font-semibold whitespace-nowrap select-none ${
+                        isSelected
+                          ? "bg-brand-600 border-brand-600 text-white shadow-xs font-bold"
+                          : "border-slate-200/80 bg-slate-50/80 text-slate-600 hover:text-slate-900 hover:bg-slate-100 hover:border-slate-300"
+                      }`}
+                    >
+                      <CategoryIcon
+                        iconName={cat.icon}
+                        className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-white" : "text-slate-500"}`}
+                      />
+                      <span>{cat.name.toUpperCase()}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
+      </>
     ),
     catalog: (
 {/* Popular Games / Catalog */}
