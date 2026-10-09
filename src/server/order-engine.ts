@@ -26,6 +26,7 @@ const loyaltyService = LoyaltyService.getInstance();
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
+  let paymentDispatchStarted = false;
   let stockReserved = false;
   let gatewayCode = "midtrans";
   const userId = req.user ? (req.user.uid || req.user.id) : null;
@@ -103,7 +104,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       product
     );
     const subtotal = effectivePrice;
-    const adminFee = (variant as any).adminFee || 0;
+    const adminFee = Math.max(0, Math.round(Number((variant as any).adminFee) || 0));
     
     if (subtotal <= 0 && variant.status === "active") {
       return res.status(400).json({ success: false, message: "Harga produk tidak valid" });
@@ -154,12 +155,15 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
     // 2.0.5 LOYALTY REDEMPTION
     let loyaltyDiscount = 0;
-    let pointsToRedeem = Math.max(0, Number(pointsToUse) || 0);
+    let pointsToRedeem = Math.max(0, Math.floor(Number(pointsToUse) || 0));
 
     if (pointsToRedeem > 0 && userId) {
       const loyaltyConfig = await loyaltyService.getConfig();
       if (!loyaltyConfig.enabled) {
         return res.status(400).json({ success: false, message: "Sistem loyalty sedang tidak aktif." });
+      }
+      if (!Number.isFinite(loyaltyConfig.redeemRateIdr) || loyaltyConfig.redeemRateIdr <= 0) {
+        return res.status(400).json({ success: false, message: "Konfigurasi nilai penukaran poin tidak valid." });
       }
       const balance = await loyaltyService.getCustomerBalance(userId);
       if (pointsToRedeem > balance) {
@@ -177,18 +181,50 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    // Prepare for redemption if needed
-    if (pointsToRedeem > 0 && userId) {
-      await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
-      loyaltyRedeemed = true;
-    }
-
     const finalAmount = Math.max(0, baseAmount - discount - loyaltyDiscount);
+    const totalToPay = finalAmount + adminFee;
 
     // 2.1 ROUTING ENGINE: Get best provider for this variant
     const routingDecision = await providerService.getRoutingDecision(variantId, { userId });
     if (routingDecision.code !== "SUCCESS") {
        console.warn(`[Routing] No mapping found for variant ${variantId}: ${routingDecision.reason}`);
+    }
+
+    // 4. Payment Provider Dispatch & Native Method Validation
+    let validatedPaymentMethod: string | undefined = undefined;
+
+    if (gatewayCode === "doit") {
+      const doitAllowedMethods = [
+        "qris",
+        "mandiri_va",
+        "bni_va",
+        "bri_va",
+        "bsi_va",
+        "cimb_va",
+        "permata_va",
+        "maybank_va",
+        "danamon_va"
+      ];
+      if (typeof paymentMethod !== "string" || !doitAllowedMethods.includes(paymentMethod)) {
+        return res.status(400).json({
+          success: false,
+          message: "Metode pembayaran Doit tidak valid atau belum dipilih."
+        });
+      }
+      validatedPaymentMethod = paymentMethod;
+    } else {
+      const allowedPaymentMethods = [
+        "qris",
+        "gopay",
+        "shopeepay",
+        "bca_va",
+        "bni_va",
+        "bri_va",
+        "echannel",
+        "permata_va",
+        "other_va"
+      ];
+      validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
     }
 
     // 2.2 STOCK & QUOTA VALIDATION
@@ -236,7 +272,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       loyaltyPointsUsed: pointsToRedeem,
       loyaltyDiscountAmount: loyaltyDiscount,
       referralCode: referralCode || null,
-      totalAmount: finalAmount,
+      totalAmount: totalToPay,
       paymentStatus: "pending",
       transactionStatus: "pending",
       paymentGatewayCode: gatewayCode,
@@ -247,6 +283,17 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
     const orderRepo = OrderRepository.getInstance();
     await orderRepo.createOrder(orderData as any);
+
+    // Redeem after the order exists because point_transactions.order_id references orders.id.
+    if (pointsToRedeem > 0 && userId) {
+      try {
+        await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
+        loyaltyRedeemed = true;
+      } catch (redemptionError) {
+        await transitionOrderState(orderId, "FAILED", {}, "Loyalty redemption failed before payment initialization").catch(console.error);
+        throw redemptionError;
+      }
+    }
 
     // Notify customer
     if (userId) {
@@ -269,47 +316,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    // 4. Payment Provider Dispatch & Native Method Validation
-    let validatedPaymentMethod: string | undefined = undefined;
-
-    if (gatewayCode === "doit") {
-      const doitAllowedMethods = [
-        "qris",
-        "mandiri_va",
-        "bni_va",
-        "bri_va",
-        "bsi_va",
-        "cimb_va",
-        "permata_va",
-        "maybank_va",
-        "danamon_va"
-      ];
-      if (typeof paymentMethod !== "string" || !doitAllowedMethods.includes(paymentMethod)) {
-        return res.status(400).json({
-          success: false,
-          message: "Metode pembayaran Doit tidak valid atau belum dipilih."
-        });
-      }
-      validatedPaymentMethod = paymentMethod;
-    } else {
-      const allowedPaymentMethods = [
-        "qris",
-        "gopay",
-        "shopeepay",
-        "bca_va",
-        "bni_va",
-        "bri_va",
-        "echannel",
-        "permata_va",
-        "other_va"
-      ];
-      validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
-    }
-
     const provider = PaymentRouter.getInstance().getProvider(gatewayCode);
+    paymentDispatchStarted = true;
     const paymentResult = await provider.createPayment({
       orderId: orderId,
-      grossAmount: finalAmount,
+      grossAmount: totalToPay,
       customerDetails: {
         first_name: customerInput?.buyerName || customerInput?.buyer_name || (userId ? "Customer" : "Guest"),
         email: customerInput?.email || "customer@istore.id",
@@ -317,7 +328,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       },
       itemDetails: [{
         id: (variant.id || variantId).substring(0, 50),
-        price: finalAmount,
+        price: totalToPay,
         quantity: 1,
         name: `${product.name} - ${variant.displayName || variant.name}`.substring(0, 50)
       }],
@@ -347,7 +358,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         vaBank: resVaBank || null,
         qrImage: paymentResult.qrImage || null,
         qrContent: resQrContent || null,
-        totalAmount: paymentResult.totalAmount || finalAmount,
+        totalAmount: paymentResult.totalAmount || totalToPay,
         expiresAt: paymentResult.expiresAt || null,
         paymentUrl: paymentResult.redirectUrl || null
       },
@@ -373,9 +384,6 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     
     // Attempt recovery if orderId exists
     if (orderId) {
-      if (loyaltyRedeemed && userId) {
-        await loyaltyService.reverseOrderPoints(orderId, userId);
-      }
       try {
         if (gatewayCode === 'midtrans') {
           const status = await checkMidtransStatus(orderId);
@@ -438,6 +446,17 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
     
+    // Reverse redeemed points before payment dispatch, or after a confirmed Doit/iPaymu initialization failure.
+    // Do not reverse while a gateway's payment status is uncertain.
+    const paymentFailureConfirmed = !paymentDispatchStarted || gatewayCode === "doit" || gatewayCode === "ipaymu";
+    if (loyaltyRedeemed && userId && paymentFailureConfirmed) {
+      try {
+        await loyaltyService.reverseRedeemedPoints(orderId, userId);
+      } catch (pointsRollbackError: any) {
+        console.error(`[Loyalty Cleanup] Failed to reverse redeemed points for ${orderId}:`, pointsRollbackError.message);
+      }
+    }
+
     // Explicit cleanup for Promo/FS/Stock if order was NOT fully created or if transition failed
     // This is a safety measure to ensure no leftover reservations/usage
     if (orderId) {
