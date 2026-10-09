@@ -27,6 +27,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
   let paymentDispatchStarted = false;
+  let paymentFailureConfirmed = false;
   let stockReserved = false;
   let gatewayCode = "midtrans";
   const userId = req.user ? (req.user.uid || req.user.id) : null;
@@ -174,10 +175,12 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
 
       loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
-      const maxDiscount = (baseAmount * loyaltyConfig.maxRedeemPercent) / 100;
+      const remainingAmountBeforePoints = Math.max(0, baseAmount - discount);
+      const maxPercent = Math.max(0, Math.min(100, loyaltyConfig.maxRedeemPercent));
+      const maxDiscount = Math.floor((remainingAmountBeforePoints * maxPercent) / 100);
       if (loyaltyDiscount > maxDiscount) {
-        loyaltyDiscount = maxDiscount;
-        pointsToRedeem = Math.floor(loyaltyDiscount / loyaltyConfig.redeemRateIdr);
+        pointsToRedeem = Math.floor(maxDiscount / loyaltyConfig.redeemRateIdr);
+        loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
       }
     }
 
@@ -375,7 +378,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       rail: paymentResult.rail,
       vaNumber: paymentResult.vaNumber,
       vaBank: paymentResult.vaBank,
-      totalAmount: paymentResult.totalAmount || finalAmount,
+      totalAmount: paymentResult.totalAmount || totalToPay,
       expiresAt: paymentResult.expiresAt
     });
 
@@ -387,6 +390,10 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       try {
         if (gatewayCode === 'midtrans') {
           const status = await checkMidtransStatus(orderId);
+          if (status && ['deny', 'cancel', 'expire', 'failure'].includes(String(status.transaction_status).toLowerCase())) {
+            paymentFailureConfirmed = true;
+            await transitionOrderState(orderId, 'FAILED', {}, "Midtrans confirmed payment initialization failure").catch(console.error);
+          }
           if (status && (status.transaction_status === 'settlement' || status.transaction_status === 'capture')) {
              let transitionResult = false;
              try {
@@ -418,6 +425,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           try {
             const doitProvider = PaymentRouter.getInstance().getProvider('doit');
             const doitStatus = await doitProvider.getPaymentStatus({ orderId });
+            if (doitStatus && ['failed', 'failure', 'cancelled', 'canceled', 'expired', 'deny', 'rejected'].includes(String(doitStatus.transactionStatus).toLowerCase())) {
+              paymentFailureConfirmed = true;
+            }
             if (doitStatus && doitStatus.transactionStatus === 'settlement') {
               try {
                 await transitionOrderState(orderId, 'PAID', { gatewayTransactionId: doitStatus.rawData?.id }, "Reconciled after Doit create failure");
@@ -437,19 +447,25 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           } catch (doitRecErr) {
             console.error("[Doit Recovery Error]", doitRecErr);
           }
-          await transitionOrderState(orderId, 'FAILED', {}, "Doit payment initialization failed").catch(console.error);
+          if (paymentFailureConfirmed) {
+            await transitionOrderState(orderId, 'FAILED', {}, "Doit confirmed payment initialization failure").catch(console.error);
+          } else {
+            console.warn(`[Doit Recovery] Payment status for ${orderId} is uncertain; leaving order pending for reconciliation.`);
+          }
         } else if (gatewayCode === 'ipaymu') {
-          await transitionOrderState(orderId, 'FAILED', {}, "iPaymu payment initialization failed").catch(console.error);
+          // No authoritative status check is available in this recovery path.
+          // Keep the order pending and points reserved until reconciliation confirms failure.
+          console.warn(`[iPaymu Recovery] Payment status for ${orderId} is uncertain; leaving order pending for reconciliation.`);
         }
       } catch (recoveryError) {
         console.error("[Recovery Error]", recoveryError);
       }
     }
     
-    // Reverse redeemed points before payment dispatch, or after a confirmed Doit/iPaymu initialization failure.
-    // Do not reverse while a gateway's payment status is uncertain.
-    const paymentFailureConfirmed = !paymentDispatchStarted || gatewayCode === "doit" || gatewayCode === "ipaymu";
-    if (loyaltyRedeemed && userId && paymentFailureConfirmed) {
+    // Reverse points only before payment dispatch or after an authoritative status confirms failure.
+    // A timeout or missing gateway response is not proof that payment creation failed.
+    const canSafelyReverseRedeemedPoints = !paymentDispatchStarted || paymentFailureConfirmed;
+    if (loyaltyRedeemed && userId && canSafelyReverseRedeemedPoints) {
       try {
         await loyaltyService.reverseRedeemedPoints(orderId, userId);
       } catch (pointsRollbackError: any) {
