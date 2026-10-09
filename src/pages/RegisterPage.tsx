@@ -367,7 +367,7 @@ export default function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2"
                   style={{ "--tw-ring-color": primaryColor } as any}
-                  placeholder="Minimal 6 karakter"
+                  placeholder="Minimal 8 karakter dan 1 angka"
                 />
               </div>
             </>
