@@ -14,6 +14,7 @@ import { PromoService } from "./promo-service.js";
 import { FlashSaleService } from "./flash-sale-service.js";
 import { NotificationService } from "./notification-service.js";
 import { LoyaltyService } from "./loyalty-service.js";
+import { calculateCheckoutTotal, calculateLoyaltyRedemption, isConfirmedPaymentFailure } from "./checkout-calculations.js";
 
 const providerService = ProviderService.getInstance();
 const dynamicCatalogService = DynamicCatalogService.getInstance();
@@ -200,33 +201,27 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       if (!loyaltyConfig.enabled) {
         return res.status(400).json({ success: false, message: "Sistem loyalty sedang tidak aktif." });
       }
-      if (!Number.isFinite(loyaltyConfig.redeemRateIdr) || loyaltyConfig.redeemRateIdr <= 0) {
-        return res.status(400).json({ success: false, message: "Konfigurasi nilai penukaran poin tidak valid." });
-      }
       const balance = await loyaltyService.getCustomerBalance(userId);
       if (pointsToRedeem > balance) {
         return res.status(400).json({ success: false, message: `Poin tidak cukup. Saldo: ${balance}` });
       }
-      if (pointsToRedeem < loyaltyConfig.minRedeemPoints) {
-        return res.status(400).json({ success: false, message: `Minimal penukaran poin adalah ${loyaltyConfig.minRedeemPoints}.` });
-      }
 
-      loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
-      const remainingAmountBeforePoints = Math.max(0, baseAmount - discount);
-      const configuredMaxPercent = Number.isFinite(loyaltyConfig.maxRedeemPercent) ? loyaltyConfig.maxRedeemPercent : 0;
-      const maxPercent = Math.max(0, Math.min(100, configuredMaxPercent));
-      const maxDiscount = Math.floor((remainingAmountBeforePoints * maxPercent) / 100);
-      if (loyaltyDiscount > maxDiscount) {
-        pointsToRedeem = Math.floor(maxDiscount / loyaltyConfig.redeemRateIdr);
-        loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
-      }
-      if (pointsToRedeem > 0 && pointsToRedeem < loyaltyConfig.minRedeemPoints) {
-        return res.status(400).json({ success: false, message: "Nilai transaksi tidak mencukupi untuk penukaran poin minimum." });
+      try {
+        const redemption = calculateLoyaltyRedemption({
+          requestedPoints: pointsToRedeem,
+          redeemRateIdr: loyaltyConfig.redeemRateIdr,
+          minRedeemPoints: loyaltyConfig.minRedeemPoints,
+          maxRedeemPercent: loyaltyConfig.maxRedeemPercent,
+          remainingAmount: Math.max(0, baseAmount - discount)
+        });
+        pointsToRedeem = redemption.pointsToRedeem;
+        loyaltyDiscount = redemption.discountAmount;
+      } catch (redemptionValidationError: any) {
+        return res.status(400).json({ success: false, message: redemptionValidationError.message });
       }
     }
 
-    const finalAmount = Math.max(0, baseAmount - discount - loyaltyDiscount);
-    const totalToPay = finalAmount + adminFee;
+    const { finalAmount, totalToPay } = calculateCheckoutTotal(baseAmount, discount, loyaltyDiscount, adminFee);
 
     // 2.1 ROUTING ENGINE: Get best provider for this variant
     const routingDecision = await providerService.getRoutingDecision(variantId, { userId });
@@ -394,7 +389,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       try {
         if (gatewayCode === 'midtrans') {
           const status = await checkMidtransStatus(orderId);
-          if (status && ['deny', 'cancel', 'expire', 'failure'].includes(String(status.transaction_status).toLowerCase())) {
+          if (status && isConfirmedPaymentFailure(gatewayCode, status.transaction_status)) {
             paymentFailureConfirmed = true;
             await transitionOrderState(orderId, 'FAILED', {}, "Midtrans confirmed payment initialization failure").catch(console.error);
           }
@@ -429,7 +424,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           try {
             const doitProvider = PaymentRouter.getInstance().getProvider('doit');
             const doitStatus = await doitProvider.getPaymentStatus({ orderId });
-            if (doitStatus && ['failed', 'failure', 'cancelled', 'canceled', 'expired', 'deny', 'rejected'].includes(String(doitStatus.transactionStatus).toLowerCase())) {
+            if (doitStatus && isConfirmedPaymentFailure(gatewayCode, doitStatus.transactionStatus)) {
               paymentFailureConfirmed = true;
             }
             if (doitStatus && doitStatus.transactionStatus === 'settlement') {
