@@ -472,9 +472,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       }
     }
 
-    // Explicit cleanup for Promo/FS/Stock if order was NOT fully created or if transition failed
-    // This is a safety measure to ensure no leftover reservations/usage
-    if (orderId) {
+    // Release reservations only when no provider request was dispatched or the provider
+    // authoritatively confirmed failure. A timeout/unknown status must keep the order's
+    // stock and flash-sale quota reserved until reconciliation prevents overselling.
+    const canReleaseCheckoutReservations = !paymentDispatchStarted || paymentFailureConfirmed;
+    if (orderId && canReleaseCheckoutReservations) {
       try {
         const { PromoService } = await import('./promo-service.js');
         await PromoService.getInstance().releaseUsage(orderId);
@@ -491,6 +493,8 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       } catch (err: any) {
         console.error(`[Inventory Cleanup] Failed to release reservation for ${orderId}:`, err.message);
       }
+    } else if (orderId) {
+      console.warn(`[Checkout Recovery] Keeping reservations for ${orderId} until payment status is reconciled.`);
     }
     
     return res.status(500).json({ success: false, message: error.message });
