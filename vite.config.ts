@@ -7,7 +7,7 @@ import {defineConfig} from 'vite';
 function reportBundleComposition() {
   return {
     name: 'report-bundle-composition',
-    apply: 'build',
+    apply: 'build' as const,
     generateBundle(_options: unknown, bundle: Record<string, any>) {
       const chunks = Object.values(bundle)
         .filter((item: any) => item.type === 'chunk')
@@ -27,7 +27,7 @@ function reportBundleComposition() {
         }))
         .sort((a: any, b: any) => b.bytes - a.bytes);
 
-      console.log('\\n[BUNDLE AUDIT] JavaScript chunk composition (raw/gzip bytes)');
+      console.log('\n[BUNDLE AUDIT] JavaScript chunk composition (raw/gzip bytes)');
       for (const chunk of chunks) {
         console.log(
           `[BUNDLE AUDIT] ${chunk.file} | raw=${chunk.bytes} | gzip=${chunk.gzipBytes} | entry=${chunk.isEntry} | dynamic=${chunk.isDynamicEntry}`
@@ -38,7 +38,7 @@ function reportBundleComposition() {
           console.log(`[BUNDLE AUDIT]   module: ${module.id} | rendered=${module.renderedBytes} | original=${module.originalBytes}`);
         }
       }
-      console.log('[BUNDLE AUDIT] End of report\\n');
+      console.log('[BUNDLE AUDIT] End of report\n');
     },
   };
 }
