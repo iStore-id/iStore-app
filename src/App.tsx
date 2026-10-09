@@ -17,17 +17,19 @@ import GameDetailPage from "./pages/GameDetailPage";
 import TransactionCheckPage from "./pages/TransactionCheckPage";
 import TransactionHistoryPage from "./pages/TransactionHistoryPage";
 import TransactionDetailPage from "./pages/TransactionDetailPage";
-import PublicLandingPage from "./pages/PublicLandingPage";
-import BlogListPage from "./pages/BlogListPage";
-import BlogDetailPage from "./pages/BlogDetailPage";
-import FaqPage from "./pages/FaqPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import TermsPage from "./pages/TermsPage";
-import RefundPolicyPage from "./pages/RefundPolicyPage";
-import NotificationPage from "./pages/NotificationPage";
-import MembershipStatusPage from "./pages/MembershipStatusPage";
-import SupportPage from "./pages/SupportPage";
-import AccountPage from "./pages/AccountPage";
+
+// Secondary public pages are loaded on demand; keep homepage, game checkout, auth, and transaction entry pages eager.
+const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
+const BlogListPage = lazy(() => import("./pages/BlogListPage"));
+const BlogDetailPage = lazy(() => import("./pages/BlogDetailPage"));
+const FaqPage = lazy(() => import("./pages/FaqPage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const RefundPolicyPage = lazy(() => import("./pages/RefundPolicyPage"));
+const NotificationPage = lazy(() => import("./pages/NotificationPage"));
+const MembershipStatusPage = lazy(() => import("./pages/MembershipStatusPage"));
+const SupportPage = lazy(() => import("./pages/SupportPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
 
 // Lazy-loaded Admin Pages (Code Splitting for Optimal Homepage Payload)
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
@@ -93,6 +95,12 @@ const AdminRegionalPage = lazy(() => import("./pages/admin/AdminRegionalPage"));
 const AdminNotificationPage = lazy(() => import("./pages/admin/AdminNotificationPage"));
 const AdminHealthPage = lazy(() => import("./pages/admin/AdminHealthPage"));
 const AdminIncidentPage = lazy(() => import("./pages/admin/AdminIncidentPage"));
+
+const PublicSuspenseFallback = () => (
+  <div className="flex items-center justify-center min-h-[50vh] p-8" role="status" aria-label="Memuat halaman">
+    <div className="w-8 h-8 border-4 border-slate-200 border-t-brand-600 rounded-full animate-spin" />
+  </div>
+);
 
 const AdminSuspenseFallback = () => (
   <div className="flex items-center justify-center min-h-[50vh] p-8">
@@ -194,7 +202,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route element={<MainLayout />}>
+          <Route element={<Suspense fallback={<PublicSuspenseFallback />}><MainLayout /></Suspense>}>
             <Route path="/" element={<HomePage />} />
             <Route path="/games/:slug" element={<GameDetailPage />} />
             <Route path="/transactions" element={<TransactionCheckPage />} />
