@@ -321,6 +321,23 @@ export class LoyaltyService {
     };
   }
 
+  async hasRedeemedPoints(orderId: string, customerId: string): Promise<boolean> {
+    if (!orderId || !customerId || customerId === "guest") return false;
+
+    const { data, error } = await supabaseAdmin
+      .from("point_transactions")
+      .select("points")
+      .eq("customer_id", customerId)
+      .eq("reference", `points_redeem_${orderId}`)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Gagal memastikan status penukaran poin: ${error.message}`);
+    }
+
+    return Boolean(data && Number(data.points) < 0);
+  }
+
   async reverseRedeemedPoints(orderId: string, customerId: string): Promise<void> {
     if (!orderId || !customerId || customerId === "guest") return;
 
