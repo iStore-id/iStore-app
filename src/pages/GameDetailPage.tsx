@@ -1043,12 +1043,12 @@ export default function GameDetailPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Harga</span>
+                  <span className="text-slate-500 text-xs">Estimasi Total</span>
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Diskon</span>
-                  <span className="font-bold text-emerald-600 text-xs sm:text-sm">Rp0</span>
+                  <span className="text-slate-500 text-xs">Estimasi Diskon Poin</span>
+                  <span className="font-bold text-emerald-600 text-xs sm:text-sm">{formatRupiah(estimatedLoyaltyDiscount)}</span>
                 </div>
               </div>
             </div>
@@ -1294,7 +1294,7 @@ export default function GameDetailPage() {
               <div className="flex justify-between items-center py-2 px-1">
                 <span className="font-bold text-sm text-slate-700">Total Akhir</span>
                 <span className="font-black text-2xl md:text-3xl text-brand-600">
-                  {selectedVariant ? formatRupiah((selectedVariant as any).sellingPrice || 0) : "-"}
+                  {selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}
                 </span>
               </div>
               <p className="text-[11px] text-slate-500">Total ini merupakan estimasi berdasarkan harga katalog, poin, dan biaya admin. Validasi promo/flash sale dan jumlah akhir dilakukan server saat checkout.</p>
