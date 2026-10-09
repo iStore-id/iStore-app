@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
        try {
          const res = await fetch("/api/auth/password-policy");
          const data = await res.json();
-         if (data.success) setPolicy(data.data);
+         if (data.success && data.policy) setPolicy(data.policy);
        } catch (e) {
          console.warn("Failed to fetch password policy", e);
        }
