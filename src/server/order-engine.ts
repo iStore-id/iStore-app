@@ -176,11 +176,15 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
       loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
       const remainingAmountBeforePoints = Math.max(0, baseAmount - discount);
-      const maxPercent = Math.max(0, Math.min(100, loyaltyConfig.maxRedeemPercent));
+      const configuredMaxPercent = Number.isFinite(loyaltyConfig.maxRedeemPercent) ? loyaltyConfig.maxRedeemPercent : 0;
+      const maxPercent = Math.max(0, Math.min(100, configuredMaxPercent));
       const maxDiscount = Math.floor((remainingAmountBeforePoints * maxPercent) / 100);
       if (loyaltyDiscount > maxDiscount) {
         pointsToRedeem = Math.floor(maxDiscount / loyaltyConfig.redeemRateIdr);
         loyaltyDiscount = pointsToRedeem * loyaltyConfig.redeemRateIdr;
+      }
+      if (pointsToRedeem > 0 && pointsToRedeem < loyaltyConfig.minRedeemPoints) {
+        return res.status(400).json({ success: false, message: "Nilai transaksi tidak mencukupi untuk penukaran poin minimum." });
       }
     }
 
@@ -465,7 +469,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // Reverse points only before payment dispatch or after an authoritative status confirms failure.
     // A timeout or missing gateway response is not proof that payment creation failed.
     const canSafelyReverseRedeemedPoints = !paymentDispatchStarted || paymentFailureConfirmed;
-    if (loyaltyRedeemed && userId && canSafelyReverseRedeemedPoints) {
+    if (orderId && loyaltyRedeemed && userId && canSafelyReverseRedeemedPoints) {
       try {
         await loyaltyService.reverseRedeemedPoints(orderId, userId);
       } catch (pointsRollbackError: any) {
