@@ -27,6 +27,7 @@ const loyaltyService = LoyaltyService.getInstance();
 export async function processCheckout(req: AuthenticatedRequest, res: any) {
   let orderId: string | null = null;
   let loyaltyRedeemed = false;
+  let loyaltyRedemptionUncertain = false;
   let paymentDispatchStarted = false;
   let paymentFailureConfirmed = false;
   let stockReserved = false;
@@ -300,6 +301,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           // Fail closed: if the redemption cannot be checked, keep the order pending
           // for reconciliation rather than marking it failed and risking point loss.
           console.error("[Loyalty Recovery] Could not confirm redemption state; keeping order pending.", reconcileError);
+          loyaltyRedemptionUncertain = true;
           throw new Error("Status penukaran poin belum dapat dipastikan. Pesanan perlu direkonsiliasi.");
         }
         if (loyaltyRedeemed) {
@@ -477,7 +479,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     
     // Reverse points only before payment dispatch or after an authoritative status confirms failure.
     // A timeout or missing gateway response is not proof that payment creation failed.
-    const canSafelyReverseRedeemedPoints = !paymentDispatchStarted || paymentFailureConfirmed;
+    const canSafelyReverseRedeemedPoints = !loyaltyRedemptionUncertain && (!paymentDispatchStarted || paymentFailureConfirmed);
     if (orderId && loyaltyRedeemed && userId && canSafelyReverseRedeemedPoints) {
       try {
         await loyaltyService.reverseRedeemedPoints(orderId, userId);
@@ -489,7 +491,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // Release reservations only when no provider request was dispatched or the provider
     // authoritatively confirmed failure. A timeout/unknown status must keep the order's
     // stock and flash-sale quota reserved until reconciliation prevents overselling.
-    const canReleaseCheckoutReservations = !paymentDispatchStarted || paymentFailureConfirmed;
+    const canReleaseCheckoutReservations = !loyaltyRedemptionUncertain && (!paymentDispatchStarted || paymentFailureConfirmed);
     if (orderId && canReleaseCheckoutReservations) {
       try {
         const { PromoService } = await import('./promo-service.js');
