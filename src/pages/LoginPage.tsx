@@ -46,7 +46,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
       if (loginError) throw loginError;
@@ -186,7 +186,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm">
+          <div role="alert" className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <p className="font-semibold leading-snug">{error}</p>
           </div>
