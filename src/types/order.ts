@@ -15,6 +15,8 @@ export interface Order {
   price: number;
   adminFee: number;
   discount: number;
+  loyaltyPointsUsed: number;
+  loyaltyDiscountAmount: number;
   totalAmount: number;
   paymentStatus: string;
   transactionStatus: string;
