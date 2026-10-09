@@ -292,7 +292,21 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
         loyaltyRedeemed = true;
       } catch (redemptionError) {
-        await transitionOrderState(orderId, "FAILED", {}, "Loyalty redemption failed before payment initialization").catch(console.error);
+        // The RPC can commit while the client receives a timeout/network error.
+        // Reconcile the append-only ledger before deciding whether points need reversal.
+        try {
+          loyaltyRedeemed = await loyaltyService.hasRedeemedPoints(orderId, userId);
+        } catch (reconcileError) {
+          // Fail closed: if the redemption cannot be checked, keep the order pending
+          // for reconciliation rather than marking it failed and risking point loss.
+          console.error("[Loyalty Recovery] Could not confirm redemption state; keeping order pending.", reconcileError);
+          throw new Error("Status penukaran poin belum dapat dipastikan. Pesanan perlu direkonsiliasi.");
+        }
+        if (loyaltyRedeemed) {
+          await transitionOrderState(orderId, "FAILED", {}, "Loyalty redemption response was ambiguous before payment initialization").catch(console.error);
+        } else {
+          await transitionOrderState(orderId, "FAILED", {}, "Loyalty redemption failed before payment initialization").catch(console.error);
+        }
         throw redemptionError;
       }
     }
