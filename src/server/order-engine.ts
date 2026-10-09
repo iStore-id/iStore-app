@@ -111,6 +111,43 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       return res.status(400).json({ success: false, message: "Harga produk tidak valid" });
     }
 
+    // 4. Payment Provider Dispatch & Native Method Validation
+    let validatedPaymentMethod: string | undefined = undefined;
+
+    if (gatewayCode === "doit") {
+      const doitAllowedMethods = [
+        "qris",
+        "mandiri_va",
+        "bni_va",
+        "bri_va",
+        "bsi_va",
+        "cimb_va",
+        "permata_va",
+        "maybank_va",
+        "danamon_va"
+      ];
+      if (typeof paymentMethod !== "string" || !doitAllowedMethods.includes(paymentMethod)) {
+        return res.status(400).json({
+          success: false,
+          message: "Metode pembayaran Doit tidak valid atau belum dipilih."
+        });
+      }
+      validatedPaymentMethod = paymentMethod;
+    } else {
+      const allowedPaymentMethods = [
+        "qris",
+        "gopay",
+        "shopeepay",
+        "bca_va",
+        "bni_va",
+        "bri_va",
+        "echannel",
+        "permata_va",
+        "other_va"
+      ];
+      validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
+    }
+
     // 2.0 FLASH SALE & PROMO VALIDATION
     orderId = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const activeFlashSale = await flashSaleService.getActiveFlashSaleForVariant(variantId);
@@ -195,43 +232,6 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const routingDecision = await providerService.getRoutingDecision(variantId, { userId });
     if (routingDecision.code !== "SUCCESS") {
        console.warn(`[Routing] No mapping found for variant ${variantId}: ${routingDecision.reason}`);
-    }
-
-    // 4. Payment Provider Dispatch & Native Method Validation
-    let validatedPaymentMethod: string | undefined = undefined;
-
-    if (gatewayCode === "doit") {
-      const doitAllowedMethods = [
-        "qris",
-        "mandiri_va",
-        "bni_va",
-        "bri_va",
-        "bsi_va",
-        "cimb_va",
-        "permata_va",
-        "maybank_va",
-        "danamon_va"
-      ];
-      if (typeof paymentMethod !== "string" || !doitAllowedMethods.includes(paymentMethod)) {
-        return res.status(400).json({
-          success: false,
-          message: "Metode pembayaran Doit tidak valid atau belum dipilih."
-        });
-      }
-      validatedPaymentMethod = paymentMethod;
-    } else {
-      const allowedPaymentMethods = [
-        "qris",
-        "gopay",
-        "shopeepay",
-        "bca_va",
-        "bni_va",
-        "bri_va",
-        "echannel",
-        "permata_va",
-        "other_va"
-      ];
-      validatedPaymentMethod = typeof paymentMethod === "string" && allowedPaymentMethods.includes(paymentMethod) ? paymentMethod : undefined;
     }
 
     // 2.2 STOCK & QUOTA VALIDATION
