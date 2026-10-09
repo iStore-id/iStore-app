@@ -319,11 +319,15 @@ export default function GameDetailPage() {
   const loyaltyRedeemRate = Number(loyaltyData?.config.redeemRateIdr) || 0;
   const loyaltyMaxPercent = Math.max(0, Math.min(100, Number(loyaltyData?.config.maxRedeemPercent) || 0));
   const loyaltyMaxDiscount = Math.floor((selectedSellingPrice * loyaltyMaxPercent) / 100);
-  const estimatedLoyaltyPoints = loyaltyData && loyaltyRedeemRate > 0 &&
-    requestedLoyaltyPoints >= Math.max(0, Number(loyaltyData.config.minRedeemPoints) || 0) &&
+  const minimumLoyaltyPoints = Math.max(0, Math.floor(Number(loyaltyData?.config.minRedeemPoints) || 0));
+  const estimatedLoyaltyPointsCandidate = loyaltyData && loyaltyRedeemRate > 0 &&
+    requestedLoyaltyPoints >= minimumLoyaltyPoints &&
     requestedLoyaltyPoints <= loyaltyData.balance
       ? Math.min(requestedLoyaltyPoints, Math.floor(loyaltyMaxDiscount / loyaltyRedeemRate))
       : 0;
+  const estimatedLoyaltyPoints = estimatedLoyaltyPointsCandidate >= minimumLoyaltyPoints
+    ? estimatedLoyaltyPointsCandidate
+    : 0;
   const estimatedLoyaltyDiscount = estimatedLoyaltyPoints * loyaltyRedeemRate;
   const estimatedCheckoutTotal = Math.max(0, selectedSellingPrice - estimatedLoyaltyDiscount) + selectedAdminFee;
 
