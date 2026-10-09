@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fetchStoreConfig } from "../lib/utils";
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
@@ -12,7 +12,7 @@ import HeroBannerCarousel from "../components/HeroBannerCarousel";
 import { FlashSaleGrid } from "../components/home/FlashSaleGrid";
 import { CampaignAnnouncement } from "../components/home/CampaignAnnouncement";
 import { LandingPreviewSection } from "../components/home/LandingPreviewSection";
-import BlogPreviewSection from "../components/home/BlogPreviewSection";
+const BlogPreviewSection = lazy(() => import("../components/home/BlogPreviewSection"));
 import { PublicFAQItem } from "../types/faq";
 import { useSEO } from "../lib/seo";
 
@@ -45,6 +45,31 @@ export default function HomePage() {
   const [showCatalogMarquee, setShowCatalogMarquee] = useState<boolean>(true);
   const [homepageLayout, setHomepageLayout] = useState<any[]>(DEFAULT_HOMEPAGE_LAYOUT.map(item => ({ ...item })));
   const [homepageFeaturedGameIds, setHomepageFeaturedGameIds] = useState<string[]>([]);
+  const [shouldLoadBlogPreview, setShouldLoadBlogPreview] = useState(false);
+  const blogPreviewTriggerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const trigger = blogPreviewTriggerRef.current;
+    if (!trigger || shouldLoadBlogPreview) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      setShouldLoadBlogPreview(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries.some(entry => entry.isIntersecting)) {
+          setShouldLoadBlogPreview(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    observer.observe(trigger);
+    return () => observer.disconnect();
+  }, [homepageLayout, shouldLoadBlogPreview]);
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const location = useLocation();
 
@@ -573,10 +598,14 @@ export default function HomePage() {
       </>
     ),
     blog: (
-      <>
-        {/* Blog & Berita Preview Section */}
-        <BlogPreviewSection />
-      </>
+      <div ref={blogPreviewTriggerRef}>
+        {/* Load the non-critical blog preview only when it approaches the viewport. */}
+        {shouldLoadBlogPreview && (
+          <Suspense fallback={null}>
+            <BlogPreviewSection />
+          </Suspense>
+        )}
+      </div>
     ),
     faq: (
       <>
