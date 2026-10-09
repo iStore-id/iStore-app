@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [config, setConfig] = useState<any>(null);
   
   // OTP States
@@ -138,6 +139,7 @@ export default function RegisterPage() {
     }
 
     setError("");
+    setNotice("");
     setLoading(true);
 
     // 1. Password Policy Validation via Backend API
@@ -181,7 +183,7 @@ export default function RegisterPage() {
       const finalPhone = phone.trim() ? normalizePhone(phone.trim()) : undefined;
       // 2. Supabase Sign Up
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
         options: {
           data: {
@@ -195,7 +197,7 @@ export default function RegisterPage() {
       if (!authData.user) throw new Error("Gagal mendaftarkan akun.");
 
       if (!authData.session?.access_token) {
-        navigate("/login");
+        setNotice("Jika email ini dapat didaftarkan, tautan konfirmasi akan dikirim ke alamat tersebut. Periksa kotak masuk dan folder spam. Jika Anda sudah memiliki akun, silakan masuk.");
         return;
       }
 
@@ -208,7 +210,16 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       console.error("Registration error:", err);
-      setError(err.message || "Gagal mendaftarkan akun. Silakan coba lagi.");
+      const errorCode = typeof err?.code === "string" ? err.code : "";
+      const errorMessage = typeof err?.message === "string" ? err.message : "";
+      if (
+        errorCode === "user_already_exists" ||
+        /user already (registered|exists)|email.*already.*(registered|exists)/i.test(errorMessage)
+      ) {
+        setError("Email ini sudah terdaftar. Silakan masuk menggunakan akun Anda.");
+      } else {
+        setError(errorMessage || "Gagal mendaftarkan akun. Silakan coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
@@ -288,7 +299,7 @@ export default function RegisterPage() {
         {/* Method Toggle */}
         <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
           <button
-            onClick={() => { setRegMethod("email"); setError(""); }}
+            onClick={() => { setRegMethod("email"); setError(""); setNotice(""); }}
             className={`flex-1 flex items-center justify-center gap-2 min-h-[44px] py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "email" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             style={regMethod === "email" ? { color: primaryColor } : {}}
           >
@@ -296,7 +307,7 @@ export default function RegisterPage() {
             Email
           </button>
           <button
-            onClick={() => { setRegMethod("phone"); setError(""); }}
+            onClick={() => { setRegMethod("phone"); setError(""); setNotice(""); }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${regMethod === "phone" ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
             style={regMethod === "phone" ? { color: primaryColor } : {}}
           >
@@ -306,9 +317,16 @@ export default function RegisterPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm">
+          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm" role="alert">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <p className="font-medium">{error}</p>
+          </div>
+        )}
+
+        {notice && (
+          <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 px-4 py-3 rounded-xl mb-6 flex items-start gap-3 text-sm" role="status" aria-live="polite">
+            <Mail className="w-5 h-5 shrink-0 mt-0.5" />
+            <p className="font-medium">{notice}</p>
           </div>
         )}
 
