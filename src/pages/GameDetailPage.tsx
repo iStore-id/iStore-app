@@ -594,7 +594,9 @@ export default function GameDetailPage() {
 
     // Track begin_checkout event in GA4
     if (selectedVariant) {
-      const variantPrice = (selectedVariant as any).price || selectedVariant.pricing?.sellingPrice || 0;
+      const rawVariantPrice = (selectedVariant as any).sellingPrice ?? selectedVariant.pricing?.sellingPrice ?? (selectedVariant as any).price ?? 0;
+      const parsedVariantPrice = Number(rawVariantPrice);
+      const variantPrice = Number.isFinite(parsedVariantPrice) ? parsedVariantPrice : 0;
       trackBeginCheckout([
         {
           id: selectedVariant.id || selectedVariant.sku,
