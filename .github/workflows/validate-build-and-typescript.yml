@@ -33,6 +33,9 @@ jobs:
       - name: Run production build
         run: bun run build
 
+      - name: Run checkout regression tests
+        run: bun run test:checkout
+
   typescript:
     name: TypeScript check
     runs-on: ubuntu-latest

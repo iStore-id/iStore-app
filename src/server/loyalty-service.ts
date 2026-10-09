@@ -321,6 +321,69 @@ export class LoyaltyService {
     };
   }
 
+  async hasRedeemedPoints(orderId: string, customerId: string): Promise<boolean> {
+    if (!orderId || !customerId || customerId === "guest") return false;
+
+    const { data, error } = await supabaseAdmin
+      .from("point_transactions")
+      .select("points")
+      .eq("customer_id", customerId)
+      .eq("reference", `points_redeem_${orderId}`)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Gagal memastikan status penukaran poin: ${error.message}`);
+    }
+
+    return Boolean(data && Number(data.points) < 0);
+  }
+
+  async reverseRedeemedPoints(orderId: string, customerId: string): Promise<void> {
+    if (!orderId || !customerId || customerId === "guest") return;
+
+    const reversalReference = `points_redeem_reversal_${orderId}`;
+    const { data: existingReversal, error: reversalCheckError } = await supabaseAdmin
+      .from("point_transactions")
+      .select("id")
+      .eq("reference", reversalReference)
+      .maybeSingle();
+
+    if (reversalCheckError) {
+      throw new Error(`Gagal memeriksa reversal penukaran poin: ${reversalCheckError.message}`);
+    }
+    if (existingReversal) return;
+
+    const redemptionReference = `points_redeem_${orderId}`;
+    const { data: redemption, error: redemptionError } = await supabaseAdmin
+      .from("point_transactions")
+      .select("points")
+      .eq("customer_id", customerId)
+      .eq("reference", redemptionReference)
+      .maybeSingle();
+
+    if (redemptionError) {
+      throw new Error(`Gagal membaca transaksi penukaran poin: ${redemptionError.message}`);
+    }
+    if (!redemption || Number(redemption.points) >= 0) return;
+
+    const { error: insertError } = await supabaseAdmin
+      .from("point_transactions")
+      .insert({
+        customer_id: customerId,
+        type: "REFUND_REVERSAL",
+        points: Math.abs(Number(redemption.points)),
+        reference: reversalReference,
+        order_id: orderId,
+        reason: `Pengembalian poin karena inisialisasi pembayaran gagal untuk pesanan ${orderId}`,
+        created_by: "system",
+        created_at: new Date().toISOString()
+      });
+
+    if (insertError && insertError.code !== "23505" && !insertError.message.includes("unique") && !insertError.message.includes("duplicate key")) {
+      throw new Error(`Gagal mengembalikan poin: ${insertError.message}`);
+    }
+  }
+
   async reverseOrderPoints(orderId: string, customerId: string): Promise<void> {
     if (!customerId || customerId === 'guest') return;
 

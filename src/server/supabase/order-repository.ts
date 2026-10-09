@@ -36,6 +36,8 @@ export class OrderRepository {
       price: row.price,
       adminFee: row.admin_fee,
       discount: row.discount,
+      loyaltyPointsUsed: Number(row.loyalty_points_used) || 0,
+      loyaltyDiscountAmount: Number(row.loyalty_discount_amount) || 0,
       totalAmount: row.total_amount,
       paymentStatus: row.payment_status,
       transactionStatus: row.transaction_status,
@@ -83,6 +85,8 @@ export class OrderRepository {
     if (order.price !== undefined) row.price = order.price;
     if (order.adminFee !== undefined) row.admin_fee = order.adminFee;
     if (order.discount !== undefined) row.discount = order.discount;
+    if (order.loyaltyPointsUsed !== undefined) row.loyalty_points_used = order.loyaltyPointsUsed;
+    if (order.loyaltyDiscountAmount !== undefined) row.loyalty_discount_amount = order.loyaltyDiscountAmount;
     if (order.totalAmount !== undefined) row.total_amount = order.totalAmount;
     if (order.paymentStatus !== undefined) row.payment_status = order.paymentStatus;
     if (order.transactionStatus !== undefined) row.transaction_status = order.transactionStatus;

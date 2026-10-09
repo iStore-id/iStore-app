@@ -9,7 +9,8 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test:checkout": "tsx --test src/server/checkout-calculations.test.ts"
   },
   "dependencies": {
     "@google-cloud/secret-manager": "^7.0.0",
