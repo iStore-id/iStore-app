@@ -311,6 +311,22 @@ export default function GameDetailPage() {
   const [pointsToUse, setPointsToUse] = useState(0);
   const [loyaltyData, setLoyaltyData] = useState<{ balance: number, config: { redeemRateIdr: number, minRedeemPoints: number, maxRedeemPercent: number } } | null>(null);
 
+  // Checkout preview only: the server remains authoritative and revalidates promo,
+  // flash-sale, balance, redemption limits, admin fee, and the final payable amount.
+  const selectedSellingPrice = Math.max(0, Number((selectedVariant as any)?.sellingPrice) || 0);
+  const selectedAdminFee = Math.max(0, Math.round(Number((selectedVariant as any)?.adminFee) || 0));
+  const requestedLoyaltyPoints = Math.max(0, Math.floor(Number(pointsToUse) || 0));
+  const loyaltyRedeemRate = Number(loyaltyData?.config.redeemRateIdr) || 0;
+  const loyaltyMaxPercent = Math.max(0, Math.min(100, Number(loyaltyData?.config.maxRedeemPercent) || 0));
+  const loyaltyMaxDiscount = Math.floor((selectedSellingPrice * loyaltyMaxPercent) / 100);
+  const estimatedLoyaltyPoints = loyaltyData && loyaltyRedeemRate > 0 &&
+    requestedLoyaltyPoints >= Math.max(0, Number(loyaltyData.config.minRedeemPoints) || 0) &&
+    requestedLoyaltyPoints <= loyaltyData.balance
+      ? Math.min(requestedLoyaltyPoints, Math.floor(loyaltyMaxDiscount / loyaltyRedeemRate))
+      : 0;
+  const estimatedLoyaltyDiscount = estimatedLoyaltyPoints * loyaltyRedeemRate;
+  const estimatedCheckoutTotal = Math.max(0, selectedSellingPrice - estimatedLoyaltyDiscount) + selectedAdminFee;
+
   useEffect(() => {
     if (user) {
       const fetchLoyalty = async () => {
@@ -1028,7 +1044,7 @@ export default function GameDetailPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Harga</span>
-                  <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant ? formatRupiah((selectedVariant as any).sellingPrice || 0) : "-"}</span>
+                  <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Diskon</span>
@@ -1073,8 +1089,15 @@ export default function GameDetailPage() {
                   />
                   {pointsToUse > 0 && (
                     <div className="text-xs space-y-1">
-                      <p>Nilai diskon: Rp {(pointsToUse * loyaltyData.config.redeemRateIdr).toLocaleString()}</p>
-                      <p className="font-bold">Total setelah poin: Rp {((selectedVariant as any).sellingPrice - (pointsToUse * loyaltyData.config.redeemRateIdr)).toLocaleString()}</p>
+                      <p>Estimasi diskon poin: Rp {estimatedLoyaltyDiscount.toLocaleString("id-ID")}</p>
+                      <p className="font-bold">Estimasi total setelah poin + biaya admin: Rp {estimatedCheckoutTotal.toLocaleString("id-ID")}</p>
+                      <p className="text-slate-500">Estimasi sebelum validasi promo/flash sale. Total final ditetapkan server saat checkout.</p>
+                      {requestedLoyaltyPoints > loyaltyData.balance && (
+                        <p className="text-amber-700">Saldo poin tidak mencukupi.</p>
+                      )}
+                      {requestedLoyaltyPoints > 0 && requestedLoyaltyPoints < loyaltyData.config.minRedeemPoints && (
+                        <p className="text-amber-700">Minimal penukaran {loyaltyData.config.minRedeemPoints} poin.</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1274,6 +1297,7 @@ export default function GameDetailPage() {
                   {selectedVariant ? formatRupiah((selectedVariant as any).sellingPrice || 0) : "-"}
                 </span>
               </div>
+              <p className="text-[11px] text-slate-500">Total ini merupakan estimasi berdasarkan harga katalog, poin, dan biaya admin. Validasi promo/flash sale dan jumlah akhir dilakukan server saat checkout.</p>
             </div>
 
             {/* Bayar Sekarang */}
