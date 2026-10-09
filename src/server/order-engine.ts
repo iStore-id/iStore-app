@@ -290,8 +290,13 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // Redeem after the order exists because point_transactions.order_id references orders.id.
     if (pointsToRedeem > 0 && userId) {
       try {
-        await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
+        const redemption = await loyaltyService.redeemPoints(userId, pointsToRedeem, orderId);
+        // Mark the ledger mutation before validating its returned amount so any mismatch
+        // is rolled back safely before a payment request is dispatched.
         loyaltyRedeemed = true;
+        if (Number(redemption.discountAmount) !== loyaltyDiscount) {
+          throw new Error("Nilai diskon penukaran poin tidak cocok dengan perhitungan checkout. Pesanan perlu direkonsiliasi.");
+        }
       } catch (redemptionError) {
         // The RPC can commit while the client receives a timeout/network error.
         // Reconcile the append-only ledger before deciding whether points need reversal.
