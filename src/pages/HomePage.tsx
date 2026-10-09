@@ -69,7 +69,7 @@ export default function HomePage() {
 
     observer.observe(trigger);
     return () => observer.disconnect();
-  }, [shouldLoadBlogPreview]);
+  }, [homepageLayout, shouldLoadBlogPreview]);
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const location = useLocation();
 
