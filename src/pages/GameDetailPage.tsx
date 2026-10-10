@@ -135,6 +135,31 @@ export function getAccountInputFields(game: Game | null, selectedProduct: Produc
   return [{ name: "userId", label: "User ID", required: true, type: "text" }];
 }
 
+function normalizeCheckoutErrorMessage(value: unknown, fallback: string): string {
+  const visit = (candidate: unknown, depth: number): string => {
+    if (depth > 4 || candidate == null) return "";
+    if (typeof candidate === "string") return candidate.trim();
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const message = visit(item, depth + 1);
+        if (message) return message;
+      }
+      return "";
+    }
+    if (typeof candidate === "object") {
+      const record = candidate as Record<string, unknown>;
+      for (const key of ["message", "error", "detail", "description", "title"]) {
+        const message = visit(record[key], depth + 1);
+        if (message) return message;
+      }
+    }
+    return "";
+  };
+  const message = visit(value, 0);
+  if (message && message !== "[object Object]" && !message.startsWith("{") && !message.startsWith("[")) return message;
+  return fallback;
+}
+
 export default function GameDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -688,7 +713,7 @@ export default function GameDetailPage() {
       hasEmbeddedRef.current = false;
     } catch (err: any) {
       console.error(err);
-      setCheckoutError(err.message || "Terjadi kesalahan saat checkout");
+      setCheckoutError(normalizeCheckoutErrorMessage(err, "Terjadi kesalahan saat checkout"));
     } finally {
       setProcessing(false);
     }
