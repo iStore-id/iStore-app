@@ -1,7 +1,7 @@
 import assert from "assert";
 import * as crypto from "crypto";
 import QRCode from "qrcode";
-import { DoitProviderAdapter } from "./doit-adapter.js";
+import { DoitProviderAdapter, normalizeDoitErrorMessage } from "./doit-adapter.js";
 import { isWebhookEventProcessed, markWebhookEventProcessed } from "../webhooks.js";
 
 async function runDoitTests() {
@@ -23,6 +23,15 @@ async function runDoitTests() {
   const qrDataUrl = await QRCode.toDataURL(sampleQrString);
   assert.ok(qrDataUrl.startsWith("data:image/png;base64,"), "QR Code generated must be a valid data URL");
   console.log("  [PASS] QR Data URL generated successfully");
+
+  // Test A2: Provider error payload normalization (never expose [object Object]).
+  console.log("Test A2: Verify provider error normalization...");
+  assert.strictEqual(normalizeDoitErrorMessage("  QRIS belum aktif  ", "fallback"), "QRIS belum aktif");
+  assert.strictEqual(normalizeDoitErrorMessage({ message: "Metode belum disetujui" }, "fallback"), "Metode belum disetujui");
+  assert.strictEqual(normalizeDoitErrorMessage({ error: { detail: "Live access pending" } }, "fallback"), "Live access pending");
+  assert.strictEqual(normalizeDoitErrorMessage({ message: { code: "not_ready" } }, "safe fallback"), "safe fallback");
+  assert.notStrictEqual(normalizeDoitErrorMessage({ arbitrary: "value" }, "safe fallback"), "[object Object]");
+  console.log("  [PASS] Provider errors normalized to safe readable text");
 
   // Test B: Idempotency Key deterministic construction
   console.log("Test B: Verify Idempotency-Key format...");
@@ -87,6 +96,14 @@ async function runDoitTests() {
   assert.strictEqual(event.status, "PAID");
   assert.strictEqual(event.amount, 50000);
   console.log("  [PASS] Valid webhook signature successfully verified");
+
+  const repeatedEvent = await adapter.verifyWebhook({
+    body: rawBody,
+    headers: { "paybridge-signature": validSignatureHeader }
+  });
+  assert.strictEqual(repeatedEvent.rawPayload?.id, webhookBodyObj.id, "Same valid signed payload must verify repeatedly");
+  console.log("  [PASS] Repeated valid signature verification accepted");
+
 
   // Test E: Invalid Webhook Signature Rejected
   console.log("Test E: Verify invalid webhook signature is strictly rejected...");
