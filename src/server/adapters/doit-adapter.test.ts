@@ -1,8 +1,8 @@
 import assert from "assert";
 import * as crypto from "crypto";
 import QRCode from "qrcode";
-import { DoitProviderAdapter } from "./doit-adapter.js";
-import { isWebhookEventProcessed, markWebhookEventProcessed } from "../webhooks.js";
+import { DoitProviderAdapter, normalizeDoitErrorMessage } from "./doit-adapter.js";
+import { clearWebhookEventStatus, getWebhookEventStatus, setWebhookEventStatus } from "../webhooks.js";
 
 async function runDoitTests() {
   console.log("=== START DOIT.ID PAYMENT GATEWAY INTEGRATION TESTS ===");
@@ -23,6 +23,17 @@ async function runDoitTests() {
   const qrDataUrl = await QRCode.toDataURL(sampleQrString);
   assert.ok(qrDataUrl.startsWith("data:image/png;base64,"), "QR Code generated must be a valid data URL");
   console.log("  [PASS] QR Data URL generated successfully");
+
+  // Test A2: Provider error payload normalization (never expose [object Object]).
+  console.log("Test A2: Verify provider error normalization...");
+  assert.strictEqual(normalizeDoitErrorMessage("  QRIS belum aktif  ", "fallback"), "QRIS belum aktif");
+  assert.strictEqual(normalizeDoitErrorMessage({ message: "Metode belum disetujui" }, "fallback"), "Metode belum disetujui");
+  assert.strictEqual(normalizeDoitErrorMessage({ error: { detail: "Live access pending" } }, "fallback"), "Live access pending");
+  assert.strictEqual(normalizeDoitErrorMessage({ message: { code: "not_ready" } }, "safe fallback"), "safe fallback");
+  assert.notStrictEqual(normalizeDoitErrorMessage({ arbitrary: "value" }, "safe fallback"), "[object Object]");
+  assert.strictEqual(normalizeDoitErrorMessage("", "safe fallback"), "safe fallback");
+  assert.strictEqual(normalizeDoitErrorMessage([{ detail: "Array detail" }], "fallback"), "Array detail");
+  console.log("  [PASS] Provider errors normalized to safe readable text");
 
   // Test B: Idempotency Key deterministic construction
   console.log("Test B: Verify Idempotency-Key format...");
@@ -88,6 +99,14 @@ async function runDoitTests() {
   assert.strictEqual(event.amount, 50000);
   console.log("  [PASS] Valid webhook signature successfully verified");
 
+  const repeatedEvent = await adapter.verifyWebhook({
+    body: rawBody,
+    headers: { "paybridge-signature": validSignatureHeader }
+  });
+  assert.strictEqual(repeatedEvent.rawPayload?.id, webhookBodyObj.id, "Same valid signed payload must verify repeatedly");
+  console.log("  [PASS] Repeated valid signature verification accepted");
+
+
   // Test E: Invalid Webhook Signature Rejected
   console.log("Test E: Verify invalid webhook signature is strictly rejected...");
   let signatureRejected = false;
@@ -105,13 +124,18 @@ async function runDoitTests() {
   assert.ok(signatureRejected, "Must reject invalid signature");
   console.log("  [PASS] Invalid signature rejected");
 
-  // Test F: Duplicate webhook event deduplication
-  console.log("Test F: Verify webhook event ID deduplication...");
+  // Test F: Webhook event status transitions used by duplicate handling
+  console.log("Test F: Verify webhook event status transitions...");
   const eventId = "evt_unique_12345";
-  assert.strictEqual(isWebhookEventProcessed(eventId), false, "New event should not be processed yet");
-  markWebhookEventProcessed(eventId);
-  assert.strictEqual(isWebhookEventProcessed(eventId), true, "Duplicate event must be recognized as processed");
-  console.log("  [PASS] Event deduplication verified");
+  clearWebhookEventStatus(eventId);
+  assert.strictEqual(getWebhookEventStatus(eventId), null, "New event should have no status");
+  setWebhookEventStatus(eventId, "PROCESSING");
+  assert.strictEqual(getWebhookEventStatus(eventId), "PROCESSING", "In-flight event should be marked PROCESSING");
+  setWebhookEventStatus(eventId, "COMPLETED");
+  assert.strictEqual(getWebhookEventStatus(eventId), "COMPLETED", "Completed event should be recognized for duplicate suppression");
+  clearWebhookEventStatus(eventId);
+  assert.strictEqual(getWebhookEventStatus(eventId), null, "Test event state should be cleared");
+  console.log("  [PASS] Webhook event status transitions verified");
 
   // Test G: Amount mismatch detection
   console.log("Test G: Verify amount mismatch logic...");
