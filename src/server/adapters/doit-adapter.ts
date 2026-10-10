@@ -16,6 +16,34 @@ import {
   RefundResult
 } from "./payment-provider-interface.js";
 
+/** Convert provider error payloads into safe, human-readable text. Never stringify arbitrary objects. */
+export function normalizeDoitErrorMessage(value: unknown, fallback: string): string {
+  const visit = (candidate: unknown, depth: number): string => {
+    if (depth > 4 || candidate == null) return "";
+    if (typeof candidate === "string") return candidate.trim();
+    if (typeof candidate === "number" || typeof candidate === "boolean") return "";
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const message = visit(item, depth + 1);
+        if (message) return message;
+      }
+      return "";
+    }
+    if (typeof candidate === "object") {
+      const record = candidate as Record<string, unknown>;
+      for (const key of ["message", "error", "detail", "description", "title"]) {
+        const message = visit(record[key], depth + 1);
+        if (message) return message;
+      }
+    }
+    return "";
+  };
+  const message = visit(value, 0);
+  if (message && message !== "[object Object]" && !message.startsWith("{") && !message.startsWith("[")) return message;
+  const safeFallback = typeof fallback === "string" ? fallback.trim() : "";
+  return safeFallback && safeFallback !== "[object Object]" ? safeFallback : "Pembayaran gagal. Silakan coba lagi.";
+}
+
 export interface DoitConfig {
   apiKey: string;
   webhookSecret: string;
@@ -191,7 +219,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const errorMsg = data.message || data.error || `Doit.id Error (${response.status})`;
+        const errorMsg = normalizeDoitErrorMessage(data, `Doit.id Error (${response.status})`);
         logSystem("ERROR", "PAYMENT", "DOIT_CREATE_PAYMENT_FAILED", `Gagal membuat pembayaran Doit.id untuk order ${input.orderId}: ${errorMsg}`, "doit-adapter", {
           orderId: input.orderId,
           httpStatus: response.status,
@@ -515,7 +543,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const errorMsg = data.message || data.error || `Doit.id refund rejected (${response.status})`;
+        const errorMsg = normalizeDoitErrorMessage(data, `Doit.id refund rejected (${response.status})`);
         logSystem("ERROR", "PAYMENT", "DOIT_REFUND_FAILED", `Gagal memproses refund Doit.id untuk order ${input.orderId}: ${errorMsg}`, "doit-adapter", {
           orderId: input.orderId,
           outcome: "FAILURE",
