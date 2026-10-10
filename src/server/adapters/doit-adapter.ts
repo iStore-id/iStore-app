@@ -220,11 +220,11 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
 
       if (!response.ok) {
         const errorMsg = normalizeDoitErrorMessage(data, `Doit.id Error (${response.status})`);
-        logSystem("ERROR", "PAYMENT", "DOIT_CREATE_PAYMENT_FAILED", `Gagal membuat pembayaran Doit.id untuk order ${input.orderId}: ${errorMsg}`, "doit-adapter", {
+        logSystem("ERROR", "PAYMENT", "DOIT_CREATE_PAYMENT_FAILED", `Gagal membuat pembayaran Doit.id untuk order ${input.orderId} (HTTP ${response.status}).`, "doit-adapter", {
           orderId: input.orderId,
           httpStatus: response.status,
           outcome: "FAILURE",
-          metadata: { status: response.status, responseMessage: errorMsg }
+          metadata: { status: response.status }
         });
         return {
           success: false,
@@ -544,7 +544,7 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         const errorMsg = normalizeDoitErrorMessage(data, `Doit.id refund rejected (${response.status})`);
-        logSystem("ERROR", "PAYMENT", "DOIT_REFUND_FAILED", `Gagal memproses refund Doit.id untuk order ${input.orderId}: ${errorMsg}`, "doit-adapter", {
+        logSystem("ERROR", "PAYMENT", "DOIT_REFUND_FAILED", `Gagal memproses refund Doit.id untuk order ${input.orderId} (HTTP ${response.status}).`, "doit-adapter", {
           orderId: input.orderId,
           outcome: "FAILURE",
           metadata: { status: response.status }
