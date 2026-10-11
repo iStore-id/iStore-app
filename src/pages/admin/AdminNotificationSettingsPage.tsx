@@ -365,7 +365,7 @@ export default function AdminNotificationSettingsPage() {
                     </span>
                   </div>
                   <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-                    Notifikasi push langsung di browser pengguna desktop & seluler. Membutuhkan konfigurasi Firebase FCM.
+                    Notifikasi push langsung di browser pengguna desktop & seluler. Integrasi push belum dikonfigurasi.
                   </p>
                 </div>
               </div>
