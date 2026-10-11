@@ -5,14 +5,10 @@
 -- IDEMPOTENT: Safe to run multiple times
 -- ============================================================================
 
--- 1. Reclamation Strategy
--- The ghost table 'payout_batches' exists but is inaccessible (42501).
--- Forensic audit confirmed 0 rows in commission tables and no active relational FKs to this table.
--- We perform a clean drop to ensure a fresh foundation. CASCADE is avoided unless proven necessary.
-DROP TABLE IF EXISTS public.payout_batches;
-
--- 2. Base Table Creation
-CREATE TABLE public.payout_batches (
+-- 1. Preserve existing payout history.
+-- This script must never drop payout_batches. Keep existing rows and constraints.
+-- 2. Base Table Creation (create only when the table does not yet exist)
+CREATE TABLE IF NOT EXISTS public.payout_batches (
     id VARCHAR(255) PRIMARY KEY, -- Compatible with Firestore IDs and existing commission_records schema
     batch_number VARCHAR(100) NOT NULL UNIQUE,
     recipient_id VARCHAR(255) NOT NULL REFERENCES public.commission_recipients(id),
