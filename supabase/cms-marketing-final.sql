@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.media_library (
     height INTEGER,
     alt_text TEXT,
     folder TEXT DEFAULT 'general',
-    uploaded_by TEXT, -- Firebase UID
+    uploaded_by TEXT, -- Authenticated user identifier
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'archived')),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.banners (
     published BOOLEAN DEFAULT false,
     start_at TIMESTAMPTZ,
     end_at TIMESTAMPTZ,
-    created_by TEXT, -- Firebase UID
+    created_by TEXT, -- Authenticated user identifier
     updated_by TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()

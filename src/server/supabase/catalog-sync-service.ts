@@ -59,8 +59,7 @@ export class SupabaseCatalogSyncService {
   }
 
   /**
-   * Discovers catalog items directly from the chosen upstream provider.
-   * Does NOT read or use Firebase catalog data.
+   * Discovers catalog items directly from the selected upstream provider.
    */
   private async fetchFromProvider(providerId: "tokovoucher" | "apigames", filterCode?: string): Promise<DiscoveryResult[]> {
     if (providerId === "tokovoucher") {

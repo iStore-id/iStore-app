@@ -1,13 +1,13 @@
 /**
  * Supabase Data Layer Facade for Catalog and Provider Domains (STEP 4.5A)
- * 
+ *
  * Provides unified, isolated access to Supabase-backed repositories for:
  * 1. Catalog: Games, Categories, Game Categories, Products, Product Variants
  * 2. Provider: Providers, Provider SKUs, Provider Mappings, Routing
- * 
+ *
  * DESIGN CONSTRAINTS:
  * - Dedicated server-side adapter.
- * - Leaves Firestore production services (order-engine, fulfillment-dispatcher) completely untouched.
+ * - Keeps order-engine and fulfillment-dispatcher outside this catalog/provider facade.
  * - Does not perform data migration or catalog synchronization.
  */
 

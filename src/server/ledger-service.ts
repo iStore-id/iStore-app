@@ -160,7 +160,7 @@ export async function createJournalEntry(
     const isDuplicate = pgResult.status === "ALREADY_PROCESSED";
     const now = pgResult.created_at || new Date().toISOString();
 
-    // 2. Firestore Write (Legacy Ledger Preservation) - DECOMMISSIONED in PHASE 5B.3G-8
+    // 2. Legacy ledger mirror write is decommissioned in PHASE 5B.3G-8.
     const docId = `ledger_${idempotencyKey}`;
     
     // Durable Audit Log (Non-authoritative)
