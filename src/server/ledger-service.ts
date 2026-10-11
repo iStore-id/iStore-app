@@ -119,7 +119,7 @@ import { adapterPostLedgerJournal } from "./ledger-adapter.js";
 
 /**
  * Creates an append-only, immutable double-entry ledger record.
- * Uses atomic document creation docRef.create() to enforce deterministic idempotency.
+ * Uses the canonical database idempotency key to prevent duplicate posting.
  */
 export async function createJournalEntry(
   params: CreateJournalEntryParams
