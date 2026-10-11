@@ -81,8 +81,11 @@ export class DoitProviderAdapter implements PaymentProviderAdapter {
           if (encryptedSecret) {
             const decrypted = decryptSecret(encryptedSecret);
             if (decrypted === encryptedSecret && encryptedSecret.includes(":")) {
+              // Fail closed: never use ciphertext as an HMAC signing secret.
+              // Keep the provider config loadable, but signature verification must fail
+              // until the encryption key/configuration is corrected.
               decryptResult = "FALLBACK_CIPHERTEXT";
-              webhookSecret = decrypted;
+              webhookSecret = "";
             } else if (decrypted) {
               decryptResult = "NONEMPTY_NONCIPHERTEXT";
               webhookSecret = decrypted;
