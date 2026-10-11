@@ -205,7 +205,7 @@ export default function TransactionDetailPage() {
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
           <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900 mb-2">Konfigurasi Belum Lengkap</h2>
-          <p className="text-slate-600 mb-6">Hubungkan Firebase untuk memuat detail transaksi ini.</p>
+          <p className="text-slate-600 mb-6">Layanan detail transaksi belum siap. Silakan coba lagi nanti.</p>
         </div>
       </div>
     );
