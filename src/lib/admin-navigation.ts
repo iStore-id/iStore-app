@@ -74,7 +74,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         action: "view",
         status: "ACTIVE",
         description: "Pusat notifikasi sistem, alert stok, dan pesan pelanggan.",
-        dependencies: ["Firebase Cloud Messaging", "Notification Engine"]
+        dependencies: ["Supabase Notifications", "Notification Engine"]
       },
       { 
         title: "System Health", 
@@ -386,7 +386,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         action: "view",
         status: "ACTIVE",
         description: "Pusat orkestrasi antrean tugas latar belakang (Fulfillment, Reconciliation, Recovery) dengan lease-based locking.",
-        dependencies: ["JobService", "Firestore Lease Queue"]
+        dependencies: ["JobService", "Supabase Jobs Queue"]
       },
       { 
         title: "SLA", 
