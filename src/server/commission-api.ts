@@ -11,8 +11,7 @@ import {
   CommissionRule, 
   CommissionRecord,
   RecipientType, 
-  PayoutAccount,
-  FirestorePayoutAccount 
+  PayoutAccount
 } from "../types/commission.js";
 
 const DEFAULT_COMMISSION_CONFIG: CommissionConfig = {
@@ -278,21 +277,21 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
     const now = new Date().toISOString();
 
     // Prepare encrypted payout account storage
-    let firestorePayout: any = null;
+    let storedPayout: any = null;
     if (payoutAccount && (payoutAccount.bankName || payoutAccount.accountNumber)) {
       const rawAcc = String(payoutAccount.accountNumber || "").trim();
       const bank = String(payoutAccount.bankName || "").trim();
       const holder = String(payoutAccount.accountHolderName || "").trim();
 
       if (rawAcc && !isMaskedAccountNumber(rawAcc)) {
-        firestorePayout = {
+        storedPayout = {
           bankName: bank,
           encryptedAccountNumber: encryptSecret(rawAcc),
           accountNumberMasked: maskAccountNumber(rawAcc),
           accountHolderName: holder
         };
       } else {
-        firestorePayout = {
+        storedPayout = {
           bankName: bank,
           encryptedAccountNumber: "",
           accountNumberMasked: isMaskedAccountNumber(rawAcc) ? rawAcc : "",
@@ -309,7 +308,7 @@ export async function createCommissionRecipientApi(req: AuthenticatedRequest, re
       status: status as any,
       notes: notes ? notes.trim() : "",
       userId: userId || null,
-      payoutAccount: firestorePayout,
+      payoutAccount: storedPayout,
       createdAt: now,
       updatedAt: now,
       createdBy: actor.uid,
@@ -382,10 +381,10 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
     }
 
     // Process payout account updates securely
-    let firestorePayout: any = existing.payoutAccount || null;
+    let storedPayout: any = existing.payoutAccount || null;
     if (payoutAccount !== undefined) {
       if (payoutAccount === null) {
-        firestorePayout = null;
+        storedPayout = null;
       } else {
         const rawAcc = String(payoutAccount.accountNumber || "").trim();
         const bank = String(payoutAccount.bankName !== undefined ? payoutAccount.bankName : (existing.payoutAccount?.bankName || "")).trim();
@@ -393,7 +392,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
 
         if (rawAcc && !isMaskedAccountNumber(rawAcc)) {
           // New plaintext account number provided -> encrypt and mask
-          firestorePayout = {
+          storedPayout = {
             bankName: bank,
             encryptedAccountNumber: encryptSecret(rawAcc),
             accountNumberMasked: maskAccountNumber(rawAcc),
@@ -404,7 +403,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
           const prevEnc = existing.payoutAccount?.encryptedAccountNumber || "";
           const prevMask = existing.payoutAccount?.accountNumberMasked || "";
 
-          firestorePayout = {
+          storedPayout = {
             bankName: bank,
             encryptedAccountNumber: prevEnc,
             accountNumberMasked: prevMask,
@@ -422,7 +421,7 @@ export async function updateCommissionRecipientApi(req: AuthenticatedRequest, re
       status: status !== undefined ? status : existing.status,
       notes: notes !== undefined ? notes.trim() : existing.notes,
       userId: userId !== undefined ? userId : existing.userId,
-      payoutAccount: firestorePayout,
+      payoutAccount: storedPayout,
       updatedAt: now,
       updatedBy: actor.uid
     };
