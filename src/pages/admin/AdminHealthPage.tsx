@@ -36,7 +36,7 @@ const STATE_ICONS = {
 
 const COMPONENT_ICONS: Record<string, any> = {
   application: Server,
-  firestore: Database,
+  supabase: Database,
   queue_worker: Zap,
   provider_apigames: Globe,
   business_calendar: Calendar,
