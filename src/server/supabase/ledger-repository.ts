@@ -86,9 +86,8 @@ export class SupabaseLedgerRepository implements ILedgerRepository {
     if (isUuid) {
       query = query.eq("id", id);
     } else {
-      // Legacy ID handling: Firestore used ledger_${idempotencyKey} as doc ID
-      // In Supabase, this mapping is preserved in the idempotency_key column.
-      // We must strip the "ledger_" prefix if it exists to match the idempotency_key pattern.
+      // Legacy ledger IDs are mapped to the idempotency_key column in Supabase.
+      // Strip the "ledger_" prefix when present to match that key.
       const idempotencyKey = id.startsWith("ledger_") ? id.substring(7) : id;
       query = query.eq("idempotency_key", idempotencyKey);
     }
