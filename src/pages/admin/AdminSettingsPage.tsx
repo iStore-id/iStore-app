@@ -61,7 +61,6 @@ export default function AdminSettingsPage() {
   const fetchConfig = async () => {
     try {
       // Fetch configuration through the API to respect the layered architecture.
-      // we can fetch via API to respect the new layered architecture.
       const token = await (user as any)?.getIdToken?.();
       const res = await fetch("/api/admin/store-config", {
         headers: {
