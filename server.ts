@@ -251,15 +251,6 @@ export async function initServerLogic() {
     });
   });
 
-  app.get("/api/firebase-config-status", (req, res) => {
-    res.json({
-      targetProject: ISTORE_PROJECT_ID,
-      serverProjectId: ISTORE_PROJECT_ID,
-      serverDatabaseId: ISTORE_FIRESTORE_DATABASE_ID,
-      isDecoupledFromAiStudio: true
-    });
-  });
-
   // Synchronize authenticated Supabase user with the canonical public profile and guarantee owner role
   app.post("/api/auth/sync-user", optionalAuth, async (req: AuthenticatedRequest, res) => {
     if (!req.user || !req.user.uid) {
