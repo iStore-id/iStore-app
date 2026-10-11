@@ -1,5 +1,5 @@
 /**
- * Supabase Auth Service Preparation (STEP 4.3)
+ * Supabase Auth Service
  * 
  * Provides an architectural adapter for Supabase Authentication capabilities:
  * - Email/Password Sign-In
@@ -11,8 +11,7 @@
  * - Session & User Retrieval
  * - Auth State Change Subscription
  * 
- * NOTE: This module is prepared for subsequent migration phases.
- * It DOES NOT replace the currently active Firebase Auth flow in STEP 4.3.
+ * This module provides the application's Supabase Auth operations and auth-state subscription.
  */
 
 import { supabase, isSupabaseConfigured } from "./supabase";
