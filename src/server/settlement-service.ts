@@ -214,6 +214,14 @@ export async function processSettlementImport(processedByUserId: string, fileNam
       }
     }
 
+    if (grossAmount < 0 || feeAmount < 0 || refundAmount < 0 || netAmount < 0) {
+      return {
+        success: false,
+        code: "INVALID_NEGATIVE_AMOUNT",
+        message: `Settlement row ${i + 1} contains a negative financial amount and was not imported.`
+      };
+    }
+
     const sourceRowHash = crypto.createHash("md5").update(row.join(",")).digest("hex");
     const settledAtDate = new Date(gatewaySettledAt);
     const normalizedSettledAt = Number.isNaN(settledAtDate.getTime())
@@ -327,6 +335,15 @@ export async function processSettlementImport(processedByUserId: string, fileNam
     };
   } catch (err: any) {
     console.error("Settlement Insert Fail:", err);
+
+    // Best-effort cleanup: this batch was created by this request and must not remain partial.
+    try {
+      await supabaseAdmin!.from("settlement_records").delete().eq("batch_id", batchId);
+      await supabaseAdmin!.from("settlement_batches").delete().eq("id", batchId);
+    } catch (cleanupError: any) {
+      console.error("Settlement import cleanup failed; manual reconciliation is required:", cleanupError);
+    }
+
     return { success: false, code: "INSERT_FAIL", message: `Database insert failed: ${err.message}` };
   }
 }
