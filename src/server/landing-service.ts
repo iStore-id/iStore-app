@@ -5,6 +5,8 @@ import {
   LandingStatus, 
   LandingBlock
 } from "../types/landing.js";
+import { PromoService } from "./promo-service.js";
+import { FlashSaleService } from "./flash-sale-service.js";
 
 const RESERVED_SLUGS = [
   "admin", "api", "login", "register", "games", "transactions",
@@ -138,7 +140,24 @@ export class LandingService {
             }
           } catch (e) {}
         } else if (block.type === "PROMO_HIGHLIGHT") {
-          // Promos / FlashSales skipped as they are in Firestore
+          if (block.data?.promoId) {
+            try {
+              const promo = (await PromoService.getInstance().getPromos()).find(p => p.id === block.data.promoId);
+              const now = Date.now();
+              if (promo && promo.status === "active" && new Date(promo.startAt).getTime() <= now && new Date(promo.endAt).getTime() >= now) {
+                block.data.resolvedPromo = { id: promo.id!, code: promo.code, name: promo.name, discountType: promo.discountType, discountValue: promo.discountValue, minSpend: promo.minimumTransaction, maxDiscount: promo.maximumDiscount ?? undefined };
+              }
+            } catch (e) { /* Promo resolution must not break landing rendering. */ }
+          }
+          if (block.data?.flashSaleId) {
+            try {
+              const sale = (await FlashSaleService.getInstance().getFlashSales()).find(s => s.id === block.data.flashSaleId);
+              const now = Date.now();
+              if (sale && new Date(sale.startAt).getTime() <= now && new Date(sale.endAt).getTime() >= now) {
+                block.data.resolvedFlashSale = { id: sale.id!, name: sale.name, salePrice: sale.salePrice, startAt: sale.startAt, endAt: sale.endAt };
+              }
+            } catch (e) { /* Flash-sale resolution must not break landing rendering. */ }
+          }
           if (block.data?.campaignId) {
             try {
               const cData = await this.cmsRepo.getCampaign(block.data.campaignId);
@@ -347,15 +366,17 @@ export class LandingService {
     flashSales: Array<{ id: string; name: string; salePrice: number; startAt: string; endAt: string }>;
     campaigns: Array<{ id: string; title: string; slug?: string }>;
   }> {
-    const [games, campaigns] = await Promise.all([
+    const [games, campaigns, promos, flashSales] = await Promise.all([
       this.catalogRepo.listGames(false),
-      this.cmsRepo.listCampaigns(false)
+      this.cmsRepo.listCampaigns(false),
+      PromoService.getInstance().getPromos(),
+      FlashSaleService.getInstance().getFlashSales()
     ]);
 
     return {
       games: games.map(g => ({ id: g.id, name: g.name, slug: g.slug, image: g.image || "" })),
-      promos: [],
-      flashSales: [],
+      promos: promos.map(p => ({ id: p.id!, name: p.name, code: p.code, discountType: p.discountType, discountValue: p.discountValue })),
+      flashSales: flashSales.map(s => ({ id: s.id!, name: s.name, salePrice: s.salePrice, startAt: s.startAt, endAt: s.endAt })),
       campaigns: campaigns.map(c => ({ id: c.id, title: c.title, slug: c.slug }))
     };
   }
