@@ -42,7 +42,7 @@ export class SystemHealthService {
       }
 
       const dbStart = Date.now();
-      const { error } = await supabaseAdmin.from("_health").select("*").limit(1);
+      const { error } = await supabaseAdmin.from("jobs").select("id").limit(1);
       if (error) {
         throw error;
       }
