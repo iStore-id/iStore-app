@@ -1,4 +1,4 @@
-export type HealthState = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN';
+export type HealthState = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN' | 'DISABLED';
 
 export interface ComponentHealth {
   id: string;
