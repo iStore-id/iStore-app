@@ -24,14 +24,16 @@ const STATE_COLORS = {
   HEALTHY: "bg-green-50 text-green-700 border-green-200",
   DEGRADED: "bg-amber-50 text-amber-700 border-amber-200",
   UNHEALTHY: "bg-red-50 text-red-700 border-red-200",
-  UNKNOWN: "bg-gray-50 text-gray-700 border-gray-200"
+  UNKNOWN: "bg-gray-50 text-gray-700 border-gray-200",
+  DISABLED: "bg-gray-50 text-gray-500 border-gray-200"
 };
 
 const STATE_ICONS = {
   HEALTHY: CheckCircle2,
   DEGRADED: AlertTriangle,
   UNHEALTHY: AlertOctagon,
-  UNKNOWN: HelpCircle
+  UNKNOWN: HelpCircle,
+  DISABLED: HelpCircle
 };
 
 const COMPONENT_ICONS: Record<string, any> = {
@@ -169,7 +171,7 @@ export default function AdminHealthPage() {
                 <span className="text-[10px] font-bold text-gray-400 uppercase">
                   {component.isCritical ? 'Critical Dependency' : 'Optional Service'}
                 </span>
-                <StateIcon className={`w-4 h-4 ${component.state === 'HEALTHY' ? 'text-green-500' : component.state === 'DEGRADED' ? 'text-amber-500' : 'text-red-500'}`} />
+                <StateIcon className={`w-4 h-4 ${component.state === 'HEALTHY' ? 'text-green-500' : component.state === 'DEGRADED' ? 'text-amber-500' : component.state === 'DISABLED' || component.state === 'UNKNOWN' ? 'text-gray-400' : 'text-red-500'}`} />
               </div>
             </div>
           );
