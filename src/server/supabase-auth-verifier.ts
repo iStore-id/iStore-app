@@ -6,7 +6,7 @@
  *
  * IMPORTANT:
  * - This module is prepared for subsequent migration phases.
- * - It DOES NOT replace the currently active Firebase Auth middleware in STEP 4.4.
+ * - Route middleware determines where this Supabase token verifier is applied.
  * - It DOES NOT trust user data from request body, query params, or client headers.
  * - It never exposes SUPABASE_SERVICE_ROLE_KEY to the browser.
  */
