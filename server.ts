@@ -141,10 +141,6 @@ import { OrderRepository } from "./src/server/supabase/order-repository.js";
 
 dotenv.config();
 
-// TEMPORARY PREVIEW-ONLY diagnostic: include call stacks for Node.js deprecation warnings.
-if (process.env.VERCEL_ENV === "preview") {
-  process.traceDeprecation = true;
-}
 
 // Auto-mocked adminDb for Supabase (backward compatibility during migration)
 const adminDb: any = {
