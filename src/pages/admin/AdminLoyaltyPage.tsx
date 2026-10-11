@@ -340,7 +340,7 @@ export default function AdminLoyaltyPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Firebase Auth UID customer"
+                  placeholder="ID pengguna pelanggan"
                   value={adjCustomerId}
                   onChange={(e) => setAdjCustomerId(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
