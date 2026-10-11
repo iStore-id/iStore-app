@@ -8,9 +8,6 @@ import { getPaymentStatusHandler } from "./src/server/payment-status-api.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
 import { performGameAccountInquiry } from "./src/server/inquiry-adapter.js";
-const ISTORE_PROJECT_ID = process.env.ISTORE_PROJECT_ID || "istore-id";
-const ISTORE_FIRESTORE_DATABASE_ID = process.env.ISTORE_FIRESTORE_DATABASE_ID || "(default)";
-
 import {
   createProduct, updateProduct, deactivateProduct, getProductResetPreview, resetProductAndMapping, updateUserRole, updateOrderState, getAdminOrders, getDashboardSummary, getAdminOrderDetail, retryOrderFulfillment, 
   createGame, updateGame, deleteGame, createCategory, updateCategory, deleteCategory, createVariant, updateVariant, 
@@ -223,30 +220,35 @@ export async function initServerLogic() {
 
   // API Routes
   app.get("/api/health", async (req, res) => {
-    let adminInitialized = false;
+    const adminInitialized = Boolean(supabaseAdmin);
     let dbStatus = "fail";
-    let errorDetail = null;
-    
+    let errorDetail: { message: string; code?: string } | null = null;
+
     try {
-      adminInitialized = !!adminDb;
-      // TEST FIREBASE ADMIN SECARA LANGSUNG
-      await adminDb.collection("_health").limit(1).get();
+      if (!supabaseAdmin) {
+        throw new Error("Supabase Admin is not configured");
+      }
+
+      const { error } = await supabaseAdmin
+        .from("orders")
+        .select("id", { head: true, count: "exact" })
+        .limit(1);
+
+      if (error) throw error;
       dbStatus = "PASS";
     } catch (err: any) {
-      dbStatus = "fail";
       errorDetail = {
-        message: err.message,
+        message: err.message || "Supabase health check failed",
         code: err.code
       };
     }
 
-    res.json({ 
+    res.status(dbStatus === "PASS" ? 200 : 503).json({
       status: dbStatus === "PASS" ? "healthy" : "degraded",
       timestamp: new Date().toISOString(),
-      firebaseAdminInitialized: adminInitialized,
-      projectId: ISTORE_PROJECT_ID,
-      database: ISTORE_FIRESTORE_DATABASE_ID,
-      firestoreConnectivity: dbStatus,
+      supabaseAdminInitialized: adminInitialized,
+      database: "supabase",
+      databaseConnectivity: dbStatus,
       error: errorDetail
     });
   });
