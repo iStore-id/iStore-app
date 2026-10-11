@@ -221,6 +221,13 @@ export async function processSettlementImport(processedByUserId: string, fileNam
         message: `Settlement row ${i + 1} contains a negative financial amount and was not imported.`
       };
     }
+    if (![grossAmount, feeAmount, refundAmount, netAmount].every(Number.isInteger)) {
+      return {
+        success: false,
+        code: "INVALID_FRACTIONAL_AMOUNT",
+        message: `Settlement row ${i + 1} contains a fractional IDR amount and was not imported.`
+      };
+    }
 
     const sourceRowHash = crypto.createHash("md5").update(row.join(",")).digest("hex");
     const settledAtDate = new Date(gatewaySettledAt);
