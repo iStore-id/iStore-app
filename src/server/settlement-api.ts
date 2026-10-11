@@ -119,8 +119,8 @@ export async function processSettlementBatchApi(req: AuthenticatedRequest, res: 
     
     const { data: batchData } = await supabaseAdmin!.from("settlement_batches").select("status").eq("id", id).maybeSingle();
     if (!batchData) throw new Error("Batch not found");
-    if (batchData.status !== "PENDING" && batchData.status !== "FAILED") {
-      throw new Error("Only PENDING or FAILED batches can be processed");
+    if (batchData.status !== "PENDING" && batchData.status !== "FAILED" && batchData.status !== "CALCULATED") {
+      throw new Error("Only PENDING, CALCULATED, or FAILED batches can be processed; disputed batches require review");
     }
     
     await supabaseAdmin!.from("settlement_batches").update({
@@ -152,27 +152,59 @@ export async function completeSettlementBatchApi(req: AuthenticatedRequest, res:
       throw new Error("Only PROCESSING batches can be completed");
     }
     
-    await supabaseAdmin!.from("settlement_batches").update({
+    const grossAmount = Number(batchData.gross_amount || 0);
+    const mdrFeeAmount = Number(batchData.mdr_fee_amount || 0);
+    const netAmount = Number(batchData.net_settled_amount ?? batchData.total_amount ?? 0);
+    const refundAmount = Number(batchData.refund_amount || 0);
+    const adjustmentAmount = Number(batchData.adjustment_amount || 0);
+
+    // The current ledger closure model only supports gross = net + MDR fee.
+    // Do not post an incomplete journal for refunds or adjustments.
+    if (refundAmount !== 0 || adjustmentAmount !== 0) {
+      return res.status(409).json({
+        success: false,
+        code: "SETTLEMENT_REQUIRES_MANUAL_RECONCILIATION",
+        message: "This batch includes refunds or adjustments that the current ledger closure model cannot represent safely."
+      });
+    }
+    if (grossAmount <= 0 || grossAmount !== netAmount + mdrFeeAmount) {
+      return res.status(409).json({
+        success: false,
+        code: "SETTLEMENT_ARITHMETIC_MISMATCH",
+        message: "Settlement cannot be closed because gross, MDR fee, and net amounts do not reconcile."
+      });
+    }
+
+    const userId = req.user.uid;
+    const ipAddress = req.ip || "";
+    const ledgerResult = await safeRecordSettlementClosed(
+      id,
+      grossAmount,
+      mdrFeeAmount,
+      netAmount,
+      userId,
+      { notes: notes || "Settlement batch completed", referenceId }
+    );
+
+    if (!ledgerResult) {
+      return res.status(500).json({
+        success: false,
+        code: "SETTLEMENT_LEDGER_POST_FAILED",
+        message: "Settlement ledger journal was not confirmed; batch remains unclosed for safe retry."
+      });
+    }
+
+    const { error: updateError } = await supabaseAdmin!.from("settlement_batches").update({
       status: "SETTLED",
       settled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       reference_id: referenceId,
       notes
     }).eq("id", id);
-    
+
+    if (updateError) throw updateError;
+
     const result = { id, status: "SETTLED" };
-    
-    const userId = req.user.uid;
-    const ipAddress = req.ip || "";
-    
-    await safeRecordSettlementClosed(
-      id,
-      batchData.total_amount || 0,
-      0,
-      batchData.total_amount || 0,
-      userId,
-      { notes: "System bulk settlement update" }
-    );
 
     await logAudit(userId, "SETTLEMENT_BATCH_COMPLETED", "settlements", id, { referenceId }, ipAddress);
 
