@@ -114,7 +114,7 @@ export class SupabaseCatalogSyncService {
 
   /**
    * Executes sync runner in DRY_RUN or bounded LIVE_TEST mode.
-   *
+   * 
    * Strict Safety Invariants:
    * 1. DRY_RUN never touches Supabase database (0 mutations).
    * 2. LIVE_TEST enforces a strict server-side hard cap of <= 10 SKUs.
