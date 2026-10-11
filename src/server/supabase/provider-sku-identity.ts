@@ -33,7 +33,7 @@ export function generateDeterministicProviderSkuUuid(providerId: string, provide
 }
 
 /**
- * Legacy string format helper (used in older Firestore keys).
+ * Legacy string format helper for older provider SKU identifiers.
  * Maintained for backward compatibility.
  */
 export function generateLegacyDeterministicSkuKey(providerId: string, providerSku: string): string {
