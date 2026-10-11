@@ -1,6 +1,7 @@
 import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { FAQItem, FAQAdminItem, FAQStatus, PublicFAQItem, FAQAdminListResponse } from "../types/faq.js";
+import { PromoService } from "./promo-service.js";
 
 // Content Sanitizer to ensure Zero XSS and Zero Dangerous Executable Code
 export function sanitizeFaqContent(text: string): string {
@@ -99,8 +100,16 @@ export class FAQService {
           }
         }
 
-        // NOTE: relatedPromo resolution skipped as Promos are still in Firestore
-        // and we are strictly Firebase-free in this service.
+        let relatedPromo = null;
+        if (item.relatedPromoId) {
+          try {
+            const promo = (await PromoService.getInstance().getPromos()).find(p => p.id === item.relatedPromoId);
+            const now = Date.now();
+            if (promo && promo.status === "active" && new Date(promo.startAt).getTime() <= now && new Date(promo.endAt).getTime() >= now) {
+              relatedPromo = { id: promo.id!, name: promo.name, code: promo.code, discountType: promo.discountType, discountValue: promo.discountValue };
+            }
+          } catch (e) { /* Related content must not break FAQ rendering. */ }
+        }
 
         return {
           id: item.id,
@@ -109,7 +118,7 @@ export class FAQService {
           category: item.category,
           sortOrder: item.sortOrder,
           relatedGame,
-          relatedPromo: null
+          relatedPromo
         };
       })
     );
@@ -142,6 +151,17 @@ export class FAQService {
       }
     }
 
+    let relatedPromo = null;
+    if (item.relatedPromoId) {
+      try {
+        const promo = (await PromoService.getInstance().getPromos()).find(p => p.id === item.relatedPromoId);
+        const now = Date.now();
+        if (promo && promo.status === "active" && new Date(promo.startAt).getTime() <= now && new Date(promo.endAt).getTime() >= now) {
+          relatedPromo = { id: promo.id!, name: promo.name, code: promo.code, discountType: promo.discountType, discountValue: promo.discountValue };
+        }
+      } catch (e) { /* Related content must not break FAQ rendering. */ }
+    }
+
     return {
       id: item.id,
       question: item.question,
@@ -149,7 +169,7 @@ export class FAQService {
       category: item.category,
       sortOrder: item.sortOrder || 0,
       relatedGame,
-      relatedPromo: null
+      relatedPromo
     };
   }
 
@@ -364,14 +384,15 @@ export class FAQService {
     promos: Array<{ id: string; name: string; code: string; discountType: string; discountValue: number }>;
     blogs: Array<{ id: string; title: string; slug: string }>;
   }> {
-    const [games, blogs] = await Promise.all([
+    const [games, blogs, promos] = await Promise.all([
       this.catalogRepo.listGames(false),
-      this.cmsRepo.listBlogs({ onlyActive: false })
+      this.cmsRepo.listBlogs({ onlyActive: false }),
+      PromoService.getInstance().getPromos()
     ]);
 
     return {
       games: games.map(g => ({ id: g.id, name: g.name, slug: g.slug, image: g.image || "" })),
-      promos: [], // Promos still in Firestore, skipping for Firebase-free audit
+      promos: promos.map(p => ({ id: p.id!, name: p.name, code: p.code, discountType: p.discountType, discountValue: p.discountValue })),
       blogs: blogs.items.map(b => ({ id: b.id, title: b.title, slug: b.slug }))
     };
   }
