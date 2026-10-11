@@ -37,9 +37,16 @@ export class SystemHealthService {
 
     // 2. Supabase (Readiness)
     try {
+      if (!supabaseAdmin) {
+        throw new Error("Supabase admin client is not configured.");
+      }
+
       const dbStart = Date.now();
-      const { error } = await supabaseAdmin!.from("_health").select("*").limit(1);
-      
+      const { error } = await supabaseAdmin.from("_health").select("*").limit(1);
+      if (error) {
+        throw error;
+      }
+
       components.push({
         id: 'supabase',
         name: 'Supabase Database',
@@ -54,7 +61,7 @@ export class SystemHealthService {
         name: 'Supabase Database',
         state: 'UNHEALTHY',
         lastChecked: new Date().toISOString(),
-        message: err.message,
+        message: err?.message || "Supabase readiness check failed.",
         isCritical: true
       });
     }
