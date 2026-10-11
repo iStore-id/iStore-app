@@ -2,6 +2,7 @@ import { SupabaseCMSRepository } from "./supabase/cms-repository.js";
 import { SupabaseCatalogRepository } from "./supabase/catalog-repository.js";
 import { SupabaseMediaRepository } from "./supabase/media-repository.js";
 import { BlogPost, BlogStatus, PublicBlogItem, PublicBlogDetail } from "../types/blog.js";
+import { PromoService } from "./promo-service.js";
 
 const RESERVED_SLUGS = [
   "admin", "api", "login", "register", "games", "transactions",
@@ -136,7 +137,10 @@ export class BlogService {
       if (!game) throw new Error(`Game referensi '${data.relatedGameId}' tidak ditemukan.`);
     }
 
-    // Related Promo/FlashSale validation skipped as they remain in Firestore
+    if (data.relatedPromoId) {
+      const promos = await PromoService.getInstance().getPromos();
+      if (!promos.some(p => p.id === data.relatedPromoId)) throw new Error("Promo referensi tidak ditemukan: " + data.relatedPromoId);
+    }
 
     if (data.relatedCampaignId) {
       const camp = await this.cmsRepo.getCampaign(data.relatedCampaignId);
@@ -176,7 +180,15 @@ export class BlogService {
       } catch (e) {}
     }
 
-    // Promos still in Firestore, skipping resolution for Firebase-free audit
+    if (data.relatedPromoId) {
+      try {
+        const promo = (await PromoService.getInstance().getPromos()).find(p => p.id === data.relatedPromoId);
+        const now = Date.now();
+        if (promo && promo.status === "active" && new Date(promo.startAt).getTime() <= now && new Date(promo.endAt).getTime() >= now) {
+          result.relatedPromo = { id: promo.id!, name: promo.name, code: promo.code, discountType: promo.discountType, discountValue: promo.discountValue };
+        }
+      } catch (e) { /* Related content must not break blog rendering. */ }
+    }
 
     if (data.relatedCampaignId) {
       try {
@@ -611,15 +623,16 @@ export class BlogService {
     campaigns: Array<{ id: string; title: string; slug?: string }>;
     landings: Array<{ id: string; title: string; slug: string }>;
   }> {
-    const [games, campaigns, landings] = await Promise.all([
+    const [games, campaigns, landings, promos] = await Promise.all([
       this.catalogRepo.listGames(false),
       this.cmsRepo.listCampaigns(false),
-      this.cmsRepo.listLandings(false)
+      this.cmsRepo.listLandings(false),
+      PromoService.getInstance().getPromos()
     ]);
 
     return {
       games: games.map(g => ({ id: g.id, name: g.name, slug: g.slug, image: g.image || "" })),
-      promos: [], // Promos in Firestore, skipping for Firebase-free audit
+      promos: promos.map(p => ({ id: p.id!, name: p.name, code: p.code, discountType: p.discountType, discountValue: p.discountValue })),
       campaigns: campaigns.map(c => ({ id: c.id, title: c.title, slug: c.slug })),
       landings: landings.map(l => ({ id: l.id, title: l.title, slug: l.slug }))
     };
