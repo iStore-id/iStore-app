@@ -5,7 +5,6 @@ import { PaymentRouter } from "./payment-router.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 import { SystemHealthAggregation, ComponentHealth, HealthState } from "../types/health.js";
-import { IncidentService } from "./incident-service.js";
 import { supabaseAdmin } from "./supabase-admin.js";
 
 
@@ -77,7 +76,6 @@ export class SystemHealthService {
   private jobService = JobService.getInstance();
   private providerService = ProviderService.getInstance();
   private calendarService = BusinessCalendarService.getInstance();
-  private incidentService = IncidentService.getInstance();
 
   private constructor() {}
 
@@ -295,7 +293,7 @@ export class SystemHealthService {
       overallState = 'DEGRADED';
     }
 
-    this.evaluateIncidents(components).catch(err => console.error("[SystemHealth] Error evaluating incidents:", err));
+    // Health checks are read-only: do not create incident records on every dashboard refresh.
 
     return {
       overallState,
@@ -304,36 +302,4 @@ export class SystemHealthService {
     };
   }
 
-  private async evaluateIncidents(components: ComponentHealth[]) {
-    for (const comp of components) {
-      if (comp.state === 'UNHEALTHY' || (comp.isCritical && comp.state === 'DEGRADED')) {
-        await this.incidentService.reportIncident({
-          title: `System Component Alert: ${comp.name}`,
-          description: comp.message || `Component ${comp.name} is in state ${comp.state}`,
-          severity: comp.state === 'UNHEALTHY' ? 'CRITICAL' : 'HIGH',
-          category: this.mapComponentToCategory(comp.id),
-          source: 'HEALTH_CHECK',
-          sourceKey: `health:${comp.id}:${comp.state}`,
-          component: comp.id,
-          metadataSafe: comp.details
-        });
-      }
-    }
-  }
-
-  private mapComponentToCategory(compId: string): any {
-    const map: Record<string, string> = {
-      'application': 'APPLICATION',
-      'supabase': 'DATABASE',
-      'auth': 'AUTHENTICATION',
-      'queue_worker': 'QUEUE',
-      'midtrans': 'PAYMENT',
-      'doit': 'PAYMENT',
-      'ipaymu': 'PAYMENT',
-      'payment_gateway': 'PAYMENT',
-      'provider_apigames': 'PROVIDER',
-      'business_calendar': 'OTHER'
-    };
-    return map[compId] || 'OTHER';
-  }
 }
