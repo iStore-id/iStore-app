@@ -60,7 +60,7 @@ export default function AdminSettingsPage() {
 
   const fetchConfig = async () => {
     try {
-      // In a real full-stack we'd call the API, but since Firebase client SDK is used heavily,
+      // Fetch configuration through the API to respect the layered architecture.
       // we can fetch via API to respect the new layered architecture.
       const token = await (user as any)?.getIdToken?.();
       const res = await fetch("/api/admin/store-config", {
