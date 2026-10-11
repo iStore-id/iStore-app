@@ -23,7 +23,7 @@ export async function getCustomerNotifications(req: AuthenticatedRequest, res: R
     }
     
     // In Supabase/PostgreSQL we usually use offset or cursor-based pagination
-    // Since lastId was used for startAfter in Firestore, we'll try to find the timestamp of lastId
+    // Resolve the timestamp associated with a legacy pagination cursor.
     if (lastId) {
       const { data: lastDoc } = await supabaseAdmin!
         .from("notifications")
