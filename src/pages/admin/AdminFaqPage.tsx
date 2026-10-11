@@ -1084,7 +1084,7 @@ export default function AdminFaqPage() {
             <div className="text-center space-y-2">
               <h2 className="text-base font-bold text-slate-900">Hapus FAQ Permanen?</h2>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Pertanyaan <span className="font-semibold text-slate-800">"{deletingFaq.question}"</span> akan dihapus dari Firestore. Seluruh entity atau promo yang direferensikan tetap aman dan tidak akan terhapus.
+                Pertanyaan <span className="font-semibold text-slate-800">"{deletingFaq.question}"</span> akan dihapus dari database. Seluruh entity atau promo yang direferensikan tetap aman dan tidak akan terhapus.
               </p>
             </div>
 
