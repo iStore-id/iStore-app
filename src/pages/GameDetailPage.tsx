@@ -719,7 +719,7 @@ export default function GameDetailPage() {
     }
   };
 
-  if (errorState === "configuration_error") return <div className="p-12 text-center">Konfigurasi Firebase belum lengkap.</div>;
+  if (errorState === "configuration_error") return <div className="p-12 text-center">Konfigurasi layanan belum lengkap. Silakan coba lagi nanti.</div>;
   if (errorState === "service_error") return <div className="p-12 text-center text-red-500">Gagal memuat data. Silakan coba lagi.</div>;
   if (error) return <div className="p-12 text-center text-slate-500">{error}</div>;
   if (!game) {
