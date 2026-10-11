@@ -35,13 +35,6 @@ export interface PayoutAccount {
   encryptedAccountNumber?: string; // Optional: encrypted bank account number
 }
 
-export interface FirestorePayoutAccount {
-  bankName: string;
-  encryptedAccountNumber: string; // Encrypted-at-rest with AES-256
-  accountNumberMasked: string; // Masked for safe display (e.g. ••••1234 or 88******81)
-  accountHolderName: string;
-}
-
 export interface CommissionRecord {
   id: string; // Document ID / commissionId: comm_order_{orderId}_{recipientId}
   orderId: string;
