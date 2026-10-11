@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "./middleware.js";
 import { supabaseAdmin } from "./supabase-admin.js";
 import { JobService } from "./job-service.js";
+import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 export async function listJobsApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -186,9 +187,22 @@ export const cronWorkerAuth = workerAuth;
 export async function processWorkerBatchApi(req: Request, res: Response) {
   try {
     const jobService = JobService.getInstance();
-    // Bounded batch of up to 5 jobs to stay within serverless execution budget
+    // This handler is protected by workerAuth at the route. Record only a successful
+    // bounded invocation, including when the queue is empty. This key is isolated from
+    // payment/provider configuration and is not a job or order mutation.
     const maxBatch = 5;
     const processedCount = await jobService.processBatch(maxBatch);
+    const executedAt = new Date().toISOString();
+    try {
+      await SystemConfigRepository.getInstance().upsertConfig("worker_heartbeat", {
+        lastHeartbeatAt: executedAt,
+        processedCount
+      });
+    } catch (heartbeatError: any) {
+      // A heartbeat storage failure must not turn a completed worker batch into a failed
+      // HTTP invocation that a scheduler might repeat.
+      console.warn("[Worker Batch] Heartbeat persistence failed:", heartbeatError?.message || "unknown error");
+    }
     const stats = await jobService.getQueueStats();
 
     return res.status(200).json({
@@ -196,7 +210,7 @@ export async function processWorkerBatchApi(req: Request, res: Response) {
       message: `Worker executed successfully. Processed ${processedCount} job(s).`,
       processedCount,
       queueStats: stats,
-      executedAt: new Date().toISOString()
+      executedAt
     });
   } catch (error: any) {
     console.error("[Worker Batch Error]", error);
