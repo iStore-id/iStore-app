@@ -56,7 +56,7 @@ export async function getProviderCatalogDiscovery(req: AuthenticatedRequest, res
     let enhancedResults;
 
     if (discoveryMode === "full") {
-      // Full Catalog: bypass existence lookup completely to save Firestore quota
+      // Full Catalog: skip the existing-SKU lookup to avoid unnecessary database queries
       enhancedResults = results.map(r => ({
         ...r,
         isExisting: null
