@@ -9,7 +9,7 @@
 -- This script must never drop payout_batches. Keep existing rows and constraints.
 -- 2. Base Table Creation (create only when the table does not yet exist)
 CREATE TABLE IF NOT EXISTS public.payout_batches (
-    id VARCHAR(255) PRIMARY KEY, -- Compatible with Firestore IDs and existing commission_records schema
+    id VARCHAR(255) PRIMARY KEY, -- Preserves compatibility with existing commission_records schema
     batch_number VARCHAR(100) NOT NULL UNIQUE,
     recipient_id VARCHAR(255) NOT NULL REFERENCES public.commission_recipients(id),
     recipient_snapshot JSONB NOT NULL,
