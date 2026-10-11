@@ -423,7 +423,7 @@ export default function HomePage() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">Konfigurasi Database Diperlukan</h3>
-              <p className="text-slate-500 text-sm">Hubungkan basis data Firebase melalui konsol kontrol untuk memuat katalog dan produk Toko Kami.</p>
+              <p className="text-slate-500 text-sm">Konfigurasi layanan katalog belum lengkap. Silakan hubungi administrator.</p>
             </div>
           ) : catalogErrorState === "service_error" ? (
             <div className="text-center py-16 bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm max-w-xl mx-auto space-y-4">
