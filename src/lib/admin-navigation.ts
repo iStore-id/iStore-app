@@ -74,7 +74,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         action: "view",
         status: "ACTIVE",
         description: "Pusat notifikasi sistem, alert stok, dan pesan pelanggan.",
-        dependencies: ["Supabase Notifications", "Firebase Cloud Messaging (push, not configured)"]
+        dependencies: ["Supabase Notifications"]
       },
       { 
         title: "System Health", 
