@@ -286,7 +286,7 @@ export default function AdminTokoVoucherIntegrationPage() {
               placeholder={configured ? "••••••••••••••••••••" : "Masukkan Secret Key API"}
               className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-slate-800 font-mono text-sm"
             />
-            <p className="text-xs text-slate-400">Disimpan secara terenkripsi di Firestore (tidak pernah terekspos ke frontend).</p>
+            <p className="text-xs text-slate-400">Disimpan secara aman di penyimpanan konfigurasi server (tidak pernah terekspos ke frontend).</p>
           </div>
         </div>
 
