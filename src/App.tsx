@@ -13,12 +13,13 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-import GameDetailPage from "./pages/GameDetailPage";
-import TransactionCheckPage from "./pages/TransactionCheckPage";
-import TransactionHistoryPage from "./pages/TransactionHistoryPage";
-import TransactionDetailPage from "./pages/TransactionDetailPage";
+// Route-specific pages are loaded on demand; keep homepage, layout, and auth pages eager.
+const GameDetailPage = lazy(() => import("./pages/GameDetailPage"));
+const TransactionCheckPage = lazy(() => import("./pages/TransactionCheckPage"));
+const TransactionHistoryPage = lazy(() => import("./pages/TransactionHistoryPage"));
+const TransactionDetailPage = lazy(() => import("./pages/TransactionDetailPage"));
 
-// Secondary public pages are loaded on demand; keep homepage, game checkout, auth, and transaction entry pages eager.
+// Secondary public pages are loaded on demand.
 const PublicLandingPage = lazy(() => import("./pages/PublicLandingPage"));
 const BlogListPage = lazy(() => import("./pages/BlogListPage"));
 const BlogDetailPage = lazy(() => import("./pages/BlogDetailPage"));
