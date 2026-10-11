@@ -6,11 +6,11 @@
 
 CREATE TABLE IF NOT EXISTS public.refunds (
     id VARCHAR(255) PRIMARY KEY,
-    order_id VARCHAR(255) NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    order_id VARCHAR(255) NOT NULL REFERENCES public.orders(id) ON DELETE RESTRICT,
     refund_key VARCHAR(255) NOT NULL UNIQUE,
-    amount NUMERIC(20, 2) NOT NULL CHECK (amount >= 0),
+    amount NUMERIC(20, 2) NOT NULL CHECK (amount > 0),
     currency VARCHAR(10) NOT NULL DEFAULT 'IDR',
-    reason TEXT,
+    reason TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'PROCESSING',
     provider VARCHAR(50) DEFAULT 'midtrans',
     provider_refund_id VARCHAR(255),
