@@ -1,32 +1,5 @@
 
-// Auto-mocked adminDb for Supabase
-const adminDb: any = {
-  collection: (name: string) => ({
-    doc: (id?: string) => ({
-      id: id || "mock-id",
-      get: async () => ({ exists: false, data: () => ({}) }),
-      set: async (d: any) => {},
-      update: async (d: any) => {},
-      collection: (n: string) => adminDb.collection(n)
-    }),
-    where: () => adminDb.collection(name),
-    orderBy: () => adminDb.collection(name),
-    limit: () => adminDb.collection(name),
-    get: async () => ({ docs: [], empty: true, size: 0 }),
-    count: () => ({ get: async () => ({ data: () => ({ count: 0 }) }) })
-  }),
-  runTransaction: async (cb: any) => cb({
-    get: async () => ({ exists: false, data: () => ({}), ref: {} }),
-    set: () => {},
-    update: () => {}
-  }),
-  batch: () => ({
-    set: () => {},
-    update: () => {},
-    commit: async () => {}
-  }),
-  doc: (path: string) => adminDb.collection("doc").doc()
-};
+import { supabaseAdmin } from "./supabase-admin.js";
 import * as commissionRepo from "./commission-repository.js";
 import { 
   LedgerAccount, 
@@ -440,31 +413,34 @@ export async function recordRefundExecuted(
  * Derives server-trusted settlement context for an order without client input.
  * Returns 'AFTER_SETTLEMENT' ONLY IF settlementRecord exists AND parent settlementBatch.status === 'SETTLED'.
  */
-export async function getOrderSettlementContext(orderId: string): Promise<'BEFORE_SETTLEMENT' | 'AFTER_SETTLEMENT'> {
+export async function getOrderSettlementContext(orderId: string): Promise<'BEFORE_SETTLEMENT' | 'AFTER_SETTLEMENT' | 'UNKNOWN'> {
   try {
-    const recordRef = adminDb.collection("settlementRecords").doc(`sett_rec_${orderId}`);
-    const recordSnap = await recordRef.get();
+    if (!supabaseAdmin) throw new Error("Supabase Admin is not configured");
 
-    if (!recordSnap.exists) {
-      return 'BEFORE_SETTLEMENT';
-    }
+    const { data: record, error: recordError } = await supabaseAdmin
+      .from("settlement_records")
+      .select("batch_id")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const batchId = recordSnap.data()?.batchId;
-    if (!batchId) {
-      return 'BEFORE_SETTLEMENT';
-    }
+    if (recordError) throw recordError;
+    if (!record) return 'BEFORE_SETTLEMENT';
 
-    const batchRef = adminDb.collection("settlementBatches").doc(batchId);
-    const batchSnap = await batchRef.get();
+    const { data: batch, error: batchError } = await supabaseAdmin
+      .from("settlement_batches")
+      .select("status")
+      .eq("id", record.batch_id)
+      .maybeSingle();
 
-    if (batchSnap.exists && batchSnap.data()?.status === "SETTLED") {
-      return 'AFTER_SETTLEMENT';
-    }
+    if (batchError) throw batchError;
+    if (!batch) return 'UNKNOWN';
 
-    return 'BEFORE_SETTLEMENT';
+    return batch.status === "SETTLED" ? 'AFTER_SETTLEMENT' : 'BEFORE_SETTLEMENT';
   } catch (err) {
-    console.warn(`[Settlement Context Check Error] Defaulting to BEFORE_SETTLEMENT for order ${orderId}:`, err);
-    return 'BEFORE_SETTLEMENT';
+    console.error(`[Settlement Context Check Error] Cannot safely determine settlement context for order ${orderId}:`, err);
+    return 'UNKNOWN';
   }
 }
 
@@ -475,7 +451,7 @@ export async function safeRecordRefundExecuted(
   orderId: string,
   refundId: string,
   amount: number,
-  settlementContext: 'BEFORE_SETTLEMENT' | 'AFTER_SETTLEMENT',
+  settlementContext: 'BEFORE_SETTLEMENT' | 'AFTER_SETTLEMENT' | 'UNKNOWN',
   createdBy: string = "SYSTEM",
   metadata?: Record<string, any>
 ): Promise<CreateJournalEntryResult | null> {
@@ -1418,10 +1394,22 @@ export async function reconcileCommissionLedger(): Promise<CommissionReconciliat
   const reversalJournals = allAccrualJournals.filter(j => j.eventType === "COMMISSION_ACCRUAL_REVERSAL");
 
   // 4. Fetch all SUCCEEDED refund records
-  const refundSnap = await adminDb.collection("refunds")
-    .where("status", "==", "SUCCEEDED")
-    .get();
-  const allSucceededRefunds = refundSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+  if (!supabaseAdmin) throw new Error("Supabase Admin is not configured");
+  const { data: succeededRefundRows, error: refundsError } = await supabaseAdmin
+    .from("refunds")
+    .select("id, order_id, amount, status")
+    .eq("status", "SUCCEEDED");
+
+  if (refundsError) {
+    throw new Error(`Failed to load succeeded refunds for ledger reconciliation: ${refundsError.message}`);
+  }
+
+  const allSucceededRefunds = (succeededRefundRows || []).map((refund: any) => ({
+    id: refund.id,
+    orderId: refund.order_id,
+    amount: Number(refund.amount),
+    status: refund.status
+  }));
 
   // Build lookup maps
   const commissionMap = new Map<string, any>(allCommissions.map(c => [c.id, c]));
