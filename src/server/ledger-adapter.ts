@@ -67,7 +67,7 @@ export async function adapterPostLedgerJournal(params: AdapterPostLedgerParams) 
     if (UUID_REGEX.test(params.reversalOf)) {
       pgReversalOf = params.reversalOf;
     } else {
-      // Legacy Firestore string -> store in metadata
+      // Legacy non-UUID reversal identifier -> store in metadata
       finalMetadata.legacy_reversal_of = params.reversalOf;
       pgReversalOf = null;
     }
