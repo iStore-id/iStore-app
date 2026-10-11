@@ -44,15 +44,27 @@ function findIndex(headers: string[], searchTerms: string[]): number {
 }
 
 export async function logAudit(userId: string, action: string, resource: string, resourceId: string, payload: any, ip: string = "") {
-  await supabaseAdmin!.from("audit_logs").insert({
-    actor: userId,
+  if (!supabaseAdmin) throw new Error("Supabase Admin is not configured");
+
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (authError || !authData.user?.email) {
+    throw new Error("Unable to resolve the authenticated actor for settlement audit logging");
+  }
+
+  const role = String(authData.user.app_metadata?.role || "admin");
+  const { error } = await supabaseAdmin.from("audit_logs").insert({
+    actor_uid: userId,
+    actor_email: authData.user.email,
+    role,
     action,
-    entity: resource,
-    entity_id: resourceId,
-    details: payload,
+    target: resource,
+    target_id: resourceId,
+    after_data: payload,
     ip_address: ip,
     created_at: new Date().toISOString()
   });
+
+  if (error) throw new Error(`Failed to write settlement audit log: ${error.message}`);
 }
 
 export async function processSettlementCsv(fileBuffer: Buffer, fileName: string, processedByUserId: string, ipAddress: string = ""): Promise<ProcessResult> {
@@ -122,7 +134,7 @@ export async function processSettlementImport(processedByUserId: string, fileNam
   let totalNet = 0;
   let isDisputed = false;
   const dateStr = new Date().toISOString().split("T")[0];
-  const batchId = `sett_batch_${dateStr}_${crypto.randomBytes(4).toString("hex")}`;
+  const batchId = crypto.randomUUID();
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -185,13 +197,17 @@ export async function processSettlementImport(processedByUserId: string, fileNam
         recordStatus = "REFUND_MISMATCH";
       }
 
-      const recordRefId = `sett_rec_${orderId}`;
-      const { data: existingRecord } = await supabaseAdmin!
+      const { data: existingRecord, error: existingRecordError } = await supabaseAdmin!
         .from("settlement_records")
         .select("id")
-        .eq("id", recordRefId)
+        .eq("order_id", orderId)
+        .limit(1)
         .maybeSingle();
-      
+
+      if (existingRecordError) {
+        throw new Error(`Failed to check existing settlement record: ${existingRecordError.message}`);
+      }
+
       if (existingRecord) {
         isDisputed = true;
         recordStatus = "ALREADY_SETTLED";
@@ -199,19 +215,29 @@ export async function processSettlementImport(processedByUserId: string, fileNam
     }
 
     const sourceRowHash = crypto.createHash("md5").update(row.join(",")).digest("hex");
+    const settledAtDate = new Date(gatewaySettledAt);
+    const normalizedSettledAt = Number.isNaN(settledAtDate.getTime())
+      ? new Date().toISOString()
+      : settledAtDate.toISOString();
+
     recordsToInsert.push({
-      id: `sett_rec_${orderId}`,
+      id: crypto.randomUUID(),
       batch_id: batchId,
       order_id: orderId,
       gross_amount: grossAmount,
+      fee_amount: feeAmount,
       mdr_fee_amount: feeAmount,
       refund_amount: refundAmount,
       adjustment_amount: 0,
       net_amount: netAmount,
+      amount: grossAmount,
+      fee: feeAmount,
       payment_type: paymentType,
       gateway_transaction_status: recordStatus,
-      gateway_settled_at: gatewaySettledAt,
+      gateway_settled_at: normalizedSettledAt,
       source_row_hash: sourceRowHash,
+      provider_id: "midtrans",
+      status: recordStatus,
       created_at: new Date().toISOString()
     });
 
@@ -225,8 +251,13 @@ export async function processSettlementImport(processedByUserId: string, fileNam
     return { success: false, code: "EMPTY_RECORDS", message: "No valid rows found to be imported." };
   }
 
+  const batchNumber = `STL-${dateStr.replace(/-/g, "")}-${fileHash.slice(0, 12).toUpperCase()}`;
   const batchRow = {
     id: batchId,
+    batch_number: batchNumber,
+    gateway_code: "midtrans",
+    total_amount: totalNet,
+    settlement_date: dateStr,
     period_date: dateStr,
     period_start: dateStr,
     period_end: dateStr,
@@ -239,6 +270,8 @@ export async function processSettlementImport(processedByUserId: string, fileNam
     adjustment_amount: totalAdjustment,
     net_settled_amount: totalNet,
     order_count: recordsToInsert.length,
+    total_count: recordsToInsert.length,
+    provider_id: "midtrans",
     status: isDisputed ? "DISPUTED" : "CALCULATED",
     idempotency_key: `sett_batch_key_${fileHash}`,
     processed_by: processedByUserId,
@@ -247,13 +280,15 @@ export async function processSettlementImport(processedByUserId: string, fileNam
   };
 
   try {
-    await supabaseAdmin!.from("settlement_batches").insert(batchRow);
-    
+    const { error: batchInsertError } = await supabaseAdmin!.from("settlement_batches").insert(batchRow);
+    if (batchInsertError) throw batchInsertError;
+
     // Chunked insert for records
     const chunkSize = 100;
     for (let i = 0; i < recordsToInsert.length; i += chunkSize) {
       const chunk = recordsToInsert.slice(i, i + chunkSize);
-      await supabaseAdmin!.from("settlement_records").insert(chunk);
+      const { error: recordInsertError } = await supabaseAdmin!.from("settlement_records").insert(chunk);
+      if (recordInsertError) throw recordInsertError;
     }
 
     await logAudit(processedByUserId, "SETTLEMENT_BATCH_CREATED", "settlementBatches", batchId, {
