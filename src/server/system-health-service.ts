@@ -31,6 +31,11 @@ async function checkDoitHealth(): Promise<{ success: boolean; message: string; l
       if (response.status === 401 || response.status === 403) {
         return { success: false, message: "Doit.id API authentication failed.", latencyMs: Date.now() - start };
       }
+      // A lookup for the deliberately nonexistent reference may return 404 while
+      // still proving that the provider endpoint is reachable and accepted the request.
+      if (response.status === 404) {
+        return { success: true, message: "Doit.id API reachable; test reference was not found.", latencyMs: Date.now() - start };
+      }
       if (response.status !== 200) {
         return { success: false, message: `Doit.id returned HTTP ${response.status} to the read-only connection check.`, latencyMs: Date.now() - start };
       }
@@ -165,7 +170,7 @@ export class SystemHealthService {
     } else {
       const heartbeatTime = new Date(lastHeartbeat).getTime();
       const diffMs = Date.now() - heartbeatTime;
-      if (!Number.isFinite(heartbeatTime) || diffMs > 120000) {
+      if (!Number.isFinite(heartbeatTime) || diffMs > 600000) {
         workerState = 'DEGRADED';
         workerMsg = !Number.isFinite(heartbeatTime)
           ? 'Persisted worker heartbeat is invalid'
