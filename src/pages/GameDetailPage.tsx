@@ -238,6 +238,41 @@ export default function GameDetailPage() {
   const [cardOpacity, setCardOpacity] = useState(85);
   const [cardBlur, setCardBlur] = useState<"none" | "sm" | "md" | "lg">("md");
 
+  const [productBannerConfig, setProductBannerConfig] = useState({
+    enabled: true,
+    height: "medium" as "compact" | "medium" | "large",
+    showName: true,
+    showAutomaticBadge: true,
+    showSafetyBadge: true
+  });
+
+  useEffect(() => {
+    let active = true;
+    const loadProductBannerConfig = async () => {
+      try {
+        const res = await fetch("/api/public/store-config", { cache: "no-store" });
+        const data = await res.json();
+        if (!active || !data.success || !data.data) return;
+        setProductBannerConfig({
+          enabled: data.data.productBannerEnabled ?? true,
+          height: ["compact", "medium", "large"].includes(data.data.productBannerHeight) ? data.data.productBannerHeight : "medium",
+          showName: data.data.productBannerShowName ?? true,
+          showAutomaticBadge: data.data.productBannerShowAutomaticBadge ?? true,
+          showSafetyBadge: data.data.productBannerShowSafetyBadge ?? true
+        });
+      } catch (error) {
+        console.warn("[GameDetail] Gagal memuat pengaturan banner produk:", error);
+      }
+    };
+    void loadProductBannerConfig();
+    const handleConfigUpdated = () => { void loadProductBannerConfig(); };
+    window.addEventListener("store-config-updated", handleConfigUpdated);
+    return () => {
+      active = false;
+      window.removeEventListener("store-config-updated", handleConfigUpdated);
+    };
+  }, []);
+
   // Track active theme from .public-storefront[data-theme]
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof document !== "undefined") {
@@ -736,10 +771,10 @@ export default function GameDetailPage() {
   return (
     <div className="max-w-7xl mx-auto py-8 md:py-12">
       {/* Compact horizontal product banner */}
-      {checkoutStep === 1 && (
+      {checkoutStep === 1 && productBannerConfig.enabled && (
         <section
           aria-labelledby="game-title"
-          className="relative isolate mb-4 h-36 sm:h-44 md:h-52 overflow-hidden rounded-2xl border shadow-sm"
+          className={`relative isolate mb-4 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`
           style={{ borderColor: "var(--border-color)" }}
         >
           <img
@@ -758,19 +793,27 @@ export default function GameDetailPage() {
               />
             </div>
             <div className="min-w-0">
-              <h1 id="game-title" className="text-xl font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
-                {game.name}
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2.5 py-1 font-semibold text-emerald-100">
-                  <Zap className="h-3.5 w-3.5" />
-                  Otomatis
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 font-semibold text-white">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Legal & Aman
-                </span>
-              </div>
+              {productBannerConfig.showName && (
+                <h1 id="game-title" className="text-xl font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
+                  {game.name}
+                </h1>
+              )}
+              {(productBannerConfig.showAutomaticBadge || productBannerConfig.showSafetyBadge) && (
+                <div className={`flex flex-wrap items-center gap-2 text-[11px] sm:text-xs ${productBannerConfig.showName ? "mt-2" : ""}`}>
+                  {productBannerConfig.showAutomaticBadge && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2.5 py-1 font-semibold text-emerald-100">
+                      <Zap className="h-3.5 w-3.5" />
+                      Otomatis
+                    </span>
+                  )}
+                  {productBannerConfig.showSafetyBadge && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 font-semibold text-white">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Legal & Aman
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
