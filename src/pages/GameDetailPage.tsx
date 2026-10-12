@@ -770,10 +770,15 @@ export default function GameDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 md:py-12">
+      {/* Keep a semantic page title even when the visual banner or its name is hidden. */}
+      {(!productBannerConfig.enabled || checkoutStep !== 1 || !productBannerConfig.showName) && (
+        <h1 className="sr-only">{game.name}</h1>
+      )}
       {/* Compact horizontal product banner */}
       {checkoutStep === 1 && productBannerConfig.enabled && (
         <section
-          aria-labelledby="game-title"
+          aria-labelledby={productBannerConfig.showName ? "game-title" : undefined}
+          aria-label={!productBannerConfig.showName ? game.name : undefined}
           className={`relative isolate mb-4 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`}
           style={{ borderColor: "var(--border-color)" }}
         >
