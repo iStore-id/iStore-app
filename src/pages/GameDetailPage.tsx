@@ -774,7 +774,7 @@ export default function GameDetailPage() {
       {checkoutStep === 1 && productBannerConfig.enabled && (
         <section
           aria-labelledby="game-title"
-          className={`relative isolate mb-4 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`
+          className={`relative isolate mb-4 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`}
           style={{ borderColor: "var(--border-color)" }}
         >
           <img
