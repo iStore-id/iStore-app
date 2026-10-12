@@ -76,6 +76,11 @@ export interface StoreConfiguration {
   showCatalogMarquee?: boolean;
   homepageLayout?: HomepageLayoutConfig;
   homepageFeaturedGameIds?: string[];
+  productBannerEnabled?: boolean;
+  productBannerHeight?: 'compact' | 'medium' | 'large';
+  productBannerShowName?: boolean;
+  productBannerShowAutomaticBadge?: boolean;
+  productBannerShowSafetyBadge?: boolean;
   
   // Custom Homepage Background Settings
   homepageBackgroundColor?: string;
