@@ -172,6 +172,40 @@ export default function AdminSettingsPage() {
     finally { setFeaturedSaving(false); }
   };
 
+  const handleSaveProductBanner = async () => {
+    if (!config) return;
+    setSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      const res = await fetch("/api/admin/store-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+        body: JSON.stringify({
+          productBannerEnabled: config.productBannerEnabled ?? true,
+          productBannerHeight: config.productBannerHeight || "medium",
+          productBannerShowName: config.productBannerShowName ?? true,
+          productBannerShowAutomaticBadge: config.productBannerShowAutomaticBadge ?? true,
+          productBannerShowSafetyBadge: config.productBannerShowSafetyBadge ?? true
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setConfig(data.data);
+        setSuccessMsg("Pengaturan banner halaman produk berhasil disimpan");
+        window.dispatchEvent(new Event("store-config-updated"));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setError(data.message || "Gagal menyimpan pengaturan banner produk");
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveHomepageLayout = async () => {
     setLayoutSaving(true);
     setError(null);
@@ -360,6 +394,43 @@ export default function AdminSettingsPage() {
                   placeholder="628123456789"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 pt-6">
+          <div className="mb-4">
+            <h4 className="font-medium text-slate-800">Tampilan Halaman Produk</h4>
+            <p className="text-xs text-slate-500 mt-1">Atur banner horizontal pada halaman game. Pengaturan ini hanya memengaruhi tampilan, bukan harga atau checkout.</p>
+          </div>
+          <div className="space-y-4 rounded-xl border border-slate-200 p-4">
+            <label className="flex items-center justify-between gap-4 text-sm text-slate-700">
+              <span><span className="block font-semibold">Banner horizontal</span><span className="text-xs text-slate-500">Tampilkan atau sembunyikan banner produk</span></span>
+              <input type="checkbox" checked={config.productBannerEnabled ?? true} onChange={(e) => setConfig({ ...config, productBannerEnabled: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+            </label>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Tinggi banner</label>
+              <select value={config.productBannerHeight || "medium"} onChange={(e) => setConfig({ ...config, productBannerHeight: e.target.value as "compact" | "medium" | "large" })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                <option value="compact">Ringkas</option>
+                <option value="medium">Sedang (default)</option>
+                <option value="large">Besar</option>
+              </select>
+            </div>
+            {([
+              ["productBannerShowName", "Nama produk", "Tampilkan nama game di atas banner"],
+              ["productBannerShowAutomaticBadge", "Badge Otomatis", "Tampilkan badge Otomatis"],
+              ["productBannerShowSafetyBadge", "Badge Legal & Aman", "Tampilkan badge Legal & Aman"]
+            ] as const).map(([key, label, description]) => (
+              <label key={key} className="flex items-center justify-between gap-4 text-sm text-slate-700">
+                <span><span className="block font-semibold">{label}</span><span className="text-xs text-slate-500">{description}</span></span>
+                <input type="checkbox" checked={config[key] ?? true} onChange={(e) => setConfig({ ...config, [key]: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
+              </label>
+            ))}
+            <div className="flex justify-end pt-2">
+              <button type="button" onClick={handleSaveProductBanner} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-70">
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                Simpan Tampilan Produk
+              </button>
             </div>
           </div>
         </div>
