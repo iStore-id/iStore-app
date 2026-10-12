@@ -764,6 +764,56 @@ export default function GameDetailPage() {
         </div>
       )}
 
+      {checkoutStep === 1 && (
+        <section
+          aria-labelledby="game-description-title"
+          className="mb-6 rounded-3xl border p-5 md:p-6 shadow-sm"
+          style={{
+            backgroundColor: "var(--surface-color)",
+            borderColor: "var(--border-color)"
+          }}
+        >
+          <div className="space-y-6">
+            <div className="min-w-0">
+              <h2 id="game-description-title" className="text-base font-bold text-slate-900 mb-3">
+                Deskripsi Produk
+              </h2>
+              <p className="text-sm text-slate-600 leading-6 whitespace-pre-line break-words">
+                {game.description?.trim() || "Informasi produk belum tersedia."}
+              </p>
+            </div>
+            <div className="min-w-0 border-t border-slate-200 pt-5">
+              <h2 className="text-base font-bold text-slate-900 mb-3">
+                Petunjuk Pembelian
+              </h2>
+              <ol className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Pilih layanan dan nominal</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Pilih layanan jika tersedia beberapa pilihan, lalu pilih nominal yang ingin dibeli.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Masukkan data akun</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Periksa kembali ID akun dan informasi lain yang diminta sebelum melanjutkan.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Selesaikan pembayaran</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Periksa ringkasan transaksi, pilih metode pembayaran yang tersedia, lalu ikuti instruksi sampai status transaksi diperbarui.</p>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Purchase Container */}
       <div 
         className={
