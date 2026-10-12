@@ -184,6 +184,7 @@ export default function AdminSettingsPage() {
         headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
         body: JSON.stringify({
           productBannerEnabled: config.productBannerEnabled ?? true,
+          productBannerImageUrl: config.productBannerImageUrl || "",
           productBannerHeight: config.productBannerHeight || "medium",
           productBannerShowName: config.productBannerShowName ?? true,
           productBannerShowAutomaticBadge: config.productBannerShowAutomaticBadge ?? true,
@@ -204,6 +205,28 @@ export default function AdminSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleProductBannerImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !config) return;
+    if (!file.type.startsWith("image/")) { setError("File harus berupa gambar."); return; }
+    if (file.size > 5 * 1024 * 1024) { setError("Ukuran gambar maksimal 5 MB."); return; }
+    setSaving(true); setError(null); setSuccessMsg(null);
+    try {
+      const token = await (user as any)?.getIdToken?.();
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "product-banners");
+      formData.append("altText", "Banner horizontal halaman produk iStore");
+      const res = await fetch("/api/admin/media", { method: "POST", headers: { Authorization: token ? `Bearer ${token}` : "" }, body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.success || typeof data.data?.url !== "string") throw new Error(data.message || "Gagal mengunggah gambar banner.");
+      setConfig({ ...config, productBannerImageUrl: data.data.url });
+      setSuccessMsg("Gambar berhasil diunggah. Klik Simpan Tampilan Produk untuk menerapkan banner.");
+    } catch (err: any) { setError(err.message || "Gagal mengunggah gambar banner."); }
+    finally { setSaving(false); }
   };
 
   const handleSaveHomepageLayout = async () => {
@@ -408,6 +431,23 @@ export default function AdminSettingsPage() {
               <span><span className="block font-semibold">Banner horizontal</span><span className="text-xs text-slate-500">Tampilkan atau sembunyikan banner produk</span></span>
               <input type="checkbox" checked={config.productBannerEnabled ?? true} onChange={(e) => setConfig({ ...config, productBannerEnabled: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-blue-600" />
             </label>
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700">Gambar banner sendiri</label>
+                <p className="mb-3 text-xs text-slate-500">Unggah gambar khusus untuk latar banner horizontal. Gambar game di ikon kecil tetap menggunakan gambar katalog. Maksimal 5 MB; format mengikuti Media Library.</p>
+                {config.productBannerImageUrl ? (
+                  <div className="mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+                    <img src={config.productBannerImageUrl} alt="Pratinjau gambar banner produk" className="h-32 w-full object-cover" />
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2">
+                      <span className="text-xs text-emerald-700">Gambar khusus dipilih</span>
+                      <button type="button" onClick={() => setConfig({ ...config, productBannerImageUrl: "" })} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white">Gunakan gambar game</button>
+                    </div>
+                  </div>
+                ) : <p className="mb-3 text-xs text-slate-500">Belum ada gambar khusus. Banner menggunakan gambar game otomatis.</p>}
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml" onChange={handleProductBannerImageUpload} disabled={saving} className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-medium file:text-blue-700 hover:file:bg-blue-100" />
+                <p className="mt-2 text-xs text-slate-500">Setelah memilih gambar, tekan Simpan Tampilan Produk untuk menerapkan perubahan.</p>
+              </div>
+            </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Tinggi banner</label>
               <select value={config.productBannerHeight || "medium"} onChange={(e) => setConfig({ ...config, productBannerHeight: e.target.value as "compact" | "medium" | "large" })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">

@@ -240,6 +240,7 @@ export default function GameDetailPage() {
 
   const [productBannerConfig, setProductBannerConfig] = useState({
     enabled: true,
+    imageUrl: "",
     height: "medium" as "compact" | "medium" | "large",
     showName: true,
     showAutomaticBadge: true,
@@ -255,6 +256,7 @@ export default function GameDetailPage() {
         if (!active || !data.success || !data.data) return;
         setProductBannerConfig({
           enabled: data.data.productBannerEnabled ?? true,
+          imageUrl: typeof data.data.productBannerImageUrl === "string" ? data.data.productBannerImageUrl : "",
           height: ["compact", "medium", "large"].includes(data.data.productBannerHeight) ? data.data.productBannerHeight : "medium",
           showName: data.data.productBannerShowName ?? true,
           showAutomaticBadge: data.data.productBannerShowAutomaticBadge ?? true,
@@ -783,7 +785,7 @@ export default function GameDetailPage() {
           style={{ borderColor: "var(--border-color)" }}
         >
           <img
-            src={game.image || "https://placehold.co/1200x400/172554/e2e8f0?text=iStore"}
+            src={productBannerConfig.imageUrl || game.image || "https://placehold.co/1200x400/172554/e2e8f0?text=iStore"}
             alt=""
             aria-hidden="true"
             className="absolute inset-0 h-full w-full object-cover object-center"
