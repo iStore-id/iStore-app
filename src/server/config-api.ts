@@ -183,6 +183,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
           showCatalogMarquee: true,
           homepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
           productBannerEnabled: true,
+          productBannerImageUrl: "",
           productBannerHeight: "medium",
           productBannerShowName: true,
           productBannerShowAutomaticBadge: true,
@@ -204,6 +205,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         homepageLayout: normalizeHomepageLayout(config.homepageLayout),
         homepageFeaturedGameIds: normalizeHomepageFeaturedGameIds(config.homepageFeaturedGameIds),
         productBannerEnabled: config.productBannerEnabled ?? true,
+        productBannerImageUrl: config.productBannerImageUrl || "",
         productBannerHeight: ["compact", "medium", "large"].includes(config.productBannerHeight || "") ? config.productBannerHeight : "medium",
         productBannerShowName: config.productBannerShowName ?? true,
         productBannerShowAutomaticBadge: config.productBannerShowAutomaticBadge ?? true,
@@ -306,6 +308,20 @@ export async function updateStoreConfig(req: AuthenticatedRequest, res: Response
 
     if (updates.productBannerEnabled !== undefined && typeof updates.productBannerEnabled !== "boolean") {
       return res.status(400).json({ success: false, message: "Format productBannerEnabled tidak valid." });
+    }
+    if (updates.productBannerImageUrl !== undefined) {
+      if (typeof updates.productBannerImageUrl !== "string" || updates.productBannerImageUrl.length > 2048) {
+        return res.status(400).json({ success: false, message: "URL gambar banner produk tidak valid." });
+      }
+      if (updates.productBannerImageUrl.trim() !== "") {
+        try {
+          const parsed = new URL(updates.productBannerImageUrl.trim());
+          if (parsed.protocol !== "https:") throw new Error("HTTPS required");
+          updates.productBannerImageUrl = parsed.toString();
+        } catch {
+          return res.status(400).json({ success: false, message: "URL gambar banner produk harus berupa URL HTTPS yang valid." });
+        }
+      } else updates.productBannerImageUrl = "";
     }
     if (updates.productBannerHeight !== undefined && !["compact", "medium", "large"].includes(updates.productBannerHeight)) {
       return res.status(400).json({ success: false, message: "Tinggi banner produk tidak valid." });
