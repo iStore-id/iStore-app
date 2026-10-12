@@ -791,31 +791,31 @@ export default function GameDetailPage() {
             className="absolute inset-0 h-full w-full object-cover object-center"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/15" />
-          <div className="relative flex h-full items-center gap-3 p-4 sm:gap-4 sm:p-6">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-slate-900/60 shadow-lg sm:h-20 sm:w-20">
+          <div className="relative flex h-full min-w-0 items-center gap-3 p-3 sm:gap-4 sm:p-6">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-slate-900/60 shadow-lg sm:h-20 sm:w-20">
               <img
                 src={game.image || "https://placehold.co/400x400/172554/e2e8f0?text=Game"}
                 alt={game.name}
                 className="h-full w-full object-cover"
               />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               {productBannerConfig.showName && (
-                <h1 id="game-title" className="text-xl font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
+                <h1 id="game-title" className="line-clamp-2 break-words text-lg font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
                   {game.name}
                 </h1>
               )}
               {(productBannerConfig.showAutomaticBadge || productBannerConfig.showSafetyBadge) && (
-                <div className={`flex flex-wrap items-center gap-2 text-[11px] sm:text-xs ${productBannerConfig.showName ? "mt-2" : ""}`}>
+                <div className={`flex flex-wrap items-center gap-1.5 text-[10px] sm:gap-2 sm:text-xs ${productBannerConfig.showName ? "mt-2" : ""}`}>
                   {productBannerConfig.showAutomaticBadge && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2.5 py-1 font-semibold text-emerald-100">
-                      <Zap className="h-3.5 w-3.5" />
+                    <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2 py-1 font-semibold text-emerald-100 sm:px-2.5">
+                      <Zap className="h-3.5 w-3.5 shrink-0" />
                       Otomatis
                     </span>
                   )}
                   {productBannerConfig.showSafetyBadge && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 font-semibold text-white">
-                      <ShieldCheck className="h-3.5 w-3.5" />
+                    <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-2 py-1 font-semibold text-white sm:px-2.5">
+                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                       Legal & Aman
                     </span>
                   )}
