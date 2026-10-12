@@ -875,9 +875,9 @@ export default function GameDetailPage() {
             )}
 
             {/* 2. Login / Data Akun */}
-            <div className="space-y-4">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+            <div className="space-y-2.5">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold shrink-0">
                   {products.length > 1 ? "2" : "1"}
                 </span>
                 Login / Data Akun
@@ -885,8 +885,8 @@ export default function GameDetailPage() {
               {(() => {
                 const accountFields = getAccountInputFields(game, selectedProduct);
                 return (
-                  <div className="space-y-4">
-                    <div className={`grid grid-cols-1 ${accountFields.length > 1 ? "md:grid-cols-2" : ""} gap-4`}>
+                  <div className="space-y-3">
+                    <div className={`grid ${accountFields.length > 1 ? "grid-cols-2" : "grid-cols-1"} gap-2.5 sm:gap-4`}>
                       {accountFields.map((field) => (
                         <div key={field.name}>
                           <label className="block text-xs font-medium text-slate-600 mb-1.5">{field.label}</label>
@@ -899,7 +899,7 @@ export default function GameDetailPage() {
                                 handleInputChange(field.name, e.target.value);
                                 if (field.name === "userId") setInquiryResult(null);
                               }}
-                              className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                              className="w-full min-w-0 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                           </div>
                         </div>
@@ -923,18 +923,18 @@ export default function GameDetailPage() {
             </div>
 
             {/* 3. Data Pembeli */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
                     {products.length > 1 ? "3" : "2"}
                   </span>
                   Data Pembeli <span className="text-xs font-normal text-slate-400">(Opsional)</span>
                 </h2>
-                <p className="text-[11px] text-slate-400">Guna konfirmasi & bukti transaksi via WA/Email</p>
+                <p className="text-[11px] text-slate-400">Konfirmasi & bukti transaksi via WA/Email</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">Nama Pembeli</label>
                   <input
@@ -955,7 +955,7 @@ export default function GameDetailPage() {
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
-                <div>
+                <div className="col-span-2 md:col-span-1">
                   <label className="block text-xs font-medium text-slate-600 mb-1">Email Bukti Transaksi</label>
                   <input
                     type="email"
