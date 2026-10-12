@@ -923,46 +923,47 @@ export default function GameDetailPage() {
             </div>
 
             {/* 3. Data Pembeli */}
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="space-y-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 sm:p-4">
+              <div className="space-y-1">
                 <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">
                     {products.length > 1 ? "3" : "2"}
                   </span>
-                  Data Pembeli <span className="text-xs font-normal text-slate-400">(Opsional)</span>
+                  <span>Data Pembeli</span>
+                  <span className="text-[11px] font-medium text-slate-500 rounded-full bg-white border border-slate-200 px-2 py-0.5">Opsional</span>
                 </h2>
-                <p className="text-[11px] text-slate-400">Konfirmasi & bukti transaksi via WA/Email</p>
+                <p className="pl-8 text-[11px] leading-4 text-slate-500">Untuk konfirmasi dan bukti transaksi via WhatsApp atau email.</p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Nama Pembeli</label>
+              <div className="grid grid-cols-1 gap-2.5">
+                <div className="min-w-0">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nama Pembeli</label>
                   <input
                     type="text"
                     placeholder="Nama Anda (opsional)"
                     value={buyerName}
                     onChange={(e) => setBuyerName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full min-w-0 px-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">No. WhatsApp</label>
+                <div className="min-w-0">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">No. WhatsApp</label>
                   <input
                     type="tel"
                     placeholder="0812xxxxxxx (opsional)"
                     value={buyerWhatsapp}
                     onChange={(e) => setBuyerWhatsapp(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full min-w-0 px-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
-                <div className="col-span-2 md:col-span-1">
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Email Bukti Transaksi</label>
+                <div className="min-w-0">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Bukti Transaksi</label>
                   <input
                     type="email"
                     placeholder="email@domain.com (opsional)"
                     value={buyerEmail}
                     onChange={(e) => setBuyerEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    className="w-full min-w-0 px-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
