@@ -77,6 +77,7 @@ export interface StoreConfiguration {
   homepageLayout?: HomepageLayoutConfig;
   homepageFeaturedGameIds?: string[];
   productBannerEnabled?: boolean;
+  productBannerImageUrl?: string;
   productBannerHeight?: 'compact' | 'medium' | 'large';
   productBannerShowName?: boolean;
   productBannerShowAutomaticBadge?: boolean;
