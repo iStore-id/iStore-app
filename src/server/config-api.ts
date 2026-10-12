@@ -181,7 +181,12 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
           socialMedia: {},
           catalogMarqueeText: "Pilih game favorit atau layanan digital Anda untuk memulai proses top up otomatis.",
           showCatalogMarquee: true,
-          homepageLayout: DEFAULT_HOMEPAGE_LAYOUT
+          homepageLayout: DEFAULT_HOMEPAGE_LAYOUT,
+          productBannerEnabled: true,
+          productBannerHeight: "medium",
+          productBannerShowName: true,
+          productBannerShowAutomaticBadge: true,
+          productBannerShowSafetyBadge: true
         }
       });
     }
@@ -198,6 +203,11 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
         showCatalogMarquee: config.showCatalogMarquee ?? true,
         homepageLayout: normalizeHomepageLayout(config.homepageLayout),
         homepageFeaturedGameIds: normalizeHomepageFeaturedGameIds(config.homepageFeaturedGameIds),
+        productBannerEnabled: config.productBannerEnabled ?? true,
+        productBannerHeight: ["compact", "medium", "large"].includes(config.productBannerHeight || "") ? config.productBannerHeight : "medium",
+        productBannerShowName: config.productBannerShowName ?? true,
+        productBannerShowAutomaticBadge: config.productBannerShowAutomaticBadge ?? true,
+        productBannerShowSafetyBadge: config.productBannerShowSafetyBadge ?? true,
         primaryColor: config.primaryColor || "#EE4D2D",
         secondaryColor: config.secondaryColor || "#212121",
         brandTextColor: config.brandTextColor || config.primaryColor || "#212121",
@@ -292,6 +302,18 @@ export async function updateStoreConfig(req: AuthenticatedRequest, res: Response
         return res.status(400).json({ success: false, message: "Format homepageLayout tidak valid." });
       }
       updates.homepageLayout = normalizedLayout;
+    }
+
+    if (updates.productBannerEnabled !== undefined && typeof updates.productBannerEnabled !== "boolean") {
+      return res.status(400).json({ success: false, message: "Format productBannerEnabled tidak valid." });
+    }
+    if (updates.productBannerHeight !== undefined && !["compact", "medium", "large"].includes(updates.productBannerHeight)) {
+      return res.status(400).json({ success: false, message: "Tinggi banner produk tidak valid." });
+    }
+    for (const key of ["productBannerShowName", "productBannerShowAutomaticBadge", "productBannerShowSafetyBadge"]) {
+      if (updates[key] !== undefined && typeof updates[key] !== "boolean") {
+        return res.status(400).json({ success: false, message: "Format " + key + " tidak valid." });
+      }
     }
 
     // Server-side URL validation for socialMedia
