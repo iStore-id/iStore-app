@@ -289,6 +289,7 @@ export default function GameDetailPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("qris");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "ipaymu" | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
+  const [isGameDescriptionExpanded, setIsGameDescriptionExpanded] = useState(false);
 
   useEffect(() => {
     fetch("/api/public/payment-gateway")
@@ -734,22 +735,27 @@ export default function GameDetailPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 md:py-12">
+    <div className="max-w-7xl mx-auto px-3 sm:px-4 py-5 sm:py-8 md:py-12">
       {/* Header Game */}
       {checkoutStep === 1 && (
         <div 
-          className="rounded-3xl p-6 md:p-8 shadow-sm border mb-6 flex flex-col md:flex-row gap-6 items-start transition-all"
+          className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border mb-4 sm:mb-6 flex flex-col sm:flex-row gap-4 sm:gap-6 items-start transition-all"
           style={{
             backgroundColor: "var(--surface-color)",
             borderColor: "var(--border-color)"
           }}
         >
-          <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-28 md:h-28 rounded-xl sm:rounded-2xl overflow-hidden bg-slate-100 shrink-0">
             <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover" />
           </div>
           <div className="flex-1">
             <h1 className="ui-page-title text-slate-900 mb-1">{game.name}</h1>
-            <p className="text-slate-500 text-sm mb-3 line-clamp-2">{game.description}</p>
+            <p className={`text-slate-600 text-sm leading-relaxed mb-1 ${isGameDescriptionExpanded ? "whitespace-pre-line" : "line-clamp-3"}`}>{game.description || `Pilih layanan ${game.name}, masukkan data akun dengan benar, lalu pilih nominal yang ingin dibeli.`}</p>
+            {(game.description || "").length > 160 && (
+              <button type="button" onClick={() => setIsGameDescriptionExpanded((expanded) => !expanded)} className="text-xs font-semibold text-brand-600 hover:text-brand-700 mb-3">
+                {isGameDescriptionExpanded ? "Tampilkan lebih sedikit" : "Baca deskripsi lengkap"}
+              </button>
+            )}
             <div className="flex items-center gap-3 text-xs">
               <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">
                 <Zap className="w-3.5 h-3.5" />
@@ -771,7 +777,7 @@ export default function GameDetailPage() {
             ? "bg-transparent shadow-none border-0 p-0"
             : `${
                 cardBlur === "none" ? "" : cardBlur === "sm" ? "backdrop-blur-sm" : cardBlur === "lg" ? "backdrop-blur-lg" : "backdrop-blur-md"
-              } rounded-3xl p-6 md:p-8 shadow-sm border space-y-8 transition-all`
+              } rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border space-y-6 sm:space-y-8 transition-all`
         }
         style={checkoutStep === 3 ? {} : {
           backgroundColor: hexToRgba(effectiveCardColor, cardOpacity),
@@ -918,12 +924,12 @@ export default function GameDetailPage() {
                 </span>
                 Pilih Nominal Top-Up
               </h2>
-              <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                 {variantsLoading ? (
                   Array.from({ length: 8 }).map((_, idx) => (
                     <div
                       key={`var-skel-${idx}`}
-                      className="w-full h-20 rounded-xl bg-slate-200/60 animate-pulse p-3 flex flex-col justify-between"
+                      className="w-full min-h-24 rounded-xl bg-slate-200/60 animate-pulse p-3 flex flex-col justify-between"
                     >
                       <div className="h-3 bg-slate-300/70 rounded w-3/4"></div>
                       <div className="h-4 bg-slate-300/70 rounded w-1/2"></div>
@@ -961,14 +967,14 @@ export default function GameDetailPage() {
                         setCheckoutStep(2);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`w-full min-w-0 text-left p-2.5 sm:p-3 rounded-xl border ${
+                      className={`w-full min-w-0 min-h-24 text-left p-3 rounded-xl border ${
                         selectedVariant?.id === v.id
                           ? "border-brand-600 bg-brand-500/15"
                           : "border-slate-200/80 hover:border-brand-500 bg-transparent hover:bg-brand-500/10"
                       } transition-all relative overflow-hidden group flex flex-col justify-between`}
                     >
-                      <div className="font-bold text-slate-900 text-xs sm:text-sm mb-1.5 line-clamp-2 leading-snug group-hover:text-brand-700">{v.displayName}</div>
-                      <div className="text-brand-600 font-extrabold text-xs shrink-0">{formatRupiah((v as any).sellingPrice || 0)}</div>
+                      <div className="font-bold text-slate-900 text-xs sm:text-sm mb-2 line-clamp-2 leading-snug break-words group-hover:text-brand-700">{v.displayName}</div>
+                      <div className="text-brand-600 font-extrabold text-xs sm:text-sm shrink-0 leading-tight">{formatRupiah((v as any).sellingPrice || 0)}</div>
                     </button>
                   ))
                 ) : (
@@ -1012,48 +1018,49 @@ export default function GameDetailPage() {
                 <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
                 Rincian Pesanan & Akun
               </h2>
-              <div className="text-sm bg-slate-50/80 p-5 rounded-2xl border border-solid relative z-10 space-y-2.5" style={{ borderColor: "var(--border-color)" }}>
-                <div className="flex justify-between items-center">
+              <p className="text-sm text-slate-500 leading-relaxed">{selectedProduct?.description || game?.description || `Pastikan data akun dan nominal ${game?.name || "produk"} sudah benar sebelum melanjutkan pembayaran.`}</p>
+              <div className="text-sm bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-solid relative z-10 space-y-3" style={{ borderColor: "var(--border-color)" }}>
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Produk</span>
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedProduct?.name || game?.name || "-"}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Nominal</span>
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant?.displayName || "-"}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Player ID</span>
                   <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm">{customerInput["userId"] || "-"}</span>
                 </div>
                 {customerInput["zoneId"] && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-start justify-between gap-3">
                     <span className="text-slate-500 text-xs">Zone / Server ID</span>
                     <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm">{customerInput["zoneId"]}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Nama Akun</span>
                   <span className="font-bold text-green-600 text-xs sm:text-sm">{inquiryResult?.isValid ? inquiryResult.username : "-"}</span>
                 </div>
                 {buyerName.trim() && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-start justify-between gap-3">
                     <span className="text-slate-500 text-xs">Nama Pembeli</span>
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{buyerName.trim()}</span>
                   </div>
                 )}
                 {buyerWhatsapp.trim() && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-start justify-between gap-3">
                     <span className="text-slate-500 text-xs">No. WhatsApp</span>
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{buyerWhatsapp.trim()}</span>
                   </div>
                 )}
                 {buyerEmail.trim() && (
-                  <div className="flex justify-between items-center">
+                  <div className="flex items-start justify-between gap-3">
                     <span className="text-slate-500 text-xs">Email</span>
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">{buyerEmail.trim()}</span>
                   </div>
                 )}
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Metode Pembayaran</span>
                   <span className="font-bold text-brand-600 text-xs sm:text-sm uppercase">
                     {activeGateway === "doit" 
@@ -1071,11 +1078,11 @@ export default function GameDetailPage() {
                       : selectedPaymentMethod.toUpperCase()}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Estimasi Total</span>
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex items-start justify-between gap-3">
                   <span className="text-slate-500 text-xs">Estimasi Diskon Poin</span>
                   <span className="font-bold text-emerald-600 text-xs sm:text-sm">{formatRupiah(estimatedLoyaltyDiscount)}</span>
                 </div>
