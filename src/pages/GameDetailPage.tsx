@@ -776,54 +776,55 @@ export default function GameDetailPage() {
       {(!productBannerConfig.enabled || checkoutStep !== 1 || !productBannerConfig.showName) && (
         <h1 className="sr-only">{game.name}</h1>
       )}
-      {/* Compact horizontal product banner */}
+      {/* Keep the image banner separate from all text and badges. */}
       {checkoutStep === 1 && productBannerConfig.enabled && (
-        <section
-          aria-labelledby={productBannerConfig.showName ? "game-title" : undefined}
-          aria-label={!productBannerConfig.showName ? game.name : undefined}
-          className={`relative isolate mb-4 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`}
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <img
-            src={productBannerConfig.imageUrl || game.image || "https://placehold.co/1200x400/172554/e2e8f0?text=iStore"}
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/15" />
-          <div className="relative flex h-full min-w-0 items-center gap-3 p-3 sm:gap-4 sm:p-6">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-slate-900/60 shadow-lg sm:h-20 sm:w-20">
-              <img
-                src={game.image || "https://placehold.co/400x400/172554/e2e8f0?text=Game"}
-                alt={game.name}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="min-w-0 flex-1">
+        <>
+          <section
+            aria-label={game.name + " banner"}
+            className={`relative isolate mb-3 ${productBannerConfig.height === "compact" ? "h-28 sm:h-36 md:h-40" : productBannerConfig.height === "large" ? "h-44 sm:h-56 md:h-64" : "h-36 sm:h-44 md:h-52"} overflow-hidden rounded-2xl border shadow-sm`}
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            <img
+              src={productBannerConfig.imageUrl || game.image || "https://placehold.co/1200x400/172554/e2e8f0?text=iStore"}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+          </section>
+
+          {(productBannerConfig.showName || productBannerConfig.showAutomaticBadge || productBannerConfig.showSafetyBadge) && (
+            <section
+              aria-label="Informasi produk"
+              className="mb-5 flex min-w-0 flex-col gap-2 rounded-xl border px-4 py-3 sm:px-5 sm:py-4"
+              style={{
+                backgroundColor: "var(--surface-color)",
+                borderColor: "var(--border-color)"
+              }}
+            >
               {productBannerConfig.showName && (
-                <h1 id="game-title" className="line-clamp-2 break-words text-lg font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
+                <h1 id="game-title" className="min-w-0 break-words text-lg font-extrabold leading-tight text-slate-900 sm:text-2xl">
                   {game.name}
                 </h1>
               )}
               {(productBannerConfig.showAutomaticBadge || productBannerConfig.showSafetyBadge) && (
-                <div className={`flex flex-wrap items-center gap-1.5 text-[10px] sm:gap-2 sm:text-xs ${productBannerConfig.showName ? "mt-2" : ""}`}>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {productBannerConfig.showAutomaticBadge && (
-                    <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2 py-1 font-semibold text-emerald-100 sm:px-2.5">
+                    <span className="inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-300/40 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">
                       <Zap className="h-3.5 w-3.5 shrink-0" />
                       Otomatis
                     </span>
                   )}
                   {productBannerConfig.showSafetyBadge && (
-                    <span className="inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-white/20 bg-white/10 px-2 py-1 font-semibold text-white sm:px-2.5">
+                    <span className="inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700">
                       <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                       Legal & Aman
                     </span>
                   )}
                 </div>
               )}
-            </div>
-          </div>
-        </section>
+            </section>
+          )}
+        </>
       )}
 
       {checkoutStep === 1 && (
