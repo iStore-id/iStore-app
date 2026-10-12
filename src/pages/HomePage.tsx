@@ -409,7 +409,7 @@ export default function HomePage() {
 
           {/* Catalog Grid State */}
           {catalogLoading ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5">
               {[...Array(12)].map((_, i) => (
                 <div key={i} className="animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl aspect-[1/1.38] overflow-hidden relative border" style={{ borderColor: 'var(--border-color)' }}>
                   <div className="absolute inset-0 bg-slate-200/50 dark:bg-slate-700/50"></div>
@@ -451,7 +451,7 @@ export default function HomePage() {
                           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Pilihan Populer</h2>
                           <p className="text-xs sm:text-sm text-slate-500 mt-1">Game dan layanan pilihan untuk transaksi lebih cepat.</p>
                         </div>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                           {featuredGames.map((game) => (
                             <Link to={`/games/${game.slug}`} key={game.id} className="group flex flex-col aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer" style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}>
                               <div className="relative w-full h-[74%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b" style={{ borderColor: 'var(--border-color)' }}>
@@ -517,7 +517,7 @@ export default function HomePage() {
                         <div className="h-px bg-slate-200/60 flex-grow rounded-full hidden sm:block"></div>
                       </div>
                       
-                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5">
                         {displayGames.map((game) => {
                           const fallbackImg = isUtility 
                             ? "https://placehold.co/400x400/f8fafc/64748b?text=Layanan" 
