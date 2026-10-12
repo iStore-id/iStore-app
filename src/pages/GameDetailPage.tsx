@@ -735,83 +735,91 @@ export default function GameDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 md:py-12">
-      {/* Header Game */}
-      {checkoutStep === 1 && (
-        <div 
-          className="rounded-3xl p-6 md:p-8 shadow-sm border mb-6 flex flex-col md:flex-row gap-6 items-start transition-all"
-          style={{
-            backgroundColor: "var(--surface-color)",
-            borderColor: "var(--border-color)"
-          }}
-        >
-          <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
-            <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover" />
-          </div>
-          <div className="flex-1">
-            <h1 className="ui-page-title text-slate-900 mb-1">{game.name}</h1>
-            <p className="text-slate-500 text-sm mb-3 line-clamp-2">{game.description}</p>
-            <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">
-                <Zap className="w-3.5 h-3.5" />
-                <span>Otomatis</span>
-              </div>
-              <div className="flex items-center gap-1 text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full font-medium">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Legal & Aman</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Compact horizontal product banner */}
       {checkoutStep === 1 && (
         <section
-          aria-labelledby="game-description-title"
-          className="mb-6 rounded-3xl border p-5 md:p-6 shadow-sm"
-          style={{
-            backgroundColor: "var(--surface-color)",
-            borderColor: "var(--border-color)"
-          }}
+          aria-labelledby="game-title"
+          className="relative isolate mb-4 h-36 sm:h-44 md:h-52 overflow-hidden rounded-2xl border shadow-sm"
+          style={{ borderColor: "var(--border-color)" }}
         >
-          <div className="space-y-6">
-            <div className="min-w-0">
-              <h2 id="game-description-title" className="text-base font-bold text-slate-900 mb-3">
-                Deskripsi Produk
-              </h2>
-              <p className="text-sm text-slate-600 leading-6 whitespace-pre-line break-words">
-                {game.description?.trim() || "Informasi produk belum tersedia."}
-              </p>
+          <img
+            src={game.image || "https://placehold.co/1200x400/172554/e2e8f0?text=iStore"}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/15" />
+          <div className="relative flex h-full items-center gap-3 p-4 sm:gap-4 sm:p-6">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/30 bg-slate-900/60 shadow-lg sm:h-20 sm:w-20">
+              <img
+                src={game.image || "https://placehold.co/400x400/172554/e2e8f0?text=Game"}
+                alt={game.name}
+                className="h-full w-full object-cover"
+              />
             </div>
-            <div className="min-w-0 border-t border-slate-200 pt-5">
-              <h2 className="text-base font-bold text-slate-900 mb-3">
-                Petunjuk Pembelian
-              </h2>
-              <ol className="space-y-3">
-                <li className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Pilih layanan dan nominal</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Pilih layanan jika tersedia beberapa pilihan, lalu pilih nominal yang ingin dibeli.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Masukkan data akun</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Periksa kembali ID akun dan informasi lain yang diminta sebelum melanjutkan.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Selesaikan pembayaran</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Periksa ringkasan transaksi, pilih metode pembayaran yang tersedia, lalu ikuti instruksi sampai status transaksi diperbarui.</p>
-                  </div>
-                </li>
-              </ol>
+            <div className="min-w-0">
+              <h1 id="game-title" className="text-xl font-extrabold leading-tight text-white sm:text-2xl md:text-3xl">
+                {game.name}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2.5 py-1 font-semibold text-emerald-100">
+                  <Zap className="h-3.5 w-3.5" />
+                  Otomatis
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 font-semibold text-white">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Legal & Aman
+                </span>
+              </div>
             </div>
           </div>
         </section>
+      )}
+
+      {checkoutStep === 1 && (
+        <details
+          className="mb-5 overflow-hidden rounded-xl border text-sm"
+          style={{
+            backgroundColor: "var(--surface-color)",
+            borderColor: "var(--border-color)"
+          }}
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-slate-800 [&::-webkit-details-marker]:hidden">
+            <span>Petunjuk Pembelian{game.description?.trim() ? " & Deskripsi Produk" : ""}</span>
+            <span className="text-xs font-medium text-slate-500">Lihat panduan</span>
+          </summary>
+          <div className="border-t px-4 py-4" style={{ borderColor: "var(--border-color)" }}>
+            {game.description?.trim() && (
+              <div className="mb-4">
+                <h2 className="mb-1 font-bold text-slate-900">Deskripsi Produk</h2>
+                <p className="whitespace-pre-line break-words leading-5 text-slate-600">{game.description.trim()}</p>
+              </div>
+            )}
+            <ol className="grid gap-3 sm:grid-cols-3">
+              <li className="flex items-start gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800">Pilih nominal</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pilih layanan dan nominal yang ingin dibeli.</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800">Isi data akun</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pastikan ID akun sudah benar sebelum lanjut.</p>
+                </div>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800">Bayar transaksi</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pilih metode pembayaran dan ikuti instruksinya.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </details>
       )}
 
       {/* Purchase Container */}
