@@ -1486,8 +1486,8 @@ export default function MainLayout() {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/" className="footer-hover transition-colors">Top Up Game</Link></li>
                 <li><Link to="/blog" className="footer-hover transition-colors">Blog & Tips Gaming</Link></li>
-                <li><Link to="/#cat-pulsa" className="footer-hover transition-colors">Pulsa & Data</Link></li>
-                <li><Link to="/#cat-token-listrik" className="footer-hover transition-colors">Token PLN</Link></li>
+                <li><Link to="/?category=pulsa#katalog" className="footer-hover transition-colors">Pulsa & Data</Link></li>
+                <li><Link to="/?category=token-listrik#katalog" className="footer-hover transition-colors">Token PLN</Link></li>
                 <li><Link to="/membership" className="footer-hover transition-colors">VIP Membership</Link></li>
               </ul>
             </div>
