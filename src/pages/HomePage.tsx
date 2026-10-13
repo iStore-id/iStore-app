@@ -556,7 +556,7 @@ export default function HomePage() {
                         <div className="h-px bg-slate-200/60 flex-grow rounded-full hidden sm:block"></div>
                       </div>
                       
-                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-5">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-4">
                         {displayGames.map((game) => {
                           const fallbackImg = isUtility 
                             ? "https://placehold.co/400x400/f8fafc/64748b?text=Layanan" 
