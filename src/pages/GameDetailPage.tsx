@@ -323,7 +323,7 @@ export default function GameDetailPage() {
   const [buyerWhatsapp, setBuyerWhatsapp] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("qris");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "ipaymu" | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
@@ -645,6 +645,11 @@ export default function GameDetailPage() {
   };
 
   const handleCheckout = async () => {
+    if (!selectedPaymentMethod) {
+      setCheckoutError("Pilih metode pembayaran terlebih dahulu.");
+      return;
+    }
+
     if (!selectedProduct || !selectedVariant) {
       setCheckoutError("Pilih produk dan nominal terlebih dahulu.");
       return;
@@ -1181,20 +1186,34 @@ export default function GameDetailPage() {
                 )}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Metode Pembayaran</span>
-                  <span className="font-bold text-brand-600 text-xs sm:text-sm uppercase">
-                    {activeGateway === "doit" 
-                      ? ({
-                          qris: "QRIS",
-                          mandiri_va: "Mandiri VA",
-                          bni_va: "BNI VA",
-                          bri_va: "BRI VA",
-                          bsi_va: "BSI VA",
-                          cimb_va: "CIMB Niaga VA",
-                          permata_va: "Permata VA",
-                          maybank_va: "Maybank VA",
-                          danamon_va: "Danamon VA"
-                        }[selectedPaymentMethod] || selectedPaymentMethod.toUpperCase())
-                      : selectedPaymentMethod.toUpperCase()}
+                  <span className="text-right font-bold text-xs sm:text-sm">
+                    {selectedPaymentMethod ? (
+                      <span className="text-brand-600 uppercase">
+                        {activeGateway === "doit"
+                          ? ({
+                              qris: "QRIS",
+                              mandiri_va: "Mandiri VA",
+                              bni_va: "BNI VA",
+                              bri_va: "BRI VA",
+                              bsi_va: "BSI VA",
+                              cimb_va: "CIMB Niaga VA",
+                              permata_va: "Permata VA",
+                              maybank_va: "Maybank VA",
+                              danamon_va: "Danamon VA"
+                            }[selectedPaymentMethod] || selectedPaymentMethod.toUpperCase())
+                          : ({
+                              qris: "QRIS",
+                              gopay: "GoPay",
+                              shopeepay: "ShopeePay",
+                              bca_va: "BCA VA",
+                              bni_va: "BNI VA",
+                              bri_va: "BRI VA",
+                              echannel: "Mandiri",
+                              permata_va: "Permata VA",
+                              other_va: "Virtual Account"
+                            }[selectedPaymentMethod] || selectedPaymentMethod.toUpperCase())}
+                      </span>
+                    ) : <span className="font-medium text-amber-700">Belum dipilih</span>}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -1442,6 +1461,10 @@ export default function GameDetailPage() {
               )}
             </div>
 
+            <p className="text-xs leading-relaxed text-slate-500">
+              Pilih salah satu metode pembayaran di atas. Metode belum dipilih secara otomatis.
+            </p>
+
             {/* Total Pembayaran */}
             <div className="space-y-4">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1468,7 +1491,7 @@ export default function GameDetailPage() {
 
               <button
                 onClick={handleCheckout}
-                disabled={!selectedVariant || processing}
+                disabled={!selectedVariant || !selectedPaymentMethod || processing}
                 className="w-full bg-brand-600 text-white font-bold py-4 rounded-2xl hover:bg-brand-700 transition-all shadow-xl shadow-brand-200 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2 group text-base"
               >
                 {processing ? "Memproses..." : (
