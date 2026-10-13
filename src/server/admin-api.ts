@@ -772,6 +772,9 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
         }
 
         const gatewayCode = (orderData.paymentGatewayCode || "midtrans").toLowerCase().trim();
+        if (gatewayCode === "omqris") {
+          throw new Error("OMQRIS_REFUND_UNSUPPORTED");
+        }
         const now = new Date().toISOString();
         const refundRecord = {
           id: refundKey,
@@ -813,6 +816,9 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
       }
       if (txError.message === "ORDER_NOT_PAID") {
         return res.status(400).json({ success: false, message: "Pesanan belum dibayar sehingga tidak memenuhi syarat refund." });
+      }
+      if (txError.message === "OMQRIS_REFUND_UNSUPPORTED") {
+        return res.status(400).json({ success: false, message: "Refund otomatis OmQris belum didukung. Gunakan prosedur refund manual; permintaan gateway tidak dikirim." });
       }
       if (txError.message === "REFUND_AMOUNT_EXCEEDS_REMAINING_BALANCE") {
         return res.status(400).json({ success: false, message: "Nominal refund melebihi sisa dana pembayaran yang dapat dikembalikan." });
