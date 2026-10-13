@@ -116,7 +116,15 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // 4. Payment Provider Dispatch & Native Method Validation
     let validatedPaymentMethod: string | undefined = undefined;
 
-    if (gatewayCode === "doit") {
+    if (gatewayCode === "omqris") {
+      if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
+        return res.status(400).json({
+          success: false,
+          message: "OmQris hanya mendukung metode QRIS."
+        });
+      }
+      validatedPaymentMethod = "qris";
+    } else if (gatewayCode === "doit") {
       const doitAllowedMethods = [
         "qris",
         "mandiri_va",
