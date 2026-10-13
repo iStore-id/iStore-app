@@ -587,7 +587,6 @@ export default function HomePage() {
                                 <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight transition-opacity group-hover:opacity-80" style={{ color: "var(--text-color)" }}>
                                   {game.name}
                                 </h3>
-                                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: "var(--primary-color, #ff4400)" }} />
                               </div>
                             </Link>
                           );
