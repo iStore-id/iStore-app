@@ -30,31 +30,35 @@ export default function CustomerPopupModal({
         const res = await fetch(`/api/public/popups?placement=${placement}`);
         const data = await res.json();
         if (data.success && data.data && data.data.length > 0) {
-          let popups = data.data || [];
-          if (allowedIds) {
-            popups = popups.filter((p: PopupItem) => allowedIds.includes(p.id));
-          }
-          if (popups.length > 0) {
-            const popup = popups[0];
-            // Check session storage to see if this popup was already dismissed this session
-            const dismissedId = sessionStorage.getItem(`istore_popup_dismissed_${popup.id}`);
-            if (!dismissedId) {
-              setActivePopup(popup);
+          const popups: PopupItem[] = data.data || [];
+          // Campaign-linked popups get first priority, but campaign linking is optional:
+          // unlinked popups remain eligible as a fallback.
+          const orderedPopups = allowedIds
+            ? [
+                ...popups.filter((p: PopupItem) => allowedIds.includes(p.id)),
+                ...popups.filter((p: PopupItem) => !allowedIds.includes(p.id))
+              ]
+            : popups;
+          const popup = orderedPopups.find(
+            (p: PopupItem) => !sessionStorage.getItem(`istore_popup_dismissed_${p.id}`)
+          );
 
-              // Handle trigger
-              if (popup.trigger === 'delay_3s') {
-                setTimeout(() => setIsOpen(true), 3000);
-              } else if (popup.trigger === 'immediate') {
-                setIsOpen(true);
-              } else if (popup.trigger === 'exit_intent') {
-                const handleMouseLeave = (e: MouseEvent) => {
-                  if (e.clientY <= 0) {
-                    setIsOpen(true);
-                    document.removeEventListener('mouseleave', handleMouseLeave);
-                  }
-                };
-                document.addEventListener('mouseleave', handleMouseLeave);
-              }
+          if (popup) {
+            setActivePopup(popup);
+
+            // Handle trigger
+            if (popup.trigger === 'delay_3s') {
+              setTimeout(() => setIsOpen(true), 3000);
+            } else if (popup.trigger === 'immediate') {
+              setIsOpen(true);
+            } else if (popup.trigger === 'exit_intent') {
+              const handleMouseLeave = (e: MouseEvent) => {
+                if (e.clientY <= 0) {
+                  setIsOpen(true);
+                  document.removeEventListener('mouseleave', handleMouseLeave);
+                }
+              };
+              document.addEventListener('mouseleave', handleMouseLeave);
             }
           } else {
             setActivePopup(null);
