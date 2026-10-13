@@ -369,14 +369,7 @@ export default function HomePage() {
       <section id="katalog" className="pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
         <div className="max-w-7xl mx-auto">
           {navFilter.type === "all" && !searchQuery && (
-            <div className="relative mb-4 sm:mb-6 border-b pb-3 sm:pb-4" style={{ borderColor: "var(--border-color)" }}>
-              <div className="flex items-center gap-3">
-                <span className="inline-block w-1 h-7 sm:h-8 rounded-full bg-brand-600" />
-                <h2 className="text-xl sm:text-2xl font-black tracking-[-0.035em] leading-tight text-slate-950">
-                  Katalog <span className="text-brand-600">Digital</span>
-                </h2>
-              </div>
-            </div>
+            
           )}
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
