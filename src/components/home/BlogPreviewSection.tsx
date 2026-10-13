@@ -55,7 +55,7 @@ export default function BlogPreviewSection() {
         
         {/* Section Header */}
         <div className="flex items-center justify-between gap-4">
-          <h2 className="ui-section-title text-slate-900">
+          <h2 className="ui-section-title" style={{ color: "var(--primary-color, #ff4400)" }}>
             Blog & Berita
           </h2>
 
