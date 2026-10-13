@@ -366,7 +366,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       paymentMethod: validatedPaymentMethod
     });
 
-    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber)) {
+    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber && !(gatewayCode === "omqris" && paymentResult.token))) {
       throw new Error(paymentResult.message || "Payment initialization failed: No presentation URL, QR, or VA.");
     }
 
@@ -380,6 +380,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
+      ...(gatewayCode === "omqris" && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,
