@@ -571,8 +571,8 @@ export default function HomePage() {
                             >
                               {/* Zona 1: Clean Artwork (74% height) */}
                               <div 
-                                className="relative w-full h-[74%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b"
-                                style={{ borderColor: 'var(--border-color)' }}
+                                className="relative w-full h-[74%] overflow-hidden border-b"
+                                style={{ backgroundColor: "var(--surface-muted-color, var(--surface-color))", borderColor: 'var(--border-color)' }}
                               >
                                 <img 
                                   src={game.image || fallbackImg} 
@@ -583,11 +583,11 @@ export default function HomePage() {
                               </div>
                               
                               {/* Zona 2: Dedicated Editorial Plinth (26% height) */}
-                              <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left bg-slate-950 transition-colors border-t-2 border-brand-600" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
-                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight text-white transition-opacity group-hover:opacity-80">
+                              <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left transition-colors border-t-2" style={{ backgroundColor: "var(--surface-color)", color: "var(--text-color)", borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
+                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight transition-opacity group-hover:opacity-80" style={{ color: "var(--text-color)" }}>
                                   {game.name}
                                 </h3>
-                                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5" />
+                                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: "var(--primary-color, #ff4400)" }} />
                               </div>
                             </Link>
                           );
