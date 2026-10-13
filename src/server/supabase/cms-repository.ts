@@ -213,8 +213,12 @@ export class SupabaseCMSRepository {
         priority: popup.priority,
         enabled: popup.enabled,
         published: popup.published,
-        start_at: popup.startAt,
-        end_at: popup.endAt,
+        start_at: popup.startAt && popup.startAt.trim() && !isNaN(new Date(popup.startAt).getTime())
+          ? new Date(popup.startAt).toISOString()
+          : null,
+        end_at: popup.endAt && popup.endAt.trim() && !isNaN(new Date(popup.endAt).getTime())
+          ? new Date(popup.endAt).toISOString()
+          : null,
         created_by: popup.createdBy,
         updated_by: popup.updatedBy
       })
@@ -241,8 +245,8 @@ export class SupabaseCMSRepository {
         priority: popup.priority,
         enabled: popup.enabled,
         published: popup.published,
-        start_at: popup.startAt,
-        end_at: popup.endAt,
+        start_at: popup.startAt === undefined ? undefined : (popup.startAt && popup.startAt.trim() && !isNaN(new Date(popup.startAt).getTime()) ? new Date(popup.startAt).toISOString() : null),
+        end_at: popup.endAt === undefined ? undefined : (popup.endAt && popup.endAt.trim() && !isNaN(new Date(popup.endAt).getTime()) ? new Date(popup.endAt).toISOString() : null),
         updated_by: popup.updatedBy,
         updated_at: new Date().toISOString()
       })
