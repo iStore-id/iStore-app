@@ -734,7 +734,7 @@ export default function GameDetailPage() {
       setQrImage(data.qrImage);
 
       // For Doit: navigate directly to transaction page for native presentation
-      if (data.gatewayCode === "doit") {
+      if (data.gatewayCode === "doit" || data.gatewayCode === "omqris") {
         navigate(`/transactions/${data.orderId}`);
         return;
       }
