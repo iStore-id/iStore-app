@@ -448,7 +448,7 @@ export default function HomePage() {
                     {isDefaultHome && featuredGames.length > 0 && (
                       <section className="mb-6 sm:mb-8">
                         <div className="mb-3 sm:mb-4">
-                          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Pilihan Populer</h2>
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-tight" style={{ color: "var(--primary-color, #ff4400)" }}>Pilihan Populer</h2>
                         </div>
                         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
                           {featuredGames.map((game) => (
@@ -511,7 +511,7 @@ export default function HomePage() {
                   return (
                     <div key={category.id} className="scroll-mt-24" id={`cat-${category.slug}`}>
                       <div className="flex items-center gap-3 mb-2 sm:mb-3">
-                        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight" style={{ color: ["TOP UP", "VOUCHER"].includes(category.name?.toUpperCase()) ? "var(--primary-color, #ff4400)" : undefined }}>
                           {category.name}
                         </h3>
                         <div className="h-px bg-slate-200/60 flex-grow rounded-full hidden sm:block"></div>
