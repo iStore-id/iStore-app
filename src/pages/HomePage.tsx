@@ -372,7 +372,7 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
             <div className="text-left">
               {(navFilter.type !== "all" || searchQuery) && (
-                <h2 className="ui-section-title text-slate-950">
+                <h2 className="ui-section-title" style={{ color: "var(--primary-color, #ff4400)" }}>
                   {navFilter.type === "game"
                     ? `Game: ${popularGames.find((g) => g.id === navFilter.id)?.name || "Katalog Game"}`
                     : navFilter.type === "category"
@@ -511,7 +511,7 @@ export default function HomePage() {
                   return (
                     <div key={category.id} className="scroll-mt-24" id={`cat-${category.slug}`}>
                       <div className="flex items-center gap-3 mb-2 sm:mb-3">
-                        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight" style={{ color: ["TOP UP", "VOUCHER"].includes(category.name?.toUpperCase()) ? "var(--primary-color, #ff4400)" : undefined }}>
+                        <h3 className="text-lg sm:text-xl font-extrabold tracking-tight" style={{ color: "var(--primary-color, #ff4400)" }}>
                           {category.name}
                         </h3>
                         <div className="h-px bg-slate-200/60 flex-grow rounded-full hidden sm:block"></div>
@@ -619,7 +619,7 @@ export default function HomePage() {
                 <HelpCircle className="w-3.5 h-3.5 text-brand-600" />
                 <span>Pusat Informasi</span>
               </div>
-              <h2 className="ui-section-title text-slate-950">
+              <h2 className="ui-section-title" style={{ color: "var(--primary-color, #ff4400)" }}>
                 Pertanyaan Umum (FAQ)
               </h2>
               <p className="text-slate-500 text-xs sm:text-sm max-w-xl mx-auto">
