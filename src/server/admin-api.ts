@@ -1064,8 +1064,17 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
+      const existingOmqris = await SystemConfigRepository.getInstance().getConfig("omqris_integration");
+      if (existingOmqris && existingOmqris.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("omqris_integration", {
+          ...existingOmqris,
+          isActive: false,
+          updatedAt: now
+        });
+      }
       process.env.IPAYMU_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "false";
     }
 
     if (serverKey && !serverKey.includes("****")) {
@@ -2656,8 +2665,17 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
           updatedAt: now
         });
       }
+      const existingOmqris = await SystemConfigRepository.getInstance().getConfig("omqris_integration");
+      if (existingOmqris && existingOmqris.isActive) {
+        await SystemConfigRepository.getInstance().upsertConfig("omqris_integration", {
+          ...existingOmqris,
+          isActive: false,
+          updatedAt: now
+        });
+      }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.IPAYMU_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.DOIT_IS_ACTIVE = "false";
