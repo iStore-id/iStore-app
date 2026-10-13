@@ -324,7 +324,7 @@ export default function GameDetailPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
-  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "ipaymu" | null>(null);
+  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "ipaymu" | "omqris" | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -1189,7 +1189,7 @@ export default function GameDetailPage() {
                   <span className="text-right font-bold text-xs sm:text-sm">
                     {selectedPaymentMethod ? (
                       <span className="text-brand-600 uppercase">
-                        {activeGateway === "doit"
+                        {activeGateway === "doit" || activeGateway === "omqris"
                           ? ({
                               qris: "QRIS",
                               mandiri_va: "Mandiri VA",
@@ -1286,7 +1286,7 @@ export default function GameDetailPage() {
                 <span className="w-6 h-6 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs font-bold">3</span>
                 Pilih Metode Pembayaran
               </h2>
-              {activeGateway === "doit" ? (
+              {activeGateway === "doit" || activeGateway === "omqris" ? (
                 <div className="space-y-4">
                   {/* Kelompok QRIS */}
                   <div>
