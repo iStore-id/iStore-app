@@ -188,7 +188,7 @@ export const FlashSaleGrid: React.FC<FlashSaleGridProps> = ({ allowedIds }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-brand-600 uppercase">
             <Zap className="w-4 h-4 text-brand-600 fill-brand-100" />
-            <h2>Flash Sale Terbatas</h2>
+            <h2 style={{ color: "var(--primary-color, #ff4400)" }}>Flash Sale Terbatas</h2>
           </div>
 
           <div className="flex items-center gap-2.5">
