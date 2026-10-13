@@ -1301,9 +1301,9 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
+                            className={`w-full min-w-0 p-3.5 sm:p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[112px] sm:min-h-[120px] shadow-sm ${
                               isSelected
-                                ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
+                                ? "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20"
                                 : "hover:border-brand-300"
                             }`}
                             style={isSelected ? {} : {
@@ -1312,11 +1312,11 @@ export default function GameDetailPage() {
                             }}
                           >
                             <div className="flex items-center justify-between w-full mb-1">
-                              <div className="h-6 sm:h-7 flex items-center shrink-0">
+                              <div className="h-10 w-full flex items-center justify-center rounded-xl bg-white border border-slate-100 px-3 py-2">
                                 <img
                                   src={method.logo}
                                   alt={method.name}
-                                  className="h-full w-auto max-w-[90px] object-contain"
+                                  className="max-h-full max-w-full object-contain"
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
@@ -1332,8 +1332,8 @@ export default function GameDetailPage() {
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
-                                  <ShieldCheck className="w-3 h-3" />
+                                <div className="bg-brand-600 text-white rounded-bl-xl p-1.5">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
                             )}
@@ -1363,9 +1363,9 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
+                            className={`w-full min-w-0 p-3.5 sm:p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[112px] sm:min-h-[120px] shadow-sm ${
                               isSelected
-                                ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
+                                ? "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20"
                                 : "hover:border-brand-300"
                             }`}
                             style={isSelected ? {} : {
@@ -1374,11 +1374,11 @@ export default function GameDetailPage() {
                             }}
                           >
                             <div className="flex items-center justify-between w-full mb-1">
-                              <div className="h-6 sm:h-7 flex items-center shrink-0">
+                              <div className="h-10 w-full flex items-center justify-center rounded-xl bg-white border border-slate-100 px-3 py-2">
                                 <img
                                   src={method.logo}
                                   alt={method.name}
-                                  className="h-full w-auto max-w-[90px] object-contain"
+                                  className="max-h-full max-w-full object-contain"
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
@@ -1388,8 +1388,8 @@ export default function GameDetailPage() {
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
-                                  <ShieldCheck className="w-3 h-3" />
+                                <div className="bg-brand-600 text-white rounded-bl-xl p-1.5">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
                             )}
@@ -1418,9 +1418,9 @@ export default function GameDetailPage() {
                         key={method.id}
                         type="button"
                         onClick={() => setSelectedPaymentMethod(method.id)}
-                        className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
+                        className={`w-full min-w-0 p-3.5 sm:p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[112px] sm:min-h-[120px] shadow-sm ${
                           isSelected
-                            ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
+                            ? "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20"
                             : "hover:border-brand-300"
                         }`}
                         style={isSelected ? {} : {
@@ -1429,11 +1429,11 @@ export default function GameDetailPage() {
                         }}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <div className="h-6 sm:h-7 flex items-center shrink-0">
+                          <div className="h-10 w-full flex items-center justify-center rounded-xl bg-white border border-slate-100 px-3 py-2">
                             <img
                               src={method.logo}
                               alt={method.name}
-                              className="h-full w-auto max-w-[90px] object-contain"
+                              className="max-h-full max-w-full object-contain"
                               referrerPolicy="no-referrer"
                             />
                           </div>
@@ -1449,8 +1449,8 @@ export default function GameDetailPage() {
                         </div>
                         {isSelected && (
                           <div className="absolute top-0 right-0">
-                            <div className="bg-brand-600 text-white rounded-bl-md p-0.5">
-                              <ShieldCheck className="w-3 h-3" />
+                            <div className="bg-brand-600 text-white rounded-bl-xl p-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5" />
                             </div>
                           </div>
                         )}
