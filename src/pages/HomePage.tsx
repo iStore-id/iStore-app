@@ -147,6 +147,22 @@ export default function HomePage() {
     }
   }, [location.key]);
 
+  // Resolve category navigation from the global search and footer links.
+  // Accept both stable category IDs and public category slugs.
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+    const categoryParam = new URLSearchParams(location.search).get("category");
+    if (!categoryParam || activeCategories.length === 0) return;
+
+    const category = activeCategories.find(
+      (item: any) => item.id === categoryParam || item.slug === categoryParam
+    );
+    if (category) {
+      setSearchQuery("");
+      setNavFilter({ type: "category", id: category.id, name: category.name });
+    }
+  }, [location.pathname, location.search, activeCategories]);
+
   const [heroBanners, setHeroBanners] = useState<any[]>([]);
   const [bannersLoaded, setBannersLoaded] = useState(false);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
@@ -230,7 +246,7 @@ export default function HomePage() {
         return () => clearTimeout(timer);
       }
     }
-  }, [loading, location.hash]);
+  }, [loading, location.hash, location.key]);
 
   const featuredGames = homepageFeaturedGameIds
     .map(id => popularGames.find(game => game.id === id))
@@ -342,7 +358,12 @@ export default function HomePage() {
                     <button
                       key={cat.id || cat.slug || cat.name}
                       type="button"
-                      onClick={() => setNavFilter(isSelected ? { type: "all" } : { type: "category", id: cat.id, name: cat.name })}
+                      onClick={() => {
+                        setNavFilter(isSelected ? { type: "all" } : { type: "category", id: cat.id, name: cat.name });
+                        window.setTimeout(() => {
+                          document.getElementById("katalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 0);
+                      }}
                       className={`inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-lg sm:rounded-xl transition-all duration-150 border cursor-pointer shrink-0 text-xs font-semibold whitespace-nowrap select-none ${
                         isSelected
                           ? "bg-brand-600 border-brand-600 text-white shadow-xs font-bold"
@@ -366,7 +387,7 @@ export default function HomePage() {
     catalog: (
       <>
         {/* Popular Games / Catalog */}
-      <section id="katalog" className="pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
+      <section id="katalog" className="scroll-mt-24 pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
@@ -558,7 +579,12 @@ export default function HomePage() {
                       {isDefaultHome && gamesInCategory.length > 9 && (
                         <div className="mt-2.5 sm:mt-3 flex justify-center">
                           <button
-                            onClick={() => setNavFilter({ type: "category", id: category.id, name: category.name })}
+                            onClick={() => {
+                              setNavFilter({ type: "category", id: category.id, name: category.name });
+                              window.setTimeout(() => {
+                                document.getElementById("katalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                              }, 0);
+                            }}
                             className="inline-flex items-center text-[11px] sm:text-xs font-bold text-slate-500 hover:text-brand-600 transition-colors cursor-pointer"
                           >
                             <span>Tampilkan Semua ({gamesInCategory.length})</span>
