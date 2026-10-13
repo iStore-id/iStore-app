@@ -85,8 +85,8 @@ export default function CustomerPopupModal({
   if (!isOpen || !activePopup) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-3 sm:p-5 animate-fade-in">
-      <div className="relative flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/65 p-3 sm:p-5 animate-fade-in">
+      <div className="relative flex max-h-[90dvh] w-fit max-w-[calc(100vw-1.5rem)] flex-col overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 sm:max-w-[calc(100vw-2.5rem)]">
         <button
           onClick={handleClose}
           aria-label="Tutup popup"
@@ -96,12 +96,12 @@ export default function CustomerPopupModal({
         </button>
 
         {activePopup.mediaUrl && (
-          <div className="flex w-full items-center justify-center bg-slate-50 px-2 py-2 sm:px-4 sm:py-3">
-            <img src={activePopup.mediaUrl} alt={activePopup.title} className="block h-auto max-h-[42dvh] w-full object-contain" referrerPolicy="no-referrer" />
+          <div className="flex w-full min-w-0 items-center justify-center bg-white p-0">
+            <img src={activePopup.mediaUrl} alt={activePopup.title} className="block h-auto w-auto max-w-full max-h-[70dvh] object-contain" referrerPolicy="no-referrer" />
           </div>
         )}
 
-        <div className="space-y-3 p-5 sm:p-6">
+        <div className="space-y-3 p-4 sm:p-5">
           <h3 className="pr-9 text-xl font-bold leading-tight tracking-tight text-slate-950 sm:text-2xl">{activePopup.title}</h3>
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600 sm:text-base">{activePopup.content}</p>
 
