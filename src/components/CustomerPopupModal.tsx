@@ -85,31 +85,32 @@ export default function CustomerPopupModal({
   if (!isOpen || !activePopup) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden relative flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-3 sm:p-5 animate-fade-in">
+      <div className="relative flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
         <button
           onClick={handleClose}
-          className="absolute top-3 right-3 z-10 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition"
+          aria-label="Tutup popup"
+          className="absolute right-3 top-3 z-10 rounded-full bg-slate-950/65 p-2.5 text-white shadow-lg backdrop-blur-sm transition hover:bg-slate-950/85 focus:outline-none focus:ring-2 focus:ring-white"
         >
           <X className="w-4 h-4" />
         </button>
 
         {activePopup.mediaUrl && (
-          <div className="w-full max-h-64 bg-gray-100 flex items-center justify-center">
-            <img src={activePopup.mediaUrl} alt={activePopup.title} className="max-w-full max-h-64 object-contain" referrerPolicy="no-referrer" />
+          <div className="flex w-full items-center justify-center bg-slate-50 px-2 py-2 sm:px-4 sm:py-3">
+            <img src={activePopup.mediaUrl} alt={activePopup.title} className="block h-auto max-h-[42dvh] w-full object-contain" referrerPolicy="no-referrer" />
           </div>
         )}
 
-        <div className="p-6 space-y-4">
-          <h3 className="text-xl font-bold text-gray-900">{activePopup.title}</h3>
-          <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">{activePopup.content}</p>
+        <div className="space-y-3 p-5 sm:p-6">
+          <h3 className="pr-9 text-xl font-bold leading-tight tracking-tight text-slate-950 sm:text-2xl">{activePopup.title}</h3>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600 sm:text-base">{activePopup.content}</p>
 
           {activePopup.target && (
-            <div className="pt-2">
+            <div className="pt-1">
               <a
                 href={activePopup.target}
                 onClick={handleClose}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-brand-700 text-white font-semibold rounded-xl transition shadow-sm"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 sm:text-base"
               >
                 Lihat Selengkapnya <ExternalLink className="w-4 h-4" />
               </a>
