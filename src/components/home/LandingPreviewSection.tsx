@@ -16,7 +16,7 @@ export const LandingPreviewSection: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/public/landings')
+    fetch('/api/public/campaigns')
       .then(res => res.json())
       .then(json => {
         if (json.success) setLandings(json.data);
@@ -80,7 +80,7 @@ export const LandingPreviewSection: React.FC = () => {
                 {landing.description}
               </p>
               <Link
-                to={`/promo/${landing.slug}`}
+                to={`/landing/${landing.slug}`}
                 className="storefront-btn-primary mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition active:scale-[0.98]"
                 style={{ backgroundColor: "var(--primary-color, #ff4400)", color: "var(--on-primary-color, #ffffff)" }}
               >
