@@ -682,7 +682,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col w-full min-h-screen">
-      <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />
+      {!loading && <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />}
 
       {orderedHomepageSections}
     </div>
