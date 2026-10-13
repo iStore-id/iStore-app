@@ -368,9 +368,6 @@ export default function HomePage() {
         {/* Popular Games / Catalog */}
       <section id="katalog" className="pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
         <div className="max-w-7xl mx-auto">
-          {navFilter.type === "all" && !searchQuery && (
-            
-          )}
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
             <div className="text-left">
