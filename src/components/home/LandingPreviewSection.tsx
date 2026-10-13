@@ -45,14 +45,14 @@ export const LandingPreviewSection: React.FC = () => {
         )}
       </div>
 
-      <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2 scroll-smooth no-scrollbar sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
         {landings.map((landing) => (
           <motion.article
             key={landing.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="group w-[44%] max-w-[160px] min-w-0 shrink-0 snap-start overflow-hidden rounded-lg border transition-shadow duration-200 hover:shadow-md sm:w-full sm:max-w-[190px] sm:justify-self-start sm:shrink"
+            className="group min-w-0 overflow-hidden rounded-lg border transition-shadow duration-200 hover:shadow-md"
             style={{ backgroundColor: "var(--surface-color)", borderColor: "var(--border-color)" }}
           >
             {landing.mediaUrl ? (
@@ -72,7 +72,7 @@ export const LandingPreviewSection: React.FC = () => {
               </div>
             )}
 
-            <div className="flex h-full flex-col p-2 sm:p-2.5">
+            <div className="flex flex-col p-2 sm:p-2.5">
               <h3 className="mb-1 line-clamp-2 text-[13px] font-bold leading-snug" style={{ color: "var(--text-color)" }}>
                 {landing.title}
               </h3>
@@ -81,7 +81,7 @@ export const LandingPreviewSection: React.FC = () => {
               </p>
               <Link
                 to={`/landing/${landing.slug}`}
-                className="storefront-btn-primary mt-auto inline-flex min-h-8 w-full items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold transition active:scale-[0.98]"
+                className="storefront-btn-primary mt-1 inline-flex min-h-7 w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold transition active:scale-[0.98] sm:min-h-8 sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-xs"
                 style={{ backgroundColor: "var(--primary-color, #ff4400)", color: "var(--on-primary-color, #ffffff)" }}
               >
                 {landing.ctaText || "Lihat Promo"}
