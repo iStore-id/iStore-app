@@ -30,7 +30,7 @@ export const LandingPreviewSection: React.FC = () => {
   return (
     <section className="py-8 max-w-7xl mx-auto px-4 lg:px-0">
       <div className="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-brand-600 uppercase mb-4">
-        <h2>Promo & Event Spesial</h2>
+        <h2 style={{ color: "var(--primary-color, #ff4400)" }}>Promo & Event Spesial</h2>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {landings.map((l) => (
