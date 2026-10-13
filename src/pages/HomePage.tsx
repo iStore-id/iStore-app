@@ -449,7 +449,6 @@ export default function HomePage() {
                       <section className="mb-6 sm:mb-8">
                         <div className="mb-3 sm:mb-4">
                           <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Pilihan Populer</h2>
-                          <p className="text-xs sm:text-sm text-slate-500 mt-1">Game dan layanan pilihan untuk transaksi lebih cepat.</p>
                         </div>
                         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
                           {featuredGames.map((game) => (
