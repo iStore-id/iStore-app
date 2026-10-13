@@ -369,21 +369,12 @@ export default function HomePage() {
       <section id="katalog" className="pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
         <div className="max-w-7xl mx-auto">
           {navFilter.type === "all" && !searchQuery && (
-            <div className="relative mb-6 sm:mb-9 border-b pb-5 sm:pb-7" style={{ borderColor: "var(--border-color)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-block w-7 h-[3px] rounded-full bg-brand-600" />
-                <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] uppercase text-brand-600">iStore / Digital essentials</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(220px,360px)] gap-3 md:gap-8 md:items-end">
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-[-0.045em] leading-[1.08] text-slate-950">
-                  Semua kebutuhan digital.<br className="hidden sm:block" /> <span className="text-brand-600">Satu alur.</span>
+            <div className="relative mb-4 sm:mb-6 border-b pb-3 sm:pb-4" style={{ borderColor: "var(--border-color)" }}>
+              <div className="flex items-center gap-3">
+                <span className="inline-block w-1 h-7 sm:h-8 rounded-full bg-brand-600" />
+                <h2 className="text-xl sm:text-2xl font-black tracking-[-0.035em] leading-tight text-slate-950">
+                  Katalog <span className="text-brand-600">Digital</span>
                 </h2>
-                <p className="text-xs sm:text-sm leading-relaxed text-slate-500 max-w-md md:justify-self-end">
-                  Pilih game atau layanan, tentukan produk, lalu lanjutkan transaksi dengan langkah yang jelas.
-                </p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[9px] sm:text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">
-                <span>Games</span><span className="text-brand-600">/</span><span>Pulsa & Data</span><span className="text-brand-600">/</span><span>Digital services</span>
               </div>
             </div>
           )}
