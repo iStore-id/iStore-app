@@ -894,7 +894,7 @@ export default function GameDetailPage() {
             ? "bg-transparent shadow-none border-0 p-0"
             : `${
                 cardBlur === "none" ? "" : cardBlur === "sm" ? "backdrop-blur-sm" : cardBlur === "lg" ? "backdrop-blur-lg" : "backdrop-blur-md"
-              } rounded-3xl p-6 md:p-8 shadow-sm border space-y-8 transition-all`
+              } rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-sm border space-y-6 sm:space-y-8 transition-all`
         }
         style={checkoutStep === 3 ? {} : {
           backgroundColor: hexToRgba(effectiveCardColor, cardOpacity),
