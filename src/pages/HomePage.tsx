@@ -366,8 +366,27 @@ export default function HomePage() {
     catalog: (
       <>
         {/* Popular Games / Catalog */}
-      <section id="katalog" className="pt-4 sm:pt-6 pb-8 sm:pb-10 lg:pb-12 px-4">
+      <section id="katalog" className="pt-5 sm:pt-8 pb-10 sm:pb-12 lg:pb-16 px-4">
         <div className="max-w-7xl mx-auto">
+          {navFilter.type === "all" && !searchQuery && (
+            <div className="relative mb-6 sm:mb-9 border-b pb-5 sm:pb-7" style={{ borderColor: "var(--border-color)" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-block w-7 h-[3px] rounded-full bg-brand-600" />
+                <span className="text-[10px] sm:text-xs font-extrabold tracking-[0.2em] uppercase text-brand-600">iStore / Digital essentials</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(220px,360px)] gap-3 md:gap-8 md:items-end">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-[-0.045em] leading-[1.08] text-slate-950">
+                  Semua kebutuhan digital.<br className="hidden sm:block" /> <span className="text-brand-600">Satu alur.</span>
+                </h2>
+                <p className="text-xs sm:text-sm leading-relaxed text-slate-500 max-w-md md:justify-self-end">
+                  Pilih game atau layanan, tentukan produk, lalu lanjutkan transaksi dengan langkah yang jelas.
+                </p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[9px] sm:text-[10px] font-bold tracking-[0.14em] uppercase text-slate-400">
+                <span>Games</span><span className="text-brand-600">/</span><span>Pulsa & Data</span><span className="text-brand-600">/</span><span>Digital services</span>
+              </div>
+            </div>
+          )}
           {/* Section Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
             <div className="text-left">
@@ -453,12 +472,13 @@ export default function HomePage() {
                         </div>
                         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
                           {featuredGames.map((game) => (
-                            <Link to={`/games/${game.slug}`} key={game.id} className="group flex flex-col aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer" style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}>
+                            <Link to={`/games/${game.slug}`} key={game.id} className="group flex flex-col aspect-[1/1.34] rounded-xl sm:rounded-2xl overflow-hidden border shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer" style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}>
                               <div className="relative w-full h-[74%] overflow-hidden bg-slate-100 dark:bg-slate-800 border-b" style={{ borderColor: 'var(--border-color)' }}>
                                 <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover object-top transition-transform duration-500 will-change-transform group-hover:scale-105" loading="lazy" />
                               </div>
-                              <div className="w-full h-[26%] flex items-center justify-center px-1.5 sm:px-2 py-1 text-center bg-white dark:bg-slate-900 transition-colors">
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-600 transition-colors">{game.name}</h3>
+                              <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left bg-slate-950 transition-colors border-t-2 border-brand-600" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
+                                <h3 className="min-w-0 font-bold text-white text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-300 transition-colors">{game.name}</h3>
+                                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5" />
                               </div>
                             </Link>
                           ))}
@@ -527,7 +547,7 @@ export default function HomePage() {
                             <Link 
                               to={`/games/${game.slug}`} 
                               key={game.id} 
-                              className="group flex flex-col aspect-[1/1.38] rounded-2xl overflow-hidden border shadow-2xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer"
+                              className="group flex flex-col aspect-[1/1.34] rounded-xl sm:rounded-2xl overflow-hidden border shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer"
                               style={{ backgroundColor: 'var(--surface-color)', borderColor: 'var(--border-color)' }}
                             >
                               {/* Zona 1: Clean Artwork (74% height) */}
@@ -544,10 +564,11 @@ export default function HomePage() {
                               </div>
                               
                               {/* Zona 2: Dedicated Editorial Plinth (26% height) */}
-                              <div className="w-full h-[26%] flex items-center justify-center px-1.5 sm:px-2 py-1 text-center bg-white dark:bg-slate-900 transition-colors">
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-600 transition-colors">
+                              <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left bg-slate-950 transition-colors border-t-2 border-brand-600" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
+                                <h3 className="min-w-0 font-bold text-white text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight group-hover:text-brand-300 transition-colors">
                                   {game.name}
                                 </h3>
+                                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5" />
                               </div>
                             </Link>
                           );
