@@ -284,8 +284,8 @@ export default function BlogDetailPage() {
 
       {/* Top Breadcrumb Bar */}
       <div className="bg-white border-b border-slate-200/80">
-        <div className="max-w-[1600px] mx-auto px-2 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-slate-500 truncate">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
             <Link to="/" className="hover:text-brand-600 transition-colors">
               Beranda
             </Link>
@@ -294,12 +294,12 @@ export default function BlogDetailPage() {
               Blog & Berita
             </Link>
             <span>/</span>
-            <span className="text-slate-800 font-medium truncate">{blog.category || "Berita"}</span>
+            <span className="text-slate-800 font-medium break-words">{blog.category || "Berita"}</span>
           </div>
 
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-600 transition-colors shrink-0"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-600 transition-colors shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Beranda
@@ -310,10 +310,10 @@ export default function BlogDetailPage() {
       {/* ========================================================================= */}
       {/* ARTIKEL AKTIF (FULL CONTENT ARTIKEL) */}
       {/* ========================================================================= */}
-      <article className="max-w-[1600px] mx-auto px-2 sm:px-6 pt-8 sm:pt-12">
+      <article className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
         {/* Article Meta & Header */}
-        <header className="space-y-4 text-left">
-          <div className="flex flex-wrap items-center gap-2.5">
+        <header className="space-y-5 text-left">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
             <span className="px-3.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
               {blog.category || "Berita"}
             </span>
@@ -333,7 +333,7 @@ export default function BlogDetailPage() {
             </span>
           </div>
 
-          <h1 className="ui-page-title text-slate-900 mb-2">
+          <h1 className="ui-page-title text-slate-900 mb-2 break-words leading-tight">
             {blog.title}
           </h1>
 
@@ -344,7 +344,7 @@ export default function BlogDetailPage() {
           )}
 
           {/* Author Info & Share */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                 {blog.author ? blog.author.charAt(0).toUpperCase() : "I"}
