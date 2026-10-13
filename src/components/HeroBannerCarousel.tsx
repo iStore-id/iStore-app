@@ -160,15 +160,7 @@ export default function HeroBannerCarousel({ banners }: HeroBannerCarouselProps)
                 {banner.title}
               </h2>
             )}
-            {banner.target && (
-              <a
-                href={banner.target}
-                className="hidden inline-flex items-center gap-1.5 sm:gap-2 bg-brand-600 hover:bg-brand-500 text-white text-xs sm:text-sm font-semibold px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl w-max shadow-lg shadow-brand-500/25 transition duration-300 pointer-events-auto"
-              >
-                Lihat Detail <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-              </a>
-            )}
-          </div>
+</div>
         )}
       </div>
     );
@@ -311,20 +303,7 @@ export default function HeroBannerCarousel({ banners }: HeroBannerCarouselProps)
                       {currentBanner.title}
                     </h2>
                   )}
-                  {currentBanner.target && (
-                    <a
-                      href={currentBanner.target}
-                      onClick={(e) => {
-                        if (dragDistanceRef.current > 10) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="hidden storefront-btn-primary inline-flex items-center gap-1.5 sm:gap-2 bg-brand-600 hover:bg-brand-500 text-white text-xs sm:text-sm font-semibold px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl w-max shadow-lg shadow-brand-500/25 transition duration-300 pointer-events-auto"
-                    >
-                      Lihat Detail <ArrowRight className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-                    </a>
-                  )}
-                </div>
+</div>
               </div>
             )}
           </motion.div>
