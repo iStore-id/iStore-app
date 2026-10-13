@@ -28,7 +28,7 @@ export const LandingPreviewSection: React.FC = () => {
   if (loading || landings.length === 0) return null;
 
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
+    <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">
       <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <div>
           <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--primary-color, #ff4400)" }}>
@@ -52,11 +52,11 @@ export const LandingPreviewSection: React.FC = () => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="group w-[82%] min-w-0 shrink-0 snap-start overflow-hidden rounded-2xl border transition-shadow duration-200 hover:shadow-md sm:w-auto sm:shrink"
+            className="group w-[68%] max-w-[260px] min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-md sm:w-auto sm:max-w-none sm:shrink"
             style={{ backgroundColor: "var(--surface-color)", borderColor: "var(--border-color)" }}
           >
             {landing.mediaUrl ? (
-              <div className="relative aspect-[16/9] overflow-hidden" style={{ backgroundColor: "var(--surface-muted-color, var(--surface-color))" }}>
+              <div className="relative aspect-[2/1] overflow-hidden" style={{ backgroundColor: "var(--surface-muted-color, var(--surface-color))" }}>
                 <img
                   src={landing.mediaUrl}
                   alt={landing.title}
@@ -67,21 +67,21 @@ export const LandingPreviewSection: React.FC = () => {
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
               </div>
             ) : (
-              <div className="flex aspect-[16/9] items-center justify-center" style={{ backgroundColor: "var(--surface-muted-color, var(--surface-color))" }}>
+              <div className="flex aspect-[2/1] items-center justify-center" style={{ backgroundColor: "var(--surface-muted-color, var(--surface-color))" }}>
                 <span className="text-xs font-semibold" style={{ color: "var(--muted-text-color, #64748b)" }}>Promo iStore</span>
               </div>
             )}
 
-            <div className="flex h-full flex-col p-3.5 sm:p-4">
-              <h3 className="mb-1.5 line-clamp-2 text-sm font-bold leading-snug sm:text-base" style={{ color: "var(--text-color)" }}>
+            <div className="flex h-full flex-col p-3">
+              <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug" style={{ color: "var(--text-color)" }}>
                 {landing.title}
               </h3>
-              <p className="mb-4 line-clamp-2 text-xs leading-relaxed" style={{ color: "var(--muted-text-color, #64748b)" }}>
+              <p className="mb-3 line-clamp-2 text-xs leading-relaxed" style={{ color: "var(--muted-text-color, #64748b)" }}>
                 {landing.description}
               </p>
               <Link
                 to={`/landing/${landing.slug}`}
-                className="storefront-btn-primary mt-auto inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition active:scale-[0.98]"
+                className="storefront-btn-primary mt-auto inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition active:scale-[0.98]"
                 style={{ backgroundColor: "var(--primary-color, #ff4400)", color: "var(--on-primary-color, #ffffff)" }}
               >
                 {landing.ctaText || "Lihat Promo"}
