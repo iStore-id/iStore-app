@@ -28,7 +28,7 @@ export const LandingPreviewSection: React.FC = () => {
   if (loading || landings.length === 0) return null;
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-4 sm:py-6">
+    <section className="mx-auto w-full max-w-5xl px-4 py-3 sm:py-5">
       <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <div>
           <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "var(--primary-color, #ff4400)" }}>
@@ -45,14 +45,14 @@ export const LandingPreviewSection: React.FC = () => {
         )}
       </div>
 
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scroll-smooth no-scrollbar sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
+      <div className="-mx-4 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-2 scroll-smooth no-scrollbar sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
         {landings.map((landing) => (
           <motion.article
             key={landing.id}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="group w-[68%] max-w-[260px] min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-md sm:w-auto sm:max-w-none sm:shrink"
+            className="group w-[54%] max-w-[200px] min-w-0 shrink-0 snap-start overflow-hidden rounded-xl border transition-shadow duration-200 hover:shadow-md sm:w-auto sm:max-w-none sm:shrink"
             style={{ backgroundColor: "var(--surface-color)", borderColor: "var(--border-color)" }}
           >
             {landing.mediaUrl ? (
@@ -72,16 +72,16 @@ export const LandingPreviewSection: React.FC = () => {
               </div>
             )}
 
-            <div className="flex h-full flex-col p-3">
+            <div className="flex h-full flex-col p-2.5 sm:p-3">
               <h3 className="mb-1 line-clamp-2 text-sm font-bold leading-snug" style={{ color: "var(--text-color)" }}>
                 {landing.title}
               </h3>
-              <p className="mb-3 line-clamp-2 text-xs leading-relaxed" style={{ color: "var(--muted-text-color, #64748b)" }}>
+              <p className="mb-2.5 line-clamp-2 text-xs leading-relaxed" style={{ color: "var(--muted-text-color, #64748b)" }}>
                 {landing.description}
               </p>
               <Link
                 to={`/landing/${landing.slug}`}
-                className="storefront-btn-primary mt-auto inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition active:scale-[0.98]"
+                className="storefront-btn-primary mt-auto inline-flex min-h-8 w-full items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-bold transition active:scale-[0.98]"
                 style={{ backgroundColor: "var(--primary-color, #ff4400)", color: "var(--on-primary-color, #ffffff)" }}
               >
                 {landing.ctaText || "Lihat Promo"}
