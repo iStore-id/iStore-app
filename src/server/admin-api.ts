@@ -2425,6 +2425,103 @@ export async function removeIpaymuIntegration(req: AuthenticatedRequest, res: Re
   }
 }
 
+
+export async function getOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("omqris_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    const apiSecret = config.encryptedApiSecret ? decryptSecret(config.encryptedApiSecret) : "";
+    return res.status(200).json({
+      success: true,
+      data: {
+        apiKeyMasked: apiKey ? apiKey.slice(0, 4) + "••••••••" : "",
+        apiSecretConfigured: !!apiSecret,
+        isActive: config.isActive === true,
+        webhookUrl: config.webhookUrl || "https://ist.web.id/api/webhooks/omqris",
+        configured: !!apiKey && !!apiSecret,
+        lastTestedAt: config.lastTestedAt || null,
+        lastTestResult: config.lastTestResult || null
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal mengambil konfigurasi OmQris." });
+  }
+}
+
+export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { apiKey, apiSecret, isActive } = req.body || {};
+    const repo = SystemConfigRepository.getInstance();
+    const existing = await repo.getConfig("omqris_integration") || {};
+    const now = new Date().toISOString();
+    const encryptedApiKey = typeof apiKey === "string" && apiKey.trim() && !apiKey.includes("••••") && !apiKey.includes("****")
+      ? encryptSecret(apiKey.trim()) : (existing.encryptedApiKey || "");
+    const encryptedApiSecret = typeof apiSecret === "string" && apiSecret.trim() && !apiSecret.includes("••••") && !apiSecret.includes("****")
+      ? encryptSecret(apiSecret.trim()) : (existing.encryptedApiSecret || "");
+    const requestedActive = isActive === true || isActive === "true";
+
+    if (requestedActive && (!encryptedApiKey || !encryptedApiSecret)) {
+      return res.status(400).json({ success: false, message: "API Key dan API Secret OmQris harus disimpan sebelum aktivasi." });
+    }
+
+    const newConfig = {
+      ...existing,
+      key: "omqris_integration",
+      encryptedApiKey,
+      encryptedApiSecret,
+      webhookUrl: "https://ist.web.id/api/webhooks/omqris",
+      isActive: isActive !== undefined ? requestedActive : existing.isActive === true,
+      updatedBy: req.user.uid,
+      updatedAt: now,
+      createdAt: existing.createdAt || now
+    };
+    await repo.upsertConfig("omqris_integration", newConfig);
+
+    // Cross-gateway coordination is restricted to explicit OmQris activation.
+    // Doit and Midtrans handlers/adapters are not modified; only their active flags are cleared.
+    if (requestedActive) {
+      for (const key of ["midtrans_integration", "doit_integration"] as const) {
+        const current = await repo.getConfig(key).catch(() => null);
+        if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
+      process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "true";
+    } else if (isActive === false || isActive === "false") {
+      process.env.OMQRIS_IS_ACTIVE = "false";
+    }
+
+    const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
+    await logCoreAudit(actor, req.user.role || "pemilik", "UPDATE_OMQRIS_INTEGRATION",
+      "systemConfigs/omqris_integration",
+      { isActive: existing.isActive === true, configured: !!existing.encryptedApiKey && !!existing.encryptedApiSecret },
+      { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedApiSecret },
+      "Updated OmQris configuration");
+
+    return res.status(200).json({
+      success: true,
+      message: "Konfigurasi OmQris berhasil disimpan.",
+      data: { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedApiSecret, webhookUrl: newConfig.webhookUrl }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi OmQris." });
+  }
+}
+
+export async function removeOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const repo = SystemConfigRepository.getInstance();
+    await repo.deleteConfig("omqris_integration");
+    process.env.OMQRIS_IS_ACTIVE = "false";
+    const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
+    await logCoreAudit(actor, req.user.role || "pemilik", "REMOVE_OMQRIS_INTEGRATION",
+      "systemConfigs/omqris_integration", null, null, "Removed OmQris configuration");
+    return res.status(200).json({ success: true, message: "Konfigurasi OmQris berhasil dihapus." });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menghapus konfigurasi OmQris." });
+  }
+}
+
 const ALLOWED_DOIT_HOSTS = new Set([
   "pay.doit.id"
 ]);
