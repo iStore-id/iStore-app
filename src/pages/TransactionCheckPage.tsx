@@ -17,14 +17,14 @@ export default function TransactionCheckPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16 md:py-24">
-      <div className="text-center mb-10">
+    <div className="max-w-3xl mx-auto px-4 py-10 sm:py-16 md:py-24">
+      <div className="text-center mb-7 sm:mb-10">
         <h1 className="ui-page-title text-slate-900 mb-2">Cek Status Transaksi</h1>
         <p className="text-slate-600">Masukkan nomor invoice Anda untuk melacak status pesanan secara real-time.</p>
       </div>
 
       <div 
-        className="rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80"
+        className="rounded-2xl sm:rounded-3xl p-5 sm:p-6 md:p-8 shadow-sm border border-slate-200/80"
         style={{ backgroundColor: 'var(--surface-color)' }}
       >
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
