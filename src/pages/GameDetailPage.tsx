@@ -803,7 +803,7 @@ export default function GameDetailPage() {
             >
               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border shadow-sm sm:h-16 sm:w-16" style={{ borderColor: "var(--border-color)" }}>
                 <img
-                  src={game.image || "https://placehold.co/400x400/172554/e2e8f0?text=Game"}
+                  src={game.icon || game.image || "https://placehold.co/400x400/172554/e2e8f0?text=Game"}
                   alt={game.name}
                   className="h-full w-full object-cover"
                 />
