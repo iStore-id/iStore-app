@@ -1311,17 +1311,19 @@ export default function MainLayout() {
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="space-y-3 max-w-xl">
                 {branding?.logo ? (
-                  <div className={`flex items-center justify-center transition-all duration-300 w-fit ${
-                    branding.logoStyle === 'circle' ? 'rounded-full aspect-square p-2 footer-soft-bg border footer-soft-border' : 
-                    branding.logoStyle === 'rounded-box' ? 'rounded-lg p-2 footer-soft-bg border footer-soft-border' : ''
-                  }`}>
-                    <img 
-                      src={branding.logo} 
-                      alt="Brand Logo" 
-                      className="h-10 w-auto object-contain" 
-                      referrerPolicy="no-referrer" 
-                    />
-                  </div>
+                  <Link to="/" aria-label="Kembali ke Beranda" className="inline-flex w-fit">
+                    <div className={`flex items-center justify-center transition-all duration-300 w-fit ${
+                      branding.logoStyle === 'circle' ? 'rounded-full aspect-square p-2 footer-soft-bg border footer-soft-border' : 
+                      branding.logoStyle === 'rounded-box' ? 'rounded-lg p-2 footer-soft-bg border footer-soft-border' : ''
+                    }`}>
+                      <img 
+                        src={branding.logo} 
+                        alt="Brand Logo" 
+                        className="h-10 w-auto object-contain" 
+                        referrerPolicy="no-referrer" 
+                      />
+                    </div>
+                  </Link>
                 ) : branding?.name ? (
                   <span className="font-bold text-2xl footer-heading tracking-tight block">{branding.name}</span>
                 ) : null}
