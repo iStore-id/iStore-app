@@ -84,11 +84,11 @@ export default function BlogPreviewSection() {
 
         {/* Adaptive Cards Container */}
         {loading ? (
-          <div className="flex sm:grid sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
+          <div className="flex sm:grid sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 sm:gap-5 lg:gap-6 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 no-scrollbar">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="w-[190px] xs:w-[215px] sm:w-auto shrink-0 bg-white rounded-3xl p-3 border border-slate-200/70 shadow-2xs flex flex-col justify-between animate-pulse"
+                className="w-[210px] xs:w-[230px] sm:w-auto shrink-0 bg-white rounded-2xl p-3 border border-slate-200/70 shadow-2xs flex flex-col justify-between animate-pulse"
               >
                 <div className="aspect-[16/10] w-full rounded-2xl bg-slate-200 mb-3.5"></div>
                 <div className="space-y-2.5 flex-1">
@@ -114,14 +114,14 @@ export default function BlogPreviewSection() {
             */}
             <div
               ref={scrollContainerRef}
-              className="flex sm:grid sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5 sm:gap-5 lg:gap-6 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory no-scrollbar scroll-smooth"
+              className="flex sm:grid sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 sm:gap-5 lg:gap-6 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory no-scrollbar scroll-smooth"
             >
               {blogs.map((blog) => (
                 <BlogCard
                   key={blog.id}
                   blog={blog}
                   variant="compact"
-                  className="w-[190px] xs:w-[215px] sm:w-auto shrink-0 snap-start"
+                  className="w-[210px] xs:w-[230px] sm:w-auto shrink-0 snap-start"
                   headingLevel="h3"
                 />
               ))}
