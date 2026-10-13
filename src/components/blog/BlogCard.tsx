@@ -62,7 +62,7 @@ export default function BlogCard({
       } border border-slate-200/70 shadow-2xs hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between ${className}`}
       style={{ backgroundColor: 'var(--surface-color)' }}
     >
-      <div className={isCompact ? "space-y-1 sm:space-y-3" : "space-y-3"}>
+      <div className={isCompact ? "space-y-1.5 sm:space-y-3" : "space-y-3"}>
         {/* Aspect-Ratio Governed Cover Image with Media Library Source */}
         <div className={`${
           isCompact ? "aspect-[16/9] sm:aspect-[16/10]" : "aspect-[16/10]"
@@ -84,12 +84,12 @@ export default function BlogCard({
         </div>
 
         {/* Editorial unboxed category kicker and metadata row */}
-        <div className="flex flex-wrap items-center gap-1 text-[9px] xs:text-[10px] text-slate-400">
-          <span className="font-bold tracking-widest text-brand-600 uppercase truncate max-w-[65px] xs:max-w-none">
+        <div className={`flex items-center gap-1 overflow-hidden text-[9px] xs:text-[10px] text-slate-400 ${isCompact ? "flex-nowrap whitespace-nowrap" : "flex-wrap"}`}>
+          <span className={`font-bold tracking-widest text-brand-600 uppercase truncate ${isCompact ? "max-w-[72px] xs:max-w-[90px] shrink-0" : "max-w-[65px] xs:max-w-none"}`}>
             {blog.category || "Berita"}
           </span>
           <span aria-hidden="true" className="text-slate-300">•</span>
-          <span>{formatDate(blog.publishedAt)}</span>
+          <span className={isCompact ? "truncate min-w-0" : ""}>{formatDate(blog.publishedAt)}</span>
           {!isCompact && (
             <>
               <span aria-hidden="true" className="text-slate-300">•</span>
@@ -100,7 +100,7 @@ export default function BlogCard({
 
         {/* Title with 2-line clamp */}
         <HeadingTag className={`font-bold ${
-          isCompact ? "text-xs xs:text-sm sm:text-sm" : "text-xs sm:text-sm"
+          isCompact ? "text-[13px] xs:text-sm sm:text-sm min-h-[2.7em] sm:min-h-0" : "text-xs sm:text-sm"
         } text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug text-left`}>
           {blog.title}
         </HeadingTag>
