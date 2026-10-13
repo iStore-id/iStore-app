@@ -1131,15 +1131,22 @@ export default function GameDetailPage() {
                 <span className="w-1.5 h-5 bg-brand-600 rounded-full"></span>
                 Rincian Pesanan & Akun
               </h2>
-              <div className="text-sm bg-slate-50/80 p-5 rounded-2xl border border-solid relative z-10 space-y-2.5" style={{ borderColor: "var(--border-color)" }}>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Produk</span>
-                  <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedProduct?.name || game?.name || "-"}</span>
+              <div className="text-sm bg-slate-50/80 p-4 sm:p-5 rounded-2xl border border-solid relative z-10 space-y-3" style={{ borderColor: "var(--border-color)" }}>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/80 p-3 sm:p-4">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    <img src={game?.icon || game?.image || "/images/game-placeholder.png"} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-slate-500">Ringkasan pesanan</p>
+                    <p className="mt-0.5 break-words font-extrabold leading-snug text-slate-900 text-sm sm:text-base">{selectedProduct?.name || game?.name || "-"}</p>
+                    <p className="mt-1 break-words text-xs sm:text-sm text-slate-600">{selectedVariant?.displayName || "-"}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] text-slate-500">Harga item</p>
+                    <p className="font-extrabold text-brand-700 text-xs sm:text-sm">{selectedVariant ? formatRupiah(selectedSellingPrice) : "-"}</p>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Nominal</span>
-                  <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant?.displayName || "-"}</span>
-                </div>
+                <div className="space-y-2.5 pt-1">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Player ID</span>
                   <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm">{customerInput["userId"] || "-"}</span>
@@ -1198,6 +1205,8 @@ export default function GameDetailPage() {
                   <span className="text-slate-500 text-xs">Estimasi Diskon Poin</span>
                   <span className="font-bold text-emerald-600 text-xs sm:text-sm">{formatRupiah(estimatedLoyaltyDiscount)}</span>
                 </div>
+                </div>
+                <p className="border-t border-slate-200 pt-3 text-[10px] sm:text-[11px] leading-relaxed text-slate-500">Periksa kembali data akun dan nominal sebelum melanjutkan. Harga akhir akan divalidasi oleh server saat checkout.</p>
               </div>
             </div>
 
@@ -1263,7 +1272,7 @@ export default function GameDetailPage() {
                   {/* Kelompok QRIS */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">QRIS</h3>
-                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
                       ].map((method) => {
@@ -1273,7 +1282,7 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
+                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
                               isSelected
                                 ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                                 : "hover:border-brand-300"
@@ -1284,7 +1293,7 @@ export default function GameDetailPage() {
                             }}
                           >
                             <div className="flex items-center justify-between w-full mb-1">
-                              <div className="h-5 sm:h-6 flex items-center shrink-0">
+                              <div className="h-6 sm:h-7 flex items-center shrink-0">
                                 <img
                                   src={method.logo}
                                   alt={method.name}
@@ -1318,7 +1327,7 @@ export default function GameDetailPage() {
                   {/* Kelompok Virtual Account */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Virtual Account</h3>
-                    <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "mandiri_va", name: "Mandiri VA", logo: "/payment-logos/mandiri.svg" },
                         { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
@@ -1335,7 +1344,7 @@ export default function GameDetailPage() {
                             key={method.id}
                             type="button"
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
+                            className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
                               isSelected
                                 ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                                 : "hover:border-brand-300"
@@ -1346,7 +1355,7 @@ export default function GameDetailPage() {
                             }}
                           >
                             <div className="flex items-center justify-between w-full mb-1">
-                              <div className="h-5 sm:h-6 flex items-center shrink-0">
+                              <div className="h-6 sm:h-7 flex items-center shrink-0">
                                 <img
                                   src={method.logo}
                                   alt={method.name}
@@ -1372,7 +1381,7 @@ export default function GameDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {[
                     { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
                     { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
@@ -1390,7 +1399,7 @@ export default function GameDetailPage() {
                         key={method.id}
                         type="button"
                         onClick={() => setSelectedPaymentMethod(method.id)}
-                        className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[82px] sm:min-h-[88px] ${
+                        className={`w-full min-w-0 p-3 rounded-xl border-2 transition-all relative overflow-hidden flex flex-col justify-between text-left h-auto min-h-[96px] sm:min-h-[104px] ${
                           isSelected
                             ? "border-brand-600 bg-brand-50/40 shadow-xs ring-1 ring-brand-500/20"
                             : "hover:border-brand-300"
@@ -1401,7 +1410,7 @@ export default function GameDetailPage() {
                         }}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <div className="h-5 sm:h-6 flex items-center shrink-0">
+                          <div className="h-6 sm:h-7 flex items-center shrink-0">
                             <img
                               src={method.logo}
                               alt={method.name}
