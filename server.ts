@@ -23,7 +23,7 @@ import {
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
 } from "./src/server/admin-api.js";
-import { getIpaymuIntegration, updateIpaymuIntegration, testIpaymuIntegration, removeIpaymuIntegration, getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration } from "./src/server/admin-api.js";
+import { getIpaymuIntegration, updateIpaymuIntegration, testIpaymuIntegration, removeIpaymuIntegration, getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, removeOmqrisIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
 import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
@@ -508,6 +508,9 @@ export async function initServerLogic() {
   app.put("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), updateIpaymuIntegration);
   app.post("/api/admin/integrations/ipaymu/test", requirePermission("system", "edit"), testIpaymuIntegration);
   app.delete("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), removeIpaymuIntegration);
+  app.get("/api/admin/integrations/omqris", requirePermission("system", "view"), getOmqrisIntegration);
+  app.put("/api/admin/integrations/omqris", requirePermission("system", "edit"), updateOmqrisIntegration);
+  app.delete("/api/admin/integrations/omqris", requirePermission("system", "edit"), removeOmqrisIntegration);
 
   // Doit.id Integration Management
   app.get("/api/admin/integrations/doit", requirePermission("system", "view"), getDoitIntegration);
