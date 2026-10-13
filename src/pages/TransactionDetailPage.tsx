@@ -201,7 +201,7 @@ export default function TransactionDetailPage() {
 
   if (errorState === "configuration_error") {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 md:py-12">
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
           <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900 mb-2">Konfigurasi Belum Lengkap</h2>
@@ -213,7 +213,7 @@ export default function TransactionDetailPage() {
 
   if (errorState === "service_error") {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+      <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 md:py-12">
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-900 mb-2">Gagal Memuat Transaksi</h2>
@@ -227,14 +227,14 @@ export default function TransactionDetailPage() {
   if (!order) return null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+    <div className="max-w-2xl mx-auto px-4 py-5 sm:py-8 md:py-12">
       <div 
         className="rounded-3xl overflow-hidden shadow-sm border border-slate-200/80"
         style={{ backgroundColor: 'var(--surface-color)' }}
       >
         
         {/* Status Header */}
-        <div className={`p-8 text-center border-b ${
+        <div className={`p-5 sm:p-8 text-center border-b ${
           order.transactionStatus === 'success' ? 'bg-green-50 border-green-100' :
           order.transactionStatus === 'failed' ? 'bg-red-50 border-red-100' :
           'bg-brand-50 border-brand-100'
@@ -464,19 +464,19 @@ export default function TransactionDetailPage() {
         </div>
 
         {/* Details */}
-        <div className="p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-5 sm:space-y-6">
           <div>
             <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Detail Produk</h3>
             <div className="space-y-3">
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">Produk</span>
                 <span className="font-medium text-slate-900">{order.productName}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">Nominal</span>
                 <span className="font-medium text-slate-900">{order.quantity ? `${order.quantity} Item` : 'Default'}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">Data Akun</span>
                 <span className="font-medium text-slate-900">
                   {Object.entries(order.customerData || {}).map(([k, v]) => `${v}`).join(" | ")}
@@ -488,18 +488,18 @@ export default function TransactionDetailPage() {
           <div className="pt-6 border-t border-slate-100">
             <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4">Detail Transaksi</h3>
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">No. Invoice</span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-medium text-slate-900">{order.invoice || order.id}</span>
                   <button onClick={() => copyToClipboard(order.invoice || order.id)} className="text-brand-600 hover:text-brand-700"><Copy className="w-4 h-4"/></button>
                 </div>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">Tanggal</span>
                 <span className="font-medium text-slate-900">{new Date(order.createdAt).toLocaleString('id-ID')}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
                 <span className="text-slate-500">Status Pembayaran</span>
                 <span className="font-medium uppercase text-slate-900">{order.paymentStatus}</span>
               </div>
