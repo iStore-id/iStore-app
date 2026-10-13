@@ -57,7 +57,7 @@ export default function BlogCard({
       onClick={handleClick}
       className={`group rounded-3xl ${
         isCompact 
-          ? "p-2 sm:p-3.5 h-[190px] xs:h-[205px] sm:h-auto overflow-hidden" 
+          ? "p-2.5 sm:p-3.5 h-[205px] xs:h-[220px] sm:h-auto overflow-hidden" 
           : "p-2.5 sm:p-3.5"
       } border border-slate-200/70 shadow-2xs hover:shadow-md hover:border-brand-200 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between ${className}`}
       style={{ backgroundColor: 'var(--surface-color)' }}
@@ -100,7 +100,7 @@ export default function BlogCard({
 
         {/* Title with 2-line clamp */}
         <HeadingTag className={`font-bold ${
-          isCompact ? "text-[11px] xs:text-xs sm:text-sm" : "text-xs sm:text-sm"
+          isCompact ? "text-xs xs:text-sm sm:text-sm" : "text-xs sm:text-sm"
         } text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug text-left`}>
           {blog.title}
         </HeadingTag>
