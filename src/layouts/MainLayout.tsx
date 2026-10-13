@@ -1438,38 +1438,38 @@ export default function MainLayout() {
             <h3 className="text-xs font-bold uppercase tracking-wider footer-text-secondary mb-4">
               Mengapa Memilih Toko Kami?
             </h3>
-            <div className="grid grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
-              <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-3.5">
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
+              <div className="flex flex-row items-start gap-3 sm:gap-3.5">
                 <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-500 shrink-0 mt-0.5 shadow-sm">
                   <Clock3 className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Fulfillment Instan 24/7</h4>
-                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
+                  <p className="text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pesanan diproses otomatis secara real-time.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-3.5">
+              <div className="flex flex-row items-start gap-3 sm:gap-3.5">
                 <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0 mt-0.5 shadow-sm">
                   <ShieldCheck className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Gerbang Pembayaran Aman</h4>
-                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
+                  <p className="text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pembayaran diproses melalui payment gateway resmi.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start gap-2 sm:gap-3.5">
+              <div className="flex flex-row items-start gap-3 sm:gap-3.5">
                 <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0 mt-0.5 shadow-sm">
                   <Receipt className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                 </div>
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold footer-heading tracking-tight">Pelacakan Transaksi Terbuka</h4>
-                  <p className="text-[10px] sm:text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
+                  <p className="text-xs footer-text-secondary mt-0.5 sm:mt-1 leading-relaxed">
                     Pantau status pesanan dalam satu halaman.
                   </p>
                 </div>
