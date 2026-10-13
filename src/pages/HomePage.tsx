@@ -457,7 +457,7 @@ export default function HomePage() {
                                 <img src={game.image || "https://placehold.co/400x400/f8fafc/64748b?text=Game"} alt={game.name} className="w-full h-full object-cover object-top transition-transform duration-500 will-change-transform group-hover:scale-105" loading="lazy" />
                               </div>
                               <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left bg-slate-950 transition-colors border-t-2 border-brand-600" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
-                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight transition-opacity group-hover:opacity-80" style={{ color: "var(--primary-color, #ff4400)" }}>{game.name}</h3>
+                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight text-white transition-opacity group-hover:opacity-80">{game.name}</h3>
                                 <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5" />
                               </div>
                             </Link>
@@ -545,7 +545,7 @@ export default function HomePage() {
                               
                               {/* Zona 2: Dedicated Editorial Plinth (26% height) */}
                               <div className="relative w-full h-[26%] flex items-center justify-between gap-1.5 px-2 sm:px-3 py-2 text-left bg-slate-950 transition-colors border-t-2 border-brand-600" style={{ borderColor: "var(--border-color)", borderTopColor: "var(--primary-color, #ff4400)" }}>
-                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight transition-opacity group-hover:opacity-80" style={{ color: "var(--primary-color, #ff4400)" }}>
+                                <h3 className="min-w-0 font-bold text-[11px] sm:text-xs leading-tight line-clamp-2 tracking-tight text-white transition-opacity group-hover:opacity-80">
                                   {game.name}
                                 </h3>
                                 <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-brand-500 transition-transform duration-200 group-hover:translate-x-0.5" />
