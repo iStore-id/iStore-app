@@ -4,7 +4,8 @@ import {
   buildOmqrisWebhookEventKey,
   isOmqrisApiError,
   mapOmqrisStatus,
-  normalizeOmqrisAmounts
+  normalizeOmqrisAmounts,
+  validateOmqrisAmounts
 } from "./omqris-contract.js";
 
 test("OmQris documented success, failure, and expiry statuses normalize correctly", () => {
@@ -60,4 +61,31 @@ test("OmQris malformed or missing optional amount fields fail safely to document
     totalAmount: 28000,
     netAmount: 28000
   });
+});
+
+test("OmQris accepts the documented amount equation and rejects mismatched invoices", () => {
+  assert.equal(validateOmqrisAmounts({
+    base_amount: 10000, fee: 143, mdr_amount: 0, mdr_bearer: "merchant",
+    total_amount: 10143, net_amount: 10000
+  }, 10000), null);
+
+  assert.equal(validateOmqrisAmounts({
+    base_amount: 10000, fee: 143, mdr_amount: 250, mdr_bearer: "customer",
+    total_amount: 10393, net_amount: 10000
+  }, 10000), null);
+
+  assert.match(String(validateOmqrisAmounts({
+    base_amount: 10000, fee: 143, mdr_amount: 0, mdr_bearer: "merchant",
+    total_amount: 10142, net_amount: 10000
+  }, 10000)), /Total pembayaran/);
+
+  assert.match(String(validateOmqrisAmounts({
+    base_amount: 10001, fee: 143, mdr_amount: 0, mdr_bearer: "merchant",
+    total_amount: 10144, net_amount: 10001
+  }, 10000)), /Nominal pokok/);
+
+  assert.match(String(validateOmqrisAmounts({
+    base_amount: 10000, mdr_amount: 0, mdr_bearer: "merchant",
+    total_amount: 10000, net_amount: 10000
+  }, 10000)), /fee/);
 });
