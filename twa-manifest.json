@@ -1,0 +1,38 @@
+{
+  "packageId": "id.istore.app",
+  "host": "ist.web.id",
+  "name": "iStore.id - Top Up Game & Voucher",
+  "launcherName": "iStore",
+  "display": "standalone",
+  "themeColor": "#155dbd",
+  "themeColorDark": "#155dbd",
+  "navigationColor": "#155dbd",
+  "navigationColorDark": "#155dbd",
+  "navigationDividerColor": "#00000000",
+  "navigationDividerColorDark": "#00000000",
+  "backgroundColor": "#f8fafc",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://ist.web.id/icons/istore-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionCode": 1,
+  "appVersion": "1.0.0",
+  "shortcuts": [],
+  "webManifestUrl": "https://ist.web.id/api/public/pwa-manifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 23,
+  "orientation": "default",
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
