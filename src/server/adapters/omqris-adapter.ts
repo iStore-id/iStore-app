@@ -61,6 +61,64 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     return crypto.createHash("sha256").update(config.apiKey + config.apiSecret).digest("hex");
   }
 
+  /** Recover a transaction when create was accepted by OmQris but the response was lost,
+   * or when OmQris rejects a repeated merchant_ref. Docs explicitly support lookup by merchant_ref.
+   */
+  private async recoverExistingTransaction(
+    config: OmqrisConfig,
+    merchantRef: string,
+    requestedAmount: number
+  ): Promise<PaymentResult | null> {
+    try {
+      const response = await fetch(
+        `${config.baseUrl}/api/v1/transactions/${encodeURIComponent(merchantRef)}`,
+        {
+          method: "GET",
+          headers: {
+            "X-Api-Key": config.apiKey,
+            "X-Signature": this.signRequest(config)
+          }
+        }
+      );
+      const result: any = await response.json().catch(() => ({}));
+      if (isOmqrisApiError(response.ok, result)) return null;
+      const data = result?.data || result;
+      const returnedMerchantRef = String(data.merchant_ref || data.merchantRef || "");
+      const invoiceNo = String(data.invoice_no || data.invoiceNo || "");
+      const qrString = String(data.qris_string || data.qrisString || data.qr_string || "");
+      const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
+
+      // Fail closed if the lookup response cannot be tied to this order or used by the customer.
+      if (returnedMerchantRef !== merchantRef || !invoiceNo || (!qrString && !invoiceUrl)) return null;
+      const recoveredStatus = mapOmqrisStatus(data.status);
+      if (recoveredStatus === "EXPIRED" || recoveredStatus === "FAILED") return null;
+      const amountValidationError = validateOmqrisAmounts(data, requestedAmount);
+      if (amountValidationError) {
+        console.error(`[OmQris Recovery] Recovered transaction failed validation for ${merchantRef}: ${amountValidationError}`);
+        return null;
+      }
+
+      const expiresAt = data.expired_at || data.expires_at || null;
+      const amounts = normalizeOmqrisAmounts(data, requestedAmount);
+      return {
+        success: true,
+        token: invoiceNo,
+        redirectUrl: invoiceUrl || undefined,
+        qrImage: undefined,
+        rail: "qris",
+        feeAmount: amounts.feeAmount,
+        mdrAmount: amounts.mdrAmount,
+        mdrBearer: amounts.mdrBearer,
+        totalAmount: amounts.totalAmount,
+        expiresAt: expiresAt ? String(expiresAt) : undefined,
+        rawResponse: { ...result, data: { ...data, qr_string: qrString, invoice_no: invoiceNo } }
+      };
+    } catch (error) {
+      console.error(`[OmQris Recovery] Lookup failed for ${merchantRef}.`, error);
+      return null;
+    }
+  }
+
   public async createPayment(input: CreatePaymentInput): Promise<PaymentResult> {
     const config = await this.getConfig();
     if (!config.apiKey || !config.apiSecret) return { success: false, message: "Kredensial OmQris belum dikonfigurasi." };
@@ -77,18 +135,33 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
     };
-    const response = await fetch(`${config.baseUrl}/api/v1/transactions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": config.apiKey,
-        "X-Signature": this.signRequest(config)
-      },
-      body: JSON.stringify(payload)
-    });
-    const result: any = await response.json().catch(() => ({}));
+    let response: Response;
+    let result: any;
+    try {
+      response = await fetch(`${config.baseUrl}/api/v1/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Api-Key": config.apiKey,
+          "X-Signature": this.signRequest(config)
+        },
+        body: JSON.stringify(payload)
+      });
+      result = await response.json().catch(() => ({}));
+    } catch (createError) {
+      // A timeout/network error is ambiguous: OmQris may already have created the invoice.
+      // Recover by the documented merchant_ref endpoint before surfacing the error.
+      const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+      if (recovered) return recovered;
+      throw createError;
+    }
     const data = result?.data || result;
     if (isOmqrisApiError(response.ok, result)) {
+      // A duplicate ref is expected on a retry; 5xx responses can also be ambiguous.
+      if (String(result?.code || "") === "DUPLICATE_MERCHANT_REF" || response.status >= 500) {
+        const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+        if (recovered) return recovered;
+      }
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
@@ -96,10 +169,14 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const qrString = String(data.qris_string || data.qrisString || "");
     const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
     if (!invoiceNo || (!qrString && !invoiceUrl)) {
+      const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+      if (recovered) return recovered;
       return { success: false, message: "Respons OmQris tidak memiliki invoice atau QRIS yang dapat digunakan.", rawResponse: result };
     }
     const amountValidationError = validateOmqrisAmounts(data, input.grossAmount);
     if (amountValidationError) {
+      const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+      if (recovered) return recovered;
       return { success: false, message: amountValidationError, rawResponse: result };
     }
     const expiresAt = data.expired_at || data.expires_at || null;
