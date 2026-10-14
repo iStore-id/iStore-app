@@ -305,9 +305,18 @@ export default function TransactionDetailPage() {
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
                       </div>
                       {omqrisQrImage ? (
-                        <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
-                          <img src={omqrisQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
-                        </div>
+                        <>
+                          <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                            <img src={omqrisQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                          </div>
+                          <a
+                            href={omqrisQrImage}
+                            download={`QRIS-${String(order.invoice || order.id || "transaksi").replace(/[^a-zA-Z0-9_-]/g, "-")}.png`}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+                          >
+                            Unduh QRIS
+                          </a>
+                        </>
                       ) : order.paymentUrl ? (
                         <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl">Buka halaman pembayaran QRIS</a>
                       ) : (
