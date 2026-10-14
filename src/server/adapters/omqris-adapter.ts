@@ -129,7 +129,9 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       headers: { "X-Api-Key": config.apiKey, "X-Signature": this.signRequest(config) }
     });
     const result: any = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(String(result?.message || `OmQris inquiry failed (${response.status})`));
+    if (isOmqrisApiError(response.ok, result)) {
+      throw new Error(String(result?.message || result?.error || `OmQris inquiry failed (${response.status})`));
+    }
     const data = result?.data || result;
     const status = mapOmqrisStatus(data.status);
     return {
