@@ -12,6 +12,7 @@ type OmqrisConfig = {
   apiKey: string;
   apiSecret: string;
   isActive: boolean;
+  pgMode: "public" | "pribadi";
   baseUrl: string;
   webhookUrl: string;
 };
@@ -52,6 +53,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       apiKey,
       apiSecret,
       isActive: saved?.isActive === true,
+      pgMode: saved?.pgMode === "public" ? "public" : "pribadi",
       baseUrl: String(saved?.baseUrl || API_BASE).replace(/\/$/, ""),
       webhookUrl: String(saved?.webhookUrl || "https://ist.web.id/api/webhooks/omqris")
     };
@@ -76,6 +78,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       item: input.itemDetails?.[0]?.name || "Pembayaran iStore",
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
+      pg_mode: config.pgMode,
     };
     const response = await fetch(`${config.baseUrl}/api/v1/transactions`, {
       method: "POST",
