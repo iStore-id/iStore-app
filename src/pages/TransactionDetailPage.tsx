@@ -282,15 +282,15 @@ export default function TransactionDetailPage() {
                   return (
                     <div className="flex flex-col items-center space-y-4 w-full max-w-sm mx-auto">
                       <div className="text-center space-y-1">
-                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS OmQris Untuk Membayar</h3>
+                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
                       </div>
                       {omqrisQrImage ? (
                         <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
-                          <img src={omqrisQrImage} alt="QRIS OmQris" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                          <img src={omqrisQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
                         </div>
                       ) : order.paymentUrl ? (
-                        <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl">Buka halaman pembayaran OmQris</a>
+                        <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl">Buka halaman pembayaran QRIS</a>
                       ) : (
                         <p className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">QRIS belum tersedia. Silakan muat ulang atau hubungi bantuan.</p>
                       )}
