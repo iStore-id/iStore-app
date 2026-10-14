@@ -90,7 +90,8 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
 
       // Fail closed if the lookup response cannot be tied to this order or used by the customer.
       if (returnedMerchantRef !== merchantRef || !invoiceNo || (!qrString && !invoiceUrl)) return null;
-      if (["expired", "expire", "kadaluarsa", "failed", "failure", "gagal", "cancelled", "canceled"].includes(String(data.status || "").toLowerCase())) return null;
+      const recoveredStatus = mapOmqrisStatus(data.status);
+      if (recoveredStatus === "EXPIRED" || recoveredStatus === "FAILED") return null;
       const amountValidationError = validateOmqrisAmounts(data, requestedAmount);
       if (amountValidationError) {
         console.error(`[OmQris Recovery] Recovered transaction failed validation for ${merchantRef}: ${amountValidationError}`);
