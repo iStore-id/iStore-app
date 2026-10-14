@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { buildOmqrisTransactionPayload } from "./omqris-pg-mode.js";
 import { strict as assert } from "node:assert";
 import {
   buildOmqrisWebhookEventKey,
@@ -88,4 +89,37 @@ test("OmQris accepts the documented amount equation and rejects mismatched invoi
     base_amount: 10000, mdr_amount: 0, mdr_bearer: "merchant",
     total_amount: 10000, net_amount: 10000
   }, 10000)), /fee/);
+});
+
+
+test("OmQris transaction payload forwards PG Public mode explicitly", () => {
+  assert.deepEqual(buildOmqrisTransactionPayload({
+    amount: 10000,
+    item: "Test item",
+    merchantRef: "ORDER-PUBLIC",
+    webhookUrl: "https://ist.web.id/api/webhooks/omqris",
+    pgMode: "public"
+  }), {
+    amount: 10000,
+    item: "Test item",
+    merchant_ref: "ORDER-PUBLIC",
+    webhook_url: "https://ist.web.id/api/webhooks/omqris",
+    pg_mode: "public"
+  });
+});
+
+test("OmQris transaction payload forwards PG Pribadi mode explicitly", () => {
+  assert.deepEqual(buildOmqrisTransactionPayload({
+    amount: 10000,
+    item: "Test item",
+    merchantRef: "ORDER-PRIBADI",
+    webhookUrl: "https://ist.web.id/api/webhooks/omqris",
+    pgMode: "pribadi"
+  }), {
+    amount: 10000,
+    item: "Test item",
+    merchant_ref: "ORDER-PRIBADI",
+    webhook_url: "https://ist.web.id/api/webhooks/omqris",
+    pg_mode: "pribadi"
+  });
 });

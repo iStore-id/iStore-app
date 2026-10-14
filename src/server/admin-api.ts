@@ -2452,6 +2452,7 @@ export async function getOmqrisIntegration(req: AuthenticatedRequest, res: Respo
         apiKeyMasked: apiKey ? apiKey.slice(0, 4) + "••••••••" : "",
         apiSecretConfigured: !!apiSecret,
         isActive: config.isActive === true,
+        pgMode: config.pgMode === "public" ? "public" : "pribadi",
         webhookUrl: config.webhookUrl || "https://ist.web.id/api/webhooks/omqris",
         configured: !!apiKey && !!apiSecret,
         lastTestedAt: config.lastTestedAt || null,
@@ -2465,7 +2466,10 @@ export async function getOmqrisIntegration(req: AuthenticatedRequest, res: Respo
 
 export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
   try {
-    const { apiKey, apiSecret, isActive } = req.body || {};
+    const { apiKey, apiSecret, isActive, pgMode } = req.body || {};
+    if (pgMode !== undefined && pgMode !== "public" && pgMode !== "pribadi") {
+      return res.status(400).json({ success: false, message: "Mode PG OmQris harus public atau pribadi." });
+    }
     const repo = SystemConfigRepository.getInstance();
     const existing = await repo.getConfig("omqris_integration") || {};
     const now = new Date().toISOString();
@@ -2484,6 +2488,7 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
       key: "omqris_integration",
       encryptedApiKey,
       encryptedApiSecret,
+      pgMode: pgMode === "public" || pgMode === "pribadi" ? pgMode : (existing.pgMode === "public" ? "public" : "pribadi"),
       webhookUrl: "https://ist.web.id/api/webhooks/omqris",
       isActive: isActive !== undefined ? requestedActive : existing.isActive === true,
       updatedBy: req.user.uid,
@@ -2509,14 +2514,14 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
     const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
     await logCoreAudit(actor, req.user.role || "pemilik", "UPDATE_OMQRIS_INTEGRATION",
       "systemConfigs/omqris_integration",
-      { isActive: existing.isActive === true, configured: !!existing.encryptedApiKey && !!existing.encryptedApiSecret },
-      { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedApiSecret },
+      { isActive: existing.isActive === true, pgMode: existing.pgMode === "public" ? "public" : "pribadi", configured: !!existing.encryptedApiKey && !!existing.encryptedApiSecret },
+      { isActive: newConfig.isActive, pgMode: newConfig.pgMode, configured: !!encryptedApiKey && !!encryptedApiSecret },
       "Updated OmQris configuration");
 
     return res.status(200).json({
       success: true,
       message: "Konfigurasi OmQris berhasil disimpan.",
-      data: { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedApiSecret, webhookUrl: newConfig.webhookUrl }
+      data: { isActive: newConfig.isActive, pgMode: newConfig.pgMode, configured: !!encryptedApiKey && !!encryptedApiSecret, webhookUrl: newConfig.webhookUrl }
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi OmQris." });

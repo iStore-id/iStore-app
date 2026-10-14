@@ -2,6 +2,7 @@ import * as crypto from "crypto";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
 import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
+import { buildOmqrisTransactionPayload } from "../omqris-pg-mode.js";
 import {
   PaymentProviderAdapter, CreatePaymentInput, PaymentResult,
   PaymentStatusInput, PaymentStatusResult, WebhookRequest,
@@ -12,6 +13,7 @@ type OmqrisConfig = {
   apiKey: string;
   apiSecret: string;
   isActive: boolean;
+  pgMode: "public" | "pribadi";
   baseUrl: string;
   webhookUrl: string;
 };
@@ -52,6 +54,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       apiKey,
       apiSecret,
       isActive: saved?.isActive === true,
+      pgMode: saved?.pgMode === "public" ? "public" : "pribadi",
       baseUrl: String(saved?.baseUrl || API_BASE).replace(/\/$/, ""),
       webhookUrl: String(saved?.webhookUrl || "https://ist.web.id/api/webhooks/omqris")
     };
@@ -71,12 +74,13 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: "OmQris hanya mendukung metode QRIS." };
     }
 
-    const payload = {
+    const payload = buildOmqrisTransactionPayload({
       amount: input.grossAmount,
       item: input.itemDetails?.[0]?.name || "Pembayaran iStore",
-      merchant_ref: input.orderId,
-      webhook_url: config.webhookUrl,
-    };
+      merchantRef: input.orderId,
+      webhookUrl: config.webhookUrl,
+      pgMode: config.pgMode
+    });
     const response = await fetch(`${config.baseUrl}/api/v1/transactions`, {
       method: "POST",
       headers: {
