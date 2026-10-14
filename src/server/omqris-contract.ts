@@ -37,3 +37,29 @@ export function normalizeOmqrisAmounts(data: any, requestedAmount: number) {
     netAmount: nonNegativeInteger(data?.net_amount, requestedAmount)
   };
 }
+
+export function validateOmqrisAmounts(data: any, requestedAmount: number): string | null {
+  const requiredFields = ["base_amount", "fee", "mdr_amount", "total_amount", "net_amount"];
+  for (const field of requiredFields) {
+    const value = Number(data?.[field]);
+    if (data?.[field] === undefined || data?.[field] === null || data?.[field] === "" ||
+        !Number.isSafeInteger(value) || value < 0) {
+      return `Respons OmQris memiliki nominal ${field} yang hilang atau tidak valid.`;
+    }
+  }
+
+  const amounts = normalizeOmqrisAmounts(data, requestedAmount);
+  if (amounts.baseAmount !== requestedAmount) {
+    return "Nominal pokok OmQris tidak cocok dengan nominal pesanan iStore.";
+  }
+  if (amounts.mdrBearer !== "merchant" && amounts.mdrBearer !== "customer") {
+    return "Respons OmQris memiliki mdr_bearer yang tidak valid.";
+  }
+
+  const expectedTotal = amounts.baseAmount + amounts.feeAmount +
+    (amounts.mdrBearer === "customer" ? amounts.mdrAmount : 0);
+  if (amounts.totalAmount !== expectedTotal) {
+    return "Total pembayaran OmQris tidak sesuai dengan base amount, fee, dan MDR.";
+  }
+  return null;
+}
