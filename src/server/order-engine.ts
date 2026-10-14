@@ -390,6 +390,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         vaBank: resVaBank || null,
         qrImage: paymentResult.qrImage || null,
         qrContent: resQrContent || null,
+        feeAmount: paymentResult.feeAmount ?? null,
+        mdrAmount: paymentResult.mdrAmount ?? null,
+        mdrBearer: paymentResult.mdrBearer ?? null,
         totalAmount: paymentResult.totalAmount || totalToPay,
         expiresAt: paymentResult.expiresAt || null,
         paymentUrl: paymentResult.redirectUrl || null
@@ -407,6 +410,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       rail: paymentResult.rail,
       vaNumber: paymentResult.vaNumber,
       vaBank: paymentResult.vaBank,
+      feeAmount: paymentResult.feeAmount,
+      mdrAmount: paymentResult.mdrAmount,
+      mdrBearer: paymentResult.mdrBearer,
       totalAmount: paymentResult.totalAmount || totalToPay,
       expiresAt: paymentResult.expiresAt
     });
