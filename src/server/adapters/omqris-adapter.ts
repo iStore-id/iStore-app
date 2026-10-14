@@ -112,8 +112,9 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       redirectUrl: invoiceUrl || undefined,
       qrImage: undefined,
       rail: "qris",
-      feeAmount: Number(data.fee ?? data.mdr_amount ?? 0) || 0,
-      feePayer: data.mdr_bearer ? String(data.mdr_bearer) : undefined,
+      feeAmount: Number(data.fee ?? 0) || 0,
+      mdrAmount: Number(data.mdr_amount ?? 0) || 0,
+      mdrBearer: data.mdr_bearer ? String(data.mdr_bearer) : undefined,
       totalAmount: Number(data.total_amount ?? input.grossAmount) || input.grossAmount,
       expiresAt: expiresAt ? String(expiresAt) : undefined,
       rawResponse: { ...result, data: { ...data, qr_string: qrString, invoice_no: invoiceNo } }
