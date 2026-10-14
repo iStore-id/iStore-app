@@ -8,6 +8,7 @@ import { logSystem } from "./system-log-service.js";
 import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
+import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -442,7 +443,10 @@ export async function omqrisWebhook(req: any, res: any) {
       headers: req.headers,
       ip: req.ip
     });
-    eventId = String(event.rawPayload?.data?.invoice_no || event.rawPayload?.invoice_no || event.transactionId || "").trim();
+    eventId = buildOmqrisWebhookEventKey(
+      event.rawPayload?.data?.invoice_no || event.rawPayload?.invoice_no || event.transactionId,
+      event.status
+    );
     if (!eventId) return res.status(400).json({ success: false, message: "Missing OmQris event identifier" });
 
     const previous = getWebhookEventStatus("omqris:" + eventId);
