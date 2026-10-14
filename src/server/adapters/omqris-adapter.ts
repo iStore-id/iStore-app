@@ -156,7 +156,8 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     }
     const data = result?.data || result;
     if (isOmqrisApiError(response.ok, result)) {
-      if (String(result?.code || "") === "DUPLICATE_MERCHANT_REF") {
+      // A duplicate ref is expected on a retry; 5xx responses can also be ambiguous.
+      if (String(result?.code || "") === "DUPLICATE_MERCHANT_REF" || response.status >= 500) {
         const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
         if (recovered) return recovered;
       }
@@ -167,10 +168,14 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const qrString = String(data.qris_string || data.qrisString || "");
     const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
     if (!invoiceNo || (!qrString && !invoiceUrl)) {
+      const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+      if (recovered) return recovered;
       return { success: false, message: "Respons OmQris tidak memiliki invoice atau QRIS yang dapat digunakan.", rawResponse: result };
     }
     const amountValidationError = validateOmqrisAmounts(data, input.grossAmount);
     if (amountValidationError) {
+      const recovered = await this.recoverExistingTransaction(config, input.orderId, input.grossAmount);
+      if (recovered) return recovered;
       return { success: false, message: amountValidationError, rawResponse: result };
     }
     const expiresAt = data.expired_at || data.expires_at || null;
