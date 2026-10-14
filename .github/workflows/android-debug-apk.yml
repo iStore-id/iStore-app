@@ -1,6 +1,13 @@
 name: Android Debug APK
 
 on:
+  push:
+    branches:
+      - prepare/google-play-twa-config
+    paths:
+      - "android/**"
+      - "twa-manifest.json"
+      - ".github/workflows/android-debug-apk.yml"
   pull_request:
     branches:
       - main
