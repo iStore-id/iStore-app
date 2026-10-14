@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, Loader2, ShieldCheck, AlertCircle, Trash2 } from "lucide-react";
+import { Save, Loader2, ShieldCheck, AlertCircle, Trash2, Activity } from "lucide-react";
 import { useAuthStore } from "../../store/auth-store";
 
 export default function AdminOmqrisIntegrationPage() {
@@ -12,6 +12,7 @@ export default function AdminOmqrisIntegrationPage() {
   const [configured, setConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -60,6 +61,24 @@ export default function AdminOmqrisIntegrationPage() {
       setMessage(error.message || "Gagal menyimpan konfigurasi OmQris.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/integrations/omqris/test", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Tes koneksi OmQris gagal.");
+      const merchant = result.data?.merchantName ? " Merchant: " + result.data.merchantName + "." : "";
+      const status = result.data?.status ? " Status: " + result.data.status + "." : "";
+      const mode = result.data?.pgMode ? " Mode: " + result.data.pgMode + "." : "";
+      setMessage((result.message || "Koneksi OmQris berhasil.") + merchant + status + mode);
+    } catch (error: any) {
+      setMessage(error.message || "Tes koneksi OmQris gagal.");
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -113,6 +132,9 @@ export default function AdminOmqrisIntegrationPage() {
         <div className="flex flex-wrap gap-3">
           <button onClick={save} disabled={saving || (isActive && !configured && (!apiKey.trim() || !apiSecret.trim()))} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Simpan Konfigurasi
+          </button>
+          <button onClick={testConnection} disabled={saving || testing || !configured} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+            {testing ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />} {testing ? "Menguji Koneksi…" : "Tes Koneksi"}
           </button>
           <button onClick={remove} disabled={saving || !configured} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm disabled:opacity-50"><Trash2 size={16} /> Hapus Konfigurasi</button>
         </div>
