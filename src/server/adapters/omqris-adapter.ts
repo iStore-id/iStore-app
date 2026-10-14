@@ -76,7 +76,6 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       item: input.itemDetails?.[0]?.name || "Pembayaran iStore",
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
-      pg_mode: "public"
     };
     const response = await fetch(`${config.baseUrl}/api/v1/transactions`, {
       method: "POST",
