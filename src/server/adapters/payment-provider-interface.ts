@@ -29,6 +29,8 @@ export interface PaymentResult {
   vaBank?: string;
   feeAmount?: number;
   feePayer?: string;
+  mdrAmount?: number;
+  mdrBearer?: string;
   totalAmount?: number;
   expiresAt?: string;
 }
