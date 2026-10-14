@@ -502,6 +502,22 @@ export async function omqrisWebhook(req: any, res: any) {
       markWebhookEventProcessed("omqris:" + eventId);
     } catch (stateError: any) {
       if (stateError?.message?.includes("INVALID_STATE_TRANSITION")) {
+        // Recover payment side effects if the order was already transitioned to PAID
+        // but ledger recording or fulfillment enqueue failed on the earlier attempt.
+        if (targetState === "PAID") {
+          const refreshedOrder = await orderRepo.getOrderById(event.orderId);
+          if (refreshedOrder?.paymentStatus === "paid") {
+            await safeRecordPaymentReceived(event.orderId, refreshedOrder, "SYSTEM", { source: "OmQris Webhook Retry" });
+            const { JobService } = await import("./job-service.js");
+            await JobService.getInstance().enqueue({
+              type: "FULFILLMENT",
+              payload: { orderId: event.orderId },
+              priority: "HIGH",
+              referenceId: event.orderId,
+              idempotencyKey: `fulfillment_${event.orderId}`
+            });
+          }
+        }
         markWebhookEventProcessed("omqris:" + eventId);
         return res.status(200).json({ status: "ok", message: "Already processed" });
       }
