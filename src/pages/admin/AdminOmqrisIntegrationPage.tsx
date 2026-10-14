@@ -133,12 +133,13 @@ export default function AdminOmqrisIntegrationPage() {
           <button onClick={save} disabled={saving || (isActive && !configured && (!apiKey.trim() || !apiSecret.trim()))} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Simpan Konfigurasi
           </button>
-          <button onClick={testConnection} disabled={saving || testing || !configured} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+          <button onClick={testConnection} disabled={saving || testing || !configured || !!apiKey.trim() || !!apiSecret.trim()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
             {testing ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />} {testing ? "Menguji Koneksi…" : "Tes Koneksi"}
           </button>
           <button onClick={remove} disabled={saving || !configured} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm disabled:opacity-50"><Trash2 size={16} /> Hapus Konfigurasi</button>
         </div>
         <p className="text-xs text-slate-500 flex gap-2"><ShieldCheck size={15} />Kredensial disimpan terenkripsi di konfigurasi sistem.</p>
+        <p className="text-xs text-slate-500">Tes koneksi memakai kredensial yang sudah tersimpan. Simpan perubahan API Key atau API Secret terlebih dahulu.</p>
       </div>
       <div className="text-xs text-slate-500">Status konfigurasi: {configured ? "Kredensial tersedia" : "Belum lengkap"} · Gateway: {isActive ? "Aktif" : "Nonaktif"}</div>
     </div>
