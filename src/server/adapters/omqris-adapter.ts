@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
-import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts } from "../omqris-contract.js";
+import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
 import {
   PaymentProviderAdapter, CreatePaymentInput, PaymentResult,
   PaymentStatusInput, PaymentStatusResult, WebhookRequest,
@@ -98,6 +98,10 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
     if (!invoiceNo || (!qrString && !invoiceUrl)) {
       return { success: false, message: "Respons OmQris tidak memiliki invoice atau QRIS yang dapat digunakan.", rawResponse: result };
+    }
+    const amountValidationError = validateOmqrisAmounts(data, input.grossAmount);
+    if (amountValidationError) {
+      return { success: false, message: amountValidationError, rawResponse: result };
     }
     const expiresAt = data.expired_at || data.expires_at || null;
     const amounts = normalizeOmqrisAmounts(data, input.grossAmount);
