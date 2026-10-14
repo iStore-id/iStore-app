@@ -264,7 +264,7 @@ export default function TransactionDetailPage() {
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
-          <p className="text-slate-600 font-medium">{formatRupiah(order.totalAmount)}</p>
+          <p className="text-slate-600 font-medium">{formatRupiah(order.paymentGatewayCode === "omqris" ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex flex-col items-center gap-6">
