@@ -1,7 +1,7 @@
 export type OmqrisNormalizedStatus = "PAID" | "EXPIRED" | "FAILED" | "PENDING";
 
 export function mapOmqrisStatus(value: unknown): OmqrisNormalizedStatus {
-  const status = String(value || "").toLowerCase().replace(/^payment\\./, "");
+  const status = String(value || "").toLowerCase().replace(/^payment\./, "");
   if (["paid", "success", "sukses", "settlement", "completed", "berhasil"].includes(status)) return "PAID";
   if (["expired", "expire", "kadaluarsa"].includes(status)) return "EXPIRED";
   if (["failed", "failure", "gagal", "cancelled", "canceled"].includes(status)) return "FAILED";
