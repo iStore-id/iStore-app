@@ -1,10 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>iStore.id - Top Up Game &amp; Voucher</title>
+    <meta name="theme-color" content="#155dbd" />
     <meta name="description" content="Platform top up game dan voucher digital terpercaya di Indonesia" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/istore-192.png" />
+    <link rel="apple-touch-icon" href="/icons/istore-192.png" />
+    <title>iStore.id - Top Up Game &amp; Voucher</title>
     <meta property="og:title" content="iStore.id - Top Up Game &amp; Voucher" />
     <meta property="og:description" content="Platform top up game dan voucher digital terpercaya di Indonesia" />
     <meta property="og:type" content="website" />
@@ -19,8 +26,8 @@
                 if (!document.getElementById("midtrans-snap-script")) {
                   var script = document.createElement("script");
                   script.id = "midtrans-snap-script";
-                  script.src = data.data.isProduction 
-                    ? "https://app.midtrans.com/snap/snap.js" 
+                  script.src = data.data.isProduction
+                    ? "https://app.midtrans.com/snap/snap.js"
                     : "https://app.sandbox.midtrans.com/snap/snap.js";
                   script.setAttribute("data-client-key", data.data.clientKey);
                   script.async = true;
@@ -38,4 +45,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
