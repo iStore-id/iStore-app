@@ -3,7 +3,7 @@ import { Save, Loader2, ShieldCheck, AlertCircle, Trash2, Activity } from "lucid
 import { useAuthStore } from "../../store/auth-store";
 
 export default function AdminOmqrisIntegrationPage() {
-  const { role } = useAuthStore();
+  const { user } = useAuthStore();
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [apiKeyMasked, setApiKeyMasked] = useState("");
@@ -15,11 +15,17 @@ export default function AdminOmqrisIntegrationPage() {
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
 
+  const authHeaders = async (headers: Record<string, string> = {}) => {
+    const token = await (user as any)?.getIdToken?.();
+    if (!token) throw new Error("Sesi admin tidak memiliki token autentikasi. Silakan login ulang.");
+    return { ...headers, Authorization: `Bearer ${token}` };
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const response = await fetch("/api/admin/integrations/omqris");
+        const response = await fetch("/api/admin/integrations/omqris", { headers: await authHeaders() });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || "Gagal memuat konfigurasi.");
         if (cancelled) return;
@@ -42,7 +48,7 @@ export default function AdminOmqrisIntegrationPage() {
     try {
       const response = await fetch("/api/admin/integrations/omqris", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ apiKey, apiSecret, isActive })
       });
       const result = await response.json();
@@ -52,7 +58,8 @@ export default function AdminOmqrisIntegrationPage() {
       setApiKey("");
       setApiSecret("");
       setMessage(result.message || "Konfigurasi tersimpan.");
-      const refreshed = await fetch("/api/admin/integrations/omqris").then(r => r.json());
+      const refreshedResponse = await fetch("/api/admin/integrations/omqris", { headers: await authHeaders() });
+      const refreshed = await refreshedResponse.json();
       if (refreshed.success) {
         setApiKeyMasked(refreshed.data.apiKeyMasked || "");
         setApiSecretConfigured(refreshed.data.apiSecretConfigured === true);
@@ -68,7 +75,7 @@ export default function AdminOmqrisIntegrationPage() {
     setTesting(true);
     setMessage("");
     try {
-      const response = await fetch("/api/admin/integrations/omqris/test", { method: "POST" });
+      const response = await fetch("/api/admin/integrations/omqris/test", { method: "POST", headers: await authHeaders() });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Tes koneksi OmQris gagal.");
       const merchant = result.data?.merchantName ? " Merchant: " + result.data.merchantName + "." : "";
@@ -86,7 +93,7 @@ export default function AdminOmqrisIntegrationPage() {
     if (!window.confirm("Hapus konfigurasi OmQris? Gateway akan dinonaktifkan.")) return;
     setSaving(true);
     try {
-      const response = await fetch("/api/admin/integrations/omqris", { method: "DELETE" });
+      const response = await fetch("/api/admin/integrations/omqris", { method: "DELETE", headers: await authHeaders() });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Gagal menghapus konfigurasi.");
       setApiKey(""); setApiSecret(""); setApiKeyMasked(""); setApiSecretConfigured(false);
