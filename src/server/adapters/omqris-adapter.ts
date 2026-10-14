@@ -148,10 +148,26 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const raw = Buffer.isBuffer(request.body)
       ? request.body
       : Buffer.from(typeof request.body === "string" ? request.body : JSON.stringify(request.body ?? {}), "utf8");
-    const signatureHeader = headerValue(request.headers, "x-omqris-signature");
+    const signatureHeader = headerValue(request.headers, "x-omqris-signature").trim();
     const supplied = signatureHeader.replace(/^sha256=/i, "").trim().toLowerCase();
     const expected = crypto.createHmac("sha256", config.apiSecret).update(raw).digest("hex");
-    if (!safeEqualHex(supplied, expected)) throw new Error("Invalid OmQris webhook signature.");
+    if (!safeEqualHex(supplied, expected)) {
+      // Diagnostic only: never accept a signature over a re-serialized body.
+      // This distinguishes raw-body serialization differences from secret/header mismatches
+      // without logging the secret, supplied signature, expected signature, or payload.
+      let normalizedJsonMatch = false;
+      try {
+        const parsed = JSON.parse(raw.toString("utf8"));
+        const normalizedRaw = Buffer.from(JSON.stringify(parsed), "utf8");
+        const normalizedExpected = crypto.createHmac("sha256", config.apiSecret).update(normalizedRaw).digest("hex");
+        normalizedJsonMatch = safeEqualHex(supplied, normalizedExpected);
+      } catch {
+        // Keep the diagnostic false when the request body is not valid JSON.
+      }
+      throw new Error(
+        `Invalid OmQris webhook signature (headerPresent=${Boolean(signatureHeader)}, digestLength=${supplied.length}, rawBodyBytes=${raw.length}, normalizedJsonMatch=${normalizedJsonMatch}).`
+      );
+    }
 
     const payload: any = JSON.parse(raw.toString("utf8"));
     const data = payload?.data || payload;
