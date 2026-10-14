@@ -118,6 +118,45 @@ export async function getPublicMidtransConfig(req: Request, res: Response) {
   }
 }
 
+/**
+ * Public PWA manifest based on the favicon configured by the store owner.
+ */
+export async function getPublicPwaManifest(_req: Request, res: Response) {
+  try {
+    const storeConfig = await getStoreConfiguration();
+    const favicon = typeof storeConfig?.favicon === "string" ? storeConfig.favicon.trim() : "";
+    const iconUrl = favicon || "/icons/istore-512.png";
+    const iconType = /\.svg(?:\?|$)/i.test(iconUrl) ? "image/svg+xml"
+      : /\.webp(?:\?|$)/i.test(iconUrl) ? "image/webp"
+      : /\.jpe?g(?:\?|$)/i.test(iconUrl) ? "image/jpeg"
+      : "image/png";
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
+    return res.status(200).json({
+      id: "/", name: "iStore.id - Top Up Game & Voucher", short_name: "iStore",
+      description: "Platform top up game dan voucher digital terpercaya di Indonesia",
+      lang: "id-ID", start_url: "/", scope: "/", display: "standalone",
+      background_color: "#f8fafc", theme_color: "#155dbd",
+      icons: [
+        { src: iconUrl, sizes: "192x192", type: iconType, purpose: "any" },
+        { src: iconUrl, sizes: "512x512", type: iconType, purpose: "any" }
+      ]
+    });
+  } catch (error) {
+    console.error("[PWA Manifest] Owner favicon lookup failed:", error);
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    return res.status(200).json({
+      id: "/", name: "iStore.id - Top Up Game & Voucher", short_name: "iStore",
+      lang: "id-ID", start_url: "/", scope: "/", display: "standalone",
+      background_color: "#f8fafc", theme_color: "#155dbd",
+      icons: [
+        { src: "/icons/istore-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icons/istore-512.png", sizes: "512x512", type: "image/png", purpose: "any" }
+      ]
+    });
+  }
+}
+
 export async function getPublicStoreConfig(req: Request, res: Response) {
   try {
     res.setHeader("Cache-Control", "no-store, max-age=0");
