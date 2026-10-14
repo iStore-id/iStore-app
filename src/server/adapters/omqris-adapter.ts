@@ -134,6 +134,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       item: input.itemDetails?.[0]?.name || "Pembayaran iStore",
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
+      expire_minutes: 60,
     };
     let response: Response;
     let result: any;

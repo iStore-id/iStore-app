@@ -84,6 +84,7 @@ export default function TransactionDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [copiedVa, setCopiedVa] = useState(false);
   const [omqrisQrImage, setOmqrisQrImage] = useState("");
+  const [omqrisSecondsRemaining, setOmqrisSecondsRemaining] = useState<number | null>(null);
   const { user } = useAuthStore();
   const [revealCode, setRevealCode] = useState(false);
   const [hasCustomBg, setHasCustomBg] = useState(false);
@@ -125,6 +126,24 @@ export default function TransactionDetailPage() {
       .catch(() => { if (!cancelled) setOmqrisQrImage(""); });
     return () => { cancelled = true; };
   }, [order?.paymentGatewayCode, order?.gatewayResponse?.qrContent]);
+
+  useEffect(() => {
+    if (order?.paymentGatewayCode !== "omqris" || order?.paymentStatus !== "pending") {
+      setOmqrisSecondsRemaining(null);
+      return;
+    }
+    const storedExpiry = order?.gatewayResponse?.expiresAt || order?.expiresAt;
+    const createdAt = order?.createdAt ? Date.parse(order.createdAt) : NaN;
+    const deadline = storedExpiry ? Date.parse(String(storedExpiry)) : (Number.isFinite(createdAt) ? createdAt + 60 * 60 * 1000 : NaN);
+    if (!Number.isFinite(deadline)) {
+      setOmqrisSecondsRemaining(null);
+      return;
+    }
+    const updateRemaining = () => setOmqrisSecondsRemaining(Math.max(0, Math.ceil((deadline - Date.now()) / 1000)));
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(timer);
+  }, [order?.paymentGatewayCode, order?.paymentStatus, order?.gatewayResponse?.expiresAt, order?.expiresAt, order?.createdAt]);
 
   useEffect(() => {
     loadMidtransSnap();
@@ -295,6 +314,21 @@ export default function TransactionDetailPage() {
                         <p className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">QRIS belum tersedia. Silakan muat ulang atau hubungi bantuan.</p>
                       )}
                       <div className="text-base font-black text-brand-600">{formatRupiah(order.gatewayResponse?.totalAmount || order.totalAmount)}</div>
+                      {omqrisSecondsRemaining !== null && (
+                        <div className={`w-full rounded-xl border p-3 text-center ${omqrisSecondsRemaining === 0 ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                          <div className="text-xs font-semibold">Batas waktu pembayaran</div>
+                          {omqrisSecondsRemaining > 0 ? (
+                            <>
+                              <div className="mt-1 font-mono text-xl font-bold tabular-nums">
+                                {String(Math.floor(omqrisSecondsRemaining / 3600)).padStart(2, "0")}:{String(Math.floor((omqrisSecondsRemaining % 3600) / 60)).padStart(2, "0")}:{String(omqrisSecondsRemaining % 60).padStart(2, "0")}
+                              </div>
+                              <div className="mt-1 text-[11px]">QRIS berlaku maksimal 1 jam sejak invoice dibuat.</div>
+                            </>
+                          ) : (
+                            <div className="mt-1 text-xs font-medium">Waktu pembayaran telah habis. Periksa status transaksi sebelum mencoba membayar lagi.</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 }
