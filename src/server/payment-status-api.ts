@@ -19,7 +19,7 @@ export async function getPaymentStatusHandler(req: any, res: any) {
     }
 
     const gatewayCode = (order.paymentGatewayCode || "").toLowerCase().trim();
-    if (gatewayCode !== 'ipaymu' && gatewayCode !== 'doit') {
+    if (gatewayCode !== 'ipaymu' && gatewayCode !== 'doit' && gatewayCode !== 'omqris') {
       return res.status(400).json({ success: false, message: "Gateway not supported for status inquiry" });
     }
 

@@ -7,6 +7,8 @@ import { safeRecordPaymentReceived } from "./ledger-service.js";
 import { logSystem } from "./system-log-service.js";
 import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
+import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
+import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -425,6 +427,119 @@ export async function ipaymuWebhook(req: any, res: any) {
       outcome: "FAILURE"
     });
     return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+
+/**
+ * Dedicated OmQris webhook endpoint. Intentionally independent from Doit and Midtrans handlers.
+ */
+export async function omqrisWebhook(req: any, res: any) {
+  let eventId = "";
+  try {
+    const adapter = OmqrisProviderAdapter.getInstance();
+    const event = await adapter.verifyWebhook({
+      body: req.rawBody || req.body,
+      headers: req.headers,
+      ip: req.ip
+    });
+    eventId = buildOmqrisWebhookEventKey(
+      event.rawPayload?.data?.invoice_no || event.rawPayload?.invoice_no || event.transactionId,
+      event.status
+    );
+    if (!eventId) return res.status(400).json({ success: false, message: "Missing OmQris event identifier" });
+
+    const previous = getWebhookEventStatus("omqris:" + eventId);
+    if (previous === "COMPLETED" || previous === "PROCESSING") {
+      return res.status(200).json({ status: "ok", message: "Event already received" });
+    }
+    setWebhookEventStatus("omqris:" + eventId, "PROCESSING");
+
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = await orderRepo.getOrderById(event.orderId);
+    if (!orderData) {
+      clearWebhookEventStatus("omqris:" + eventId);
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (String(orderData.paymentGatewayCode || "").toLowerCase() !== "omqris") {
+      clearWebhookEventStatus("omqris:" + eventId);
+      return res.status(409).json({ success: false, message: "Order gateway does not match OmQris" });
+    }
+    if (Math.abs(Number(event.amount) - Number(orderData.totalAmount)) > 1) {
+      logSystem("CRITICAL", "PAYMENT", "OMQRIS_AMOUNT_MISMATCH",
+        `Nominal OmQris tidak cocok untuk order ${event.orderId}`, "omqris-webhook", {
+          orderId: event.orderId, httpStatus: 400, outcome: "BLOCKED",
+          metadata: { expectedAmount: orderData.totalAmount, receivedAmount: event.amount }
+        });
+      clearWebhookEventStatus("omqris:" + eventId);
+      return res.status(400).json({ success: false, message: "Amount mismatch" });
+    }
+
+    let targetState: any = null;
+    if (event.status === "PAID") targetState = "PAID";
+    else if (event.status === "EXPIRED") targetState = "EXPIRED";
+    else if (event.status === "FAILED" || event.status === "CANCELLED") targetState = "FAILED";
+    if (!targetState) {
+      markWebhookEventProcessed("omqris:" + eventId);
+      return res.status(200).json({ status: "ok", message: "Ignored status" });
+    }
+
+    try {
+      await transitionOrderState(event.orderId, targetState, {}, `OmQris Webhook: ${event.status}`);
+      if (targetState === "PAID") {
+        await safeRecordPaymentReceived(event.orderId, orderData, "SYSTEM", { source: "OmQris Webhook" });
+        try {
+          const { JobService } = await import("./job-service.js");
+          await JobService.getInstance().enqueue({
+            type: "FULFILLMENT",
+            payload: { orderId: event.orderId },
+            priority: "HIGH",
+            referenceId: event.orderId,
+            idempotencyKey: `fulfillment_${event.orderId}`
+          });
+        } catch (queueError) {
+          console.error("[OmQris Webhook] Failed to enqueue fulfillment", queueError);
+          clearWebhookEventStatus("omqris:" + eventId);
+          return res.status(500).json({ success: false, message: "Payment recorded; fulfillment enqueue failed" });
+        }
+      }
+      markWebhookEventProcessed("omqris:" + eventId);
+    } catch (stateError: any) {
+      if (stateError?.message?.includes("INVALID_STATE_TRANSITION")) {
+        // Recover payment side effects if the order was already transitioned to PAID
+        // but ledger recording or fulfillment enqueue failed on the earlier attempt.
+        if (targetState === "PAID") {
+          const refreshedOrder = await orderRepo.getOrderById(event.orderId);
+          if (refreshedOrder?.paymentStatus === "paid") {
+            await safeRecordPaymentReceived(event.orderId, refreshedOrder, "SYSTEM", { source: "OmQris Webhook Retry" });
+            const { JobService } = await import("./job-service.js");
+            await JobService.getInstance().enqueue({
+              type: "FULFILLMENT",
+              payload: { orderId: event.orderId },
+              priority: "HIGH",
+              referenceId: event.orderId,
+              idempotencyKey: `fulfillment_${event.orderId}`
+            });
+          }
+        }
+        markWebhookEventProcessed("omqris:" + eventId);
+        return res.status(200).json({ status: "ok", message: "Already processed" });
+      }
+      clearWebhookEventStatus("omqris:" + eventId);
+      throw stateError;
+    }
+    return res.status(200).json({ status: "ok" });
+  } catch (error: any) {
+    console.error("[OmQris Webhook Error]", error);
+    const signatureError = /signature/i.test(String(error?.message || ""));
+    logSystem(signatureError ? "WARN" : "ERROR", "WEBHOOK",
+      signatureError ? "OMQRIS_INVALID_SIGNATURE" : "OMQRIS_WEBHOOK_FAILED",
+      String(error?.message || "OmQris webhook failed"), "omqris-webhook", {
+        httpStatus: signatureError ? 401 : 500,
+        outcome: signatureError ? "BLOCKED" : "FAILURE"
+      });
+    if (eventId) clearWebhookEventStatus("omqris:" + eventId);
+    return res.status(signatureError ? 401 : 500).json({ success: false, message: signatureError ? "Invalid callback signature" : "Webhook processing failed" });
   }
 }
 

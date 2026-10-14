@@ -72,7 +72,8 @@ export async function reconcileOrder(
       resolution = 'MANUAL_REVIEW';
       message = `Nominal tidak cocok. iStore: ${expectedAmount}, ${gatewayCode}: ${actualAmount}`;
     } else {
-      const isPaidState = providerState === 'settlement' || providerState === 'capture' || providerState === 'paid' || providerState === 'berhasil';
+      const normalizedProviderState = String(providerState).toLowerCase();
+      const isPaidState = ['settlement', 'capture', 'paid', 'berhasil', 'sukses', 'success'].includes(normalizedProviderState);
       const isExpireState = providerState === 'expire' || providerState === 'expired';
       const isCancelState = providerState === 'cancel' || providerState === 'cancelled' || providerState === 'deny' || providerState === 'failed';
 
@@ -243,7 +244,7 @@ export async function reconcileOrder(
   // 5. Auto-Resolution Implementation (Only approved safe transitions)
   if (resolution === 'AUTO_RESOLVED' && resultType === 'STATUS_MISMATCH') {
     let newState: 'PAID' | 'EXPIRED' | null = null;
-    if (providerState === 'settlement' || providerState === 'capture') {
+    if (['settlement', 'capture', 'paid', 'berhasil', 'sukses', 'success'].includes(String(providerState).toLowerCase())) {
       newState = 'PAID';
     } else if (providerState === 'expire') {
       newState = 'EXPIRED';

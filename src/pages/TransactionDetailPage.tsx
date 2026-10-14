@@ -4,6 +4,7 @@ import { formatRupiah, loadMidtransSnap } from "../lib/utils";
 import { CheckCircle2, Clock, XCircle, Copy, AlertTriangle, AlertCircle, Key, Truck, Check } from "lucide-react";
 import { useAuthStore } from "../store/auth-store";
 import { trackPurchase } from "../lib/gtag";
+import QRCode from "qrcode";
 
 async function loadDoitEmbed(): Promise<boolean> {
   if (typeof window === "undefined") return false;
@@ -82,6 +83,7 @@ export default function TransactionDetailPage() {
   const [errorState, setErrorState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [copiedVa, setCopiedVa] = useState(false);
+  const [omqrisQrImage, setOmqrisQrImage] = useState("");
   const { user } = useAuthStore();
   const [revealCode, setRevealCode] = useState(false);
   const [hasCustomBg, setHasCustomBg] = useState(false);
@@ -110,6 +112,19 @@ export default function TransactionDetailPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const qrContent = String(order?.gatewayResponse?.qrContent || "");
+    if (order?.paymentGatewayCode !== "omqris" || !qrContent) {
+      setOmqrisQrImage("");
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(qrContent, { width: 320, margin: 2 })
+      .then((url) => { if (!cancelled) setOmqrisQrImage(url); })
+      .catch(() => { if (!cancelled) setOmqrisQrImage(""); });
+    return () => { cancelled = true; };
+  }, [order?.paymentGatewayCode, order?.gatewayResponse?.qrContent]);
 
   useEffect(() => {
     loadMidtransSnap();
@@ -249,7 +264,7 @@ export default function TransactionDetailPage() {
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
-          <p className="text-slate-600 font-medium">{formatRupiah(order.totalAmount)}</p>
+          <p className="text-slate-600 font-medium">{formatRupiah(order.paymentGatewayCode === "omqris" ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex flex-col items-center gap-6">
@@ -262,6 +277,27 @@ export default function TransactionDetailPage() {
                 const doitVaBank = gwResp.vaBank;
                 const bankInfo = getBankInfo(doitVaBank);
                 const displayTotal = gwResp.totalAmount || order.totalAmount;
+
+                if (order.paymentGatewayCode === "omqris") {
+                  return (
+                    <div className="flex flex-col items-center space-y-4 w-full max-w-sm mx-auto">
+                      <div className="text-center space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS OmQris Untuk Membayar</h3>
+                        <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
+                      </div>
+                      {omqrisQrImage ? (
+                        <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                          <img src={omqrisQrImage} alt="QRIS OmQris" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                        </div>
+                      ) : order.paymentUrl ? (
+                        <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl">Buka halaman pembayaran OmQris</a>
+                      ) : (
+                        <p className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">QRIS belum tersedia. Silakan muat ulang atau hubungi bantuan.</p>
+                      )}
+                      <div className="text-base font-black text-brand-600">{formatRupiah(order.gatewayResponse?.totalAmount || order.totalAmount)}</div>
+                    </div>
+                  );
+                }
 
                 if (isDoit) {
                   if (doitRail === 'qris' || doitQrImage) {

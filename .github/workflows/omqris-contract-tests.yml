@@ -1,0 +1,38 @@
+name: OmQris Contract Tests
+
+on:
+  push:
+    branches:
+      - feat/omqris-isolated-gateway
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/server/adapters/omqris-adapter.ts"
+      - "src/server/omqris-contract.ts"
+      - "src/server/omqris-contract.test.ts"
+      - "src/server/webhooks.ts"
+      - "src/server/order-engine.ts"
+      - "src/server/reconciliation-service.ts"
+      - "src/server/adapters/payment-provider-interface.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/omqris-contract-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  omqris-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:checkout
+      - run: npm run test:omqris
+      - run: npm run lint
+      - run: npm run build

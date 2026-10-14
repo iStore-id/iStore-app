@@ -116,7 +116,15 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // 4. Payment Provider Dispatch & Native Method Validation
     let validatedPaymentMethod: string | undefined = undefined;
 
-    if (gatewayCode === "doit") {
+    if (gatewayCode === "omqris") {
+      if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
+        return res.status(400).json({
+          success: false,
+          message: "OmQris hanya mendukung metode QRIS."
+        });
+      }
+      validatedPaymentMethod = "qris";
+    } else if (gatewayCode === "doit") {
       const doitAllowedMethods = [
         "qris",
         "mandiri_va",
@@ -358,7 +366,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       paymentMethod: validatedPaymentMethod
     });
 
-    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber)) {
+    if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber && !(gatewayCode === "omqris" && paymentResult.token))) {
       throw new Error(paymentResult.message || "Payment initialization failed: No presentation URL, QR, or VA.");
     }
 
@@ -372,6 +380,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
+      ...(gatewayCode === "omqris" && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,
@@ -381,6 +390,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         vaBank: resVaBank || null,
         qrImage: paymentResult.qrImage || null,
         qrContent: resQrContent || null,
+        feeAmount: paymentResult.feeAmount ?? null,
+        mdrAmount: paymentResult.mdrAmount ?? null,
+        mdrBearer: paymentResult.mdrBearer ?? null,
         totalAmount: paymentResult.totalAmount || totalToPay,
         expiresAt: paymentResult.expiresAt || null,
         paymentUrl: paymentResult.redirectUrl || null
@@ -398,6 +410,9 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       rail: paymentResult.rail,
       vaNumber: paymentResult.vaNumber,
       vaBank: paymentResult.vaBank,
+      feeAmount: paymentResult.feeAmount,
+      mdrAmount: paymentResult.mdrAmount,
+      mdrBearer: paymentResult.mdrBearer,
       totalAmount: paymentResult.totalAmount || totalToPay,
       expiresAt: paymentResult.expiresAt
     });
