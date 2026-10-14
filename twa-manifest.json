@@ -13,7 +13,7 @@
   "backgroundColor": "#f8fafc",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://ist.web.id/icons/istore-512.png",
+  "iconUrl": "https://res.cloudinary.com/azfwgjng/image/upload/v1790835542/istore/general/1790835542842_h29k8_229508.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./android.keystore",
