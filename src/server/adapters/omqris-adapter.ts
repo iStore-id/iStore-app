@@ -1,6 +1,7 @@
 import * as crypto from "crypto";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
+import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts } from "../omqris-contract.js";
 import {
   PaymentProviderAdapter, CreatePaymentInput, PaymentResult,
   PaymentStatusInput, PaymentStatusResult, WebhookRequest,
@@ -28,13 +29,6 @@ function safeEqualHex(actual: string, expected: string): boolean {
   return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
 }
 
-function mapStatus(value: unknown): NormalizedPaymentEvent["status"] {
-  const status = String(value || "").toLowerCase();
-  if (["paid", "success", "sukses", "settlement", "completed"].includes(status)) return "PAID";
-  if (["expired", "kadaluarsa"].includes(status)) return "EXPIRED";
-  if (["failed", "failure", "gagal", "cancelled", "canceled"].includes(status)) return "FAILED";
-  return "PENDING";
-}
 
 export class OmqrisProviderAdapter implements PaymentProviderAdapter {
   private static instance: OmqrisProviderAdapter;
@@ -95,7 +89,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     });
     const result: any = await response.json().catch(() => ({}));
     const data = result?.data || result;
-    if (!response.ok || result?.success === false || result?.status === "error") {
+    if (isOmqrisApiError(response.ok, result)) {
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
@@ -106,16 +100,17 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: "Respons OmQris tidak memiliki invoice atau QRIS yang dapat digunakan.", rawResponse: result };
     }
     const expiresAt = data.expired_at || data.expires_at || null;
+    const amounts = normalizeOmqrisAmounts(data, input.grossAmount);
     return {
       success: true,
       token: invoiceNo,
       redirectUrl: invoiceUrl || undefined,
       qrImage: undefined,
       rail: "qris",
-      feeAmount: Number(data.fee ?? 0) || 0,
-      mdrAmount: Number(data.mdr_amount ?? 0) || 0,
-      mdrBearer: data.mdr_bearer ? String(data.mdr_bearer) : undefined,
-      totalAmount: Number(data.total_amount ?? input.grossAmount) || input.grossAmount,
+      feeAmount: amounts.feeAmount,
+      mdrAmount: amounts.mdrAmount,
+      mdrBearer: amounts.mdrBearer,
+      totalAmount: amounts.totalAmount,
       expiresAt: expiresAt ? String(expiresAt) : undefined,
       rawResponse: { ...result, data: { ...data, qr_string: qrString, invoice_no: invoiceNo } }
     };
@@ -132,7 +127,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const result: any = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(String(result?.message || `OmQris inquiry failed (${response.status})`));
     const data = result?.data || result;
-    const status = mapStatus(data.status);
+    const status = mapOmqrisStatus(data.status);
     return {
       status,
       transactionStatus: String(data.status || status),
@@ -156,7 +151,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
     const data = payload?.data || payload;
     const merchantRef = String(data.merchant_ref || data.merchantRef || "").trim();
     if (!merchantRef) throw new Error("OmQris webhook is missing merchant_ref.");
-    const status = mapStatus(data.status || headerValue(request.headers, "x-omqris-event").replace(/^payment\./, ""));
+    const status = mapOmqrisStatus(data.status || headerValue(request.headers, "x-omqris-event"));
     return {
       provider: "omqris",
       orderId: merchantRef,
