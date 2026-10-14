@@ -2523,6 +2523,87 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
   }
 }
 
+export async function testOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("omqris_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    const apiSecret = config.encryptedApiSecret ? decryptSecret(config.encryptedApiSecret) : "";
+
+    if (!apiKey || !apiSecret) {
+      return res.status(400).json({
+        success: false,
+        message: "API Key dan API Secret OmQris harus disimpan sebelum tes koneksi."
+      });
+    }
+
+    const signature = crypto.createHash("sha256").update(apiKey + apiSecret).digest("hex");
+    const response = await fetch("https://omqris.id/api/v1/merchant/me", {
+      method: "GET",
+      headers: {
+        "X-Api-Key": apiKey,
+        "X-Signature": signature,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      return res.status(502).json({
+        success: false,
+        message: "Autentikasi OmQris ditolak. Periksa API Key dan API Secret yang tersimpan."
+      });
+    }
+    if (response.status === 429) {
+      return res.status(502).json({
+        success: false,
+        message: "OmQris membatasi frekuensi permintaan. Coba lagi beberapa saat."
+      });
+    }
+    if (!response.ok) {
+      return res.status(502).json({
+        success: false,
+        message: `Tes koneksi OmQris gagal (HTTP ${response.status}).`
+      });
+    }
+
+    let payload: any;
+    try {
+      payload = await response.json();
+    } catch {
+      return res.status(502).json({
+        success: false,
+        message: "Respons OmQris tidak dapat dibaca sebagai JSON."
+      });
+    }
+
+    if (payload?.ok !== true) {
+      return res.status(502).json({
+        success: false,
+        message: "OmQris merespons, tetapi verifikasi merchant tidak berhasil."
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Koneksi OmQris berhasil diverifikasi.",
+      data: {
+        merchantName: typeof payload.nama_merchant === "string" ? payload.nama_merchant : null,
+        status: typeof payload.status === "string" ? payload.status : null,
+        pgMode: typeof payload.pg_mode === "string" ? payload.pg_mode : null
+      }
+    });
+  } catch (err: any) {
+    const timedOut = err?.name === "TimeoutError" || err?.name === "AbortError";
+    return res.status(502).json({
+      success: false,
+      message: timedOut
+        ? "Tes koneksi OmQris melewati batas waktu 10 detik."
+        : "Tidak dapat menghubungi OmQris. Periksa koneksi jaringan lalu coba lagi."
+    });
+  }
+}
+
 export async function removeOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
   try {
     const repo = SystemConfigRepository.getInstance();
