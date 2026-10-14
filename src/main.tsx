@@ -33,3 +33,14 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 console.log("main.tsx: Render called");
+
+// Register the PWA service worker only in production. It deliberately does not
+// intercept or cache requests, so API, authentication, checkout, and payment
+// responses continue to use the normal network path.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((error) => {
+      console.warn('PWA service worker registration failed:', error);
+    });
+  });
+}
