@@ -9,6 +9,7 @@ export default function AdminOmqrisIntegrationPage() {
   const [apiKeyMasked, setApiKeyMasked] = useState("");
   const [apiSecretConfigured, setApiSecretConfigured] = useState(false);
   const [isActive, setIsActive] = useState(false);
+  const [pgMode, setPgMode] = useState<"public" | "pribadi">("pribadi");
   const [configured, setConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,6 +33,7 @@ export default function AdminOmqrisIntegrationPage() {
         setApiKeyMasked(result.data.apiKeyMasked || "");
         setApiSecretConfigured(result.data.apiSecretConfigured === true);
         setIsActive(result.data.isActive === true);
+        setPgMode(result.data.pgMode === "public" ? "public" : "pribadi");
         setConfigured(result.data.configured === true);
       } catch (error: any) {
         if (!cancelled) setMessage(error.message || "Gagal memuat konfigurasi OmQris.");
@@ -49,12 +51,13 @@ export default function AdminOmqrisIntegrationPage() {
       const response = await fetch("/api/admin/integrations/omqris", {
         method: "PUT",
         headers: await authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ apiKey, apiSecret, isActive })
+        body: JSON.stringify({ apiKey, apiSecret, isActive, pgMode })
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Gagal menyimpan konfigurasi.");
       setConfigured(result.data.configured === true);
       setIsActive(result.data.isActive === true);
+      setPgMode(result.data.pgMode === "public" ? "public" : "pribadi");
       setApiKey("");
       setApiSecret("");
       setMessage(result.message || "Konfigurasi tersimpan.");
@@ -63,6 +66,7 @@ export default function AdminOmqrisIntegrationPage() {
       if (refreshed.success) {
         setApiKeyMasked(refreshed.data.apiKeyMasked || "");
         setApiSecretConfigured(refreshed.data.apiSecretConfigured === true);
+        setPgMode(refreshed.data.pgMode === "public" ? "public" : "pribadi");
       }
     } catch (error: any) {
       setMessage(error.message || "Gagal menyimpan konfigurasi OmQris.");
@@ -127,6 +131,14 @@ export default function AdminOmqrisIntegrationPage() {
           <label className="block text-sm font-semibold mb-2">API Secret</label>
           {apiSecretConfigured && <p className="text-xs text-slate-500 mb-2">Secret sudah tersimpan dan terenkripsi.</p>}
           <input type="password" value={apiSecret} onChange={e => setApiSecret(e.target.value)} autoComplete="new-password" placeholder="Masukkan API Secret baru jika ingin mengganti" className="w-full rounded-xl border px-3 py-2.5 text-sm" />
+        </div>
+        <div className="rounded-xl border p-4 space-y-2">
+          <label htmlFor="omqris-pg-mode" className="block text-sm font-semibold">Mode PG untuk transaksi baru</label>
+          <select id="omqris-pg-mode" value={pgMode} onChange={e => setPgMode(e.target.value as "public" | "pribadi")} className="w-full rounded-xl border px-3 py-2.5 text-sm">
+            <option value="public">PG Publik — QRIS dari OmQris</option>
+            <option value="pribadi">PG Pribadi — QRIS milik sendiri</option>
+          </select>
+          <p className="text-xs text-slate-500">Pilihan ini dikirim sebagai pg_mode pada pembuatan transaksi. Ini berbeda dari mode akun yang ditampilkan oleh Tes Koneksi. PG Pribadi memerlukan QRIS pribadi yang aktif dan APK Listener berjalan di OmQris.</p>
         </div>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="font-semibold">Webhook URL</div>
