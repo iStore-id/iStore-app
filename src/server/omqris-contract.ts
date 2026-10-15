@@ -26,7 +26,6 @@ export function isOmqrisPersonalMode(value: unknown): boolean {
   return String(value || "").trim().toLowerCase() === "pribadi";
 }
 
-/** Only a verified OmQris PAID event may reopen a locally expired OmQris order. */
 /** A terminal event older than the current paid state must not downgrade the order. */
 export function isOmqrisStaleTerminalEvent(currentPaymentStatus: unknown, eventStatus: unknown): boolean {
   const current = String(currentPaymentStatus || "").trim().toLowerCase();
@@ -41,6 +40,7 @@ export function buildOmqrisFulfillmentIdempotencyKey(orderId: unknown): string {
   return `fulfillment_${id}`;
 }
 
+/** Only a verified OmQris PAID event may reopen a locally expired OmQris order. */
 export function isOmqrisAuthoritativeLatePaid(
   gatewayCode: unknown,
   paymentStatus: unknown,
