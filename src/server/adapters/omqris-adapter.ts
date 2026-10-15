@@ -83,6 +83,10 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       const result: any = await response.json().catch(() => ({}));
       if (isOmqrisApiError(response.ok, result)) return null;
       const data = result?.data || result;
+      if (data.pg_mode && !isOmqrisPersonalMode(data.pg_mode)) {
+        console.error(`[OmQris Recovery] Refusing non-personal mode transaction for ${merchantRef}.`);
+        return null;
+      }
       const returnedMerchantRef = String(data.merchant_ref || data.merchantRef || "");
       const invoiceNo = String(data.invoice_no || data.invoiceNo || "");
       const qrString = String(data.qris_string || data.qrisString || data.qr_string || "");
