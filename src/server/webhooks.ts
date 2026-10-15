@@ -396,7 +396,7 @@ export async function ipaymuWebhook(req: any, res: any) {
             payload: { orderId: event.orderId },
             priority: 'HIGH',
             referenceId: event.orderId,
-            idempotencyKey: buildOmqrisFulfillmentIdempotencyKey(event.orderId)
+            idempotencyKey: `fulfillment_${event.orderId}`
           });
         } catch (e) {
           console.error("[Queue] Failed to enqueue fulfillment job", e);
@@ -502,7 +502,7 @@ export async function omqrisWebhook(req: any, res: any) {
             payload: { orderId: event.orderId },
             priority: "HIGH",
             referenceId: event.orderId,
-            idempotencyKey: `fulfillment_${event.orderId}`
+            idempotencyKey: buildOmqrisFulfillmentIdempotencyKey(event.orderId)
           });
         } catch (queueError) {
           console.error("[OmQris Webhook] Failed to enqueue fulfillment", queueError);
@@ -527,7 +527,7 @@ export async function omqrisWebhook(req: any, res: any) {
               payload: { orderId: event.orderId },
               priority: "HIGH",
               referenceId: event.orderId,
-              idempotencyKey: `fulfillment_${event.orderId}`
+              idempotencyKey: buildOmqrisFulfillmentIdempotencyKey(event.orderId)
             });
             markWebhookEventProcessed("omqris:" + eventId);
             return res.status(200).json({ status: "ok", message: "Already processed" });
