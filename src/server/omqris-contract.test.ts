@@ -3,6 +3,8 @@ import { strict as assert } from "node:assert";
 import {
   buildOmqrisWebhookEventKey,
   isOmqrisApiError,
+  isOmqrisAuthoritativeLatePaid,
+  isOmqrisPersonalMode,
   mapOmqrisStatus,
   normalizeOmqrisAmounts,
   validateOmqrisAmounts
@@ -24,6 +26,20 @@ test("OmQris webhook idempotency key distinguishes status changes for one invoic
   assert.notEqual(pending, paid);
   assert.equal(buildOmqrisWebhookEventKey("INV-123", "payment.sukses"), paid);
   assert.equal(buildOmqrisWebhookEventKey("", "sukses"), "");
+});
+
+test("OmQris personal mode is recognized and public mode is rejected", () => {
+  assert.equal(isOmqrisPersonalMode("pribadi"), true);
+  assert.equal(isOmqrisPersonalMode("PRIBADI"), true);
+  assert.equal(isOmqrisPersonalMode("public"), false);
+  assert.equal(isOmqrisPersonalMode(undefined), false);
+});
+
+test("Only a verified OmQris PAID event for an expired OmQris order qualifies for late-paid reconciliation", () => {
+  assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "expired", "payment.sukses"), true);
+  assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "pending", "sukses"), false);
+  assert.equal(isOmqrisAuthoritativeLatePaid("midtrans", "expired", "sukses"), false);
+  assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "expired", "payment.expired"), false);
 });
 
 test("OmQris API ok:false error payload is rejected even on HTTP 200", () => {
