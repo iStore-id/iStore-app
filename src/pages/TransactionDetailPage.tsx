@@ -271,15 +271,18 @@ export default function TransactionDetailPage() {
         <div className={`p-5 sm:p-8 text-center border-b ${
           order.transactionStatus === 'success' ? 'bg-green-50 border-green-100' :
           order.transactionStatus === 'failed' ? 'bg-red-50 border-red-100' :
+          order.paymentStatus === 'expired' || order.transactionStatus === 'expired' ? 'bg-amber-50 border-amber-100' :
           'bg-brand-50 border-brand-100'
         }`}>
           {order.transactionStatus === 'success' ? <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" /> :
            order.transactionStatus === 'failed' ? <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" /> :
+           order.paymentStatus === 'expired' || order.transactionStatus === 'expired' ? <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" /> :
            <Clock className="w-16 h-16 text-brand-500 mx-auto mb-4" />}
           
           <h1 className="ui-page-title text-slate-900 mb-2">
             {order.transactionStatus === 'success' ? 'Transaksi Berhasil' :
              order.transactionStatus === 'failed' ? 'Transaksi Gagal' :
+             order.paymentStatus === 'expired' || order.transactionStatus === 'expired' ? 'Pembayaran Kedaluwarsa' :
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
