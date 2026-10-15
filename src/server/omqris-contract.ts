@@ -22,6 +22,35 @@ export function isOmqrisApiError(responseOk: boolean, payload: any): boolean {
   return !responseOk || payload?.ok === false || payload?.success === false || payload?.status === "error";
 }
 
+export function isOmqrisPersonalMode(value: unknown): boolean {
+  return String(value || "").trim().toLowerCase() === "pribadi";
+}
+
+/** A terminal event older than the current paid state must not downgrade the order. */
+export function isOmqrisStaleTerminalEvent(currentPaymentStatus: unknown, eventStatus: unknown): boolean {
+  const current = String(currentPaymentStatus || "").trim().toLowerCase();
+  const incoming = mapOmqrisStatus(eventStatus);
+  return current === "paid" && (incoming === "EXPIRED" || incoming === "FAILED");
+}
+
+/** Shared key ensures webhook retries and late-paid recovery enqueue the same fulfillment job. */
+export function buildOmqrisFulfillmentIdempotencyKey(orderId: unknown): string {
+  const id = String(orderId || "").trim();
+  if (!id) throw new Error("Order ID is required for OmQris fulfillment idempotency.");
+  return `fulfillment_${id}`;
+}
+
+/** Only a verified OmQris PAID event may reopen a locally expired OmQris order. */
+export function isOmqrisAuthoritativeLatePaid(
+  gatewayCode: unknown,
+  paymentStatus: unknown,
+  eventStatus: unknown
+): boolean {
+  return String(gatewayCode || "").trim().toLowerCase() === "omqris" &&
+    String(paymentStatus || "").trim().toLowerCase() === "expired" &&
+    mapOmqrisStatus(eventStatus) === "PAID";
+}
+
 function nonNegativeInteger(value: unknown, fallback: number): number {
   const amount = Number(value);
   return Number.isSafeInteger(amount) && amount >= 0 ? amount : fallback;

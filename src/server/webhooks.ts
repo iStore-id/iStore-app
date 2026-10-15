@@ -9,6 +9,7 @@ import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
 import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
+import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -484,50 +485,28 @@ export async function omqrisWebhook(req: any, res: any) {
       return res.status(200).json({ status: "ok", message: "Ignored status" });
     }
 
-    try {
-      await transitionOrderState(event.orderId, targetState, {}, `OmQris Webhook: ${event.status}`);
-      if (targetState === "PAID") {
-        await safeRecordPaymentReceived(event.orderId, orderData, "SYSTEM", { source: "OmQris Webhook" });
-        try {
+    const lifecycleResult = await processOmqrisCallbackLifecycle(
+      { orderId: event.orderId, targetState, eventStatus: event.status, order: orderData },
+      {
+        transitionOrderState: (orderId, state, payload, reason) => transitionOrderState(orderId, state as any, payload, reason),
+        getOrderById: (orderId) => orderRepo.getOrderById(orderId),
+        recordPaymentReceived: (orderId, order, source) =>
+          safeRecordPaymentReceived(orderId, order, "SYSTEM", { source }),
+        enqueueFulfillment: async (orderId, idempotencyKey) => {
           const { JobService } = await import("./job-service.js");
-          await JobService.getInstance().enqueue({
+          return JobService.getInstance().enqueue({
             type: "FULFILLMENT",
-            payload: { orderId: event.orderId },
+            payload: { orderId },
             priority: "HIGH",
-            referenceId: event.orderId,
-            idempotencyKey: `fulfillment_${event.orderId}`
+            referenceId: orderId,
+            idempotencyKey
           });
-        } catch (queueError) {
-          console.error("[OmQris Webhook] Failed to enqueue fulfillment", queueError);
-          clearWebhookEventStatus("omqris:" + eventId);
-          return res.status(500).json({ success: false, message: "Payment recorded; fulfillment enqueue failed" });
-        }
+        },
+        markProcessed: () => markWebhookEventProcessed("omqris:" + eventId),
+        clearProcessing: () => clearWebhookEventStatus("omqris:" + eventId)
       }
-      markWebhookEventProcessed("omqris:" + eventId);
-    } catch (stateError: any) {
-      if (stateError?.message?.includes("INVALID_STATE_TRANSITION")) {
-        // Recover payment side effects if the order was already transitioned to PAID
-        // but ledger recording or fulfillment enqueue failed on the earlier attempt.
-        if (targetState === "PAID") {
-          const refreshedOrder = await orderRepo.getOrderById(event.orderId);
-          if (refreshedOrder?.paymentStatus === "paid") {
-            await safeRecordPaymentReceived(event.orderId, refreshedOrder, "SYSTEM", { source: "OmQris Webhook Retry" });
-            const { JobService } = await import("./job-service.js");
-            await JobService.getInstance().enqueue({
-              type: "FULFILLMENT",
-              payload: { orderId: event.orderId },
-              priority: "HIGH",
-              referenceId: event.orderId,
-              idempotencyKey: `fulfillment_${event.orderId}`
-            });
-          }
-        }
-        markWebhookEventProcessed("omqris:" + eventId);
-        return res.status(200).json({ status: "ok", message: "Already processed" });
-      }
-      clearWebhookEventStatus("omqris:" + eventId);
-      throw stateError;
-    }
+    );
+    return res.status(lifecycleResult.statusCode).json(lifecycleResult.body);
     return res.status(200).json({ status: "ok" });
   } catch (error: any) {
     console.error("[OmQris Webhook Error]", error);

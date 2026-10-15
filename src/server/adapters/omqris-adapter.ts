@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
-import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
+import { isOmqrisApiError, isOmqrisPersonalMode, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
 import {
   PaymentProviderAdapter, CreatePaymentInput, PaymentResult,
   PaymentStatusInput, PaymentStatusResult, WebhookRequest,
@@ -83,6 +83,10 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       const result: any = await response.json().catch(() => ({}));
       if (isOmqrisApiError(response.ok, result)) return null;
       const data = result?.data || result;
+      if (!isOmqrisPersonalMode(data.pg_mode)) {
+        console.error(`[OmQris Recovery] Refusing transaction without confirmed personal mode for ${merchantRef}.`);
+        return null;
+      }
       const returnedMerchantRef = String(data.merchant_ref || data.merchantRef || "");
       const invoiceNo = String(data.invoice_no || data.invoiceNo || "");
       const qrString = String(data.qris_string || data.qrisString || data.qr_string || "");
@@ -135,6 +139,8 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
       expire_minutes: 60,
+      // Explicitly use the store's own GoPay QRIS through OmQris personal mode.
+      pg_mode: "pribadi",
     };
     let response: Response;
     let result: any;
@@ -166,6 +172,13 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
+    if (!isOmqrisPersonalMode(data.pg_mode)) {
+      return {
+        success: false,
+        message: "Respons OmQris tidak mengonfirmasi mode QRIS pribadi. Invoice tidak dapat digunakan.",
+        rawResponse: result
+      };
+    }
     const invoiceNo = String(data.invoice_no || data.invoiceNo || "");
     const qrString = String(data.qris_string || data.qrisString || "");
     const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
