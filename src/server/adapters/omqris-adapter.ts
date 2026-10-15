@@ -168,6 +168,13 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
+    if (data.pg_mode && String(data.pg_mode).toLowerCase() !== "pribadi") {
+      return {
+        success: false,
+        message: "OmQris mengembalikan mode pembayaran selain QRIS pribadi. Invoice tidak dapat digunakan.",
+        rawResponse: result
+      };
+    }
     const invoiceNo = String(data.invoice_no || data.invoiceNo || "");
     const qrString = String(data.qris_string || data.qrisString || "");
     const invoiceUrl = String(data.invoice_url || data.invoiceUrl || "");
