@@ -22,6 +22,21 @@ export function isOmqrisApiError(responseOk: boolean, payload: any): boolean {
   return !responseOk || payload?.ok === false || payload?.success === false || payload?.status === "error";
 }
 
+export function isOmqrisPersonalMode(value: unknown): boolean {
+  return String(value || "").trim().toLowerCase() === "pribadi";
+}
+
+/** Only a verified OmQris PAID event may reopen a locally expired OmQris order. */
+export function isOmqrisAuthoritativeLatePaid(
+  gatewayCode: unknown,
+  paymentStatus: unknown,
+  eventStatus: unknown
+): boolean {
+  return String(gatewayCode || "").trim().toLowerCase() === "omqris" &&
+    String(paymentStatus || "").trim().toLowerCase() === "expired" &&
+    mapOmqrisStatus(eventStatus) === "PAID";
+}
+
 function nonNegativeInteger(value: unknown, fallback: number): number {
   const amount = Number(value);
   return Number.isSafeInteger(amount) && amount >= 0 ? amount : fallback;
