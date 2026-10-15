@@ -485,7 +485,12 @@ export async function omqrisWebhook(req: any, res: any) {
     }
 
     try {
-      await transitionOrderState(event.orderId, targetState, {}, `OmQris Webhook: ${event.status}`);
+      await transitionOrderState(
+        event.orderId,
+        targetState,
+        event.status === "PAID" ? { omqrisAuthoritativePaid: true } : {},
+        `OmQris Webhook: ${event.status}`
+      );
       if (targetState === "PAID") {
         await safeRecordPaymentReceived(event.orderId, orderData, "SYSTEM", { source: "OmQris Webhook" });
         try {
@@ -511,6 +516,8 @@ export async function omqrisWebhook(req: any, res: any) {
         if (targetState === "PAID") {
           const refreshedOrder = await orderRepo.getOrderById(event.orderId);
           if (refreshedOrder?.paymentStatus === "paid") {
+            // The state transition may have committed before a downstream side effect failed.
+            // Ledger posting and fulfillment enqueue use idempotency keys, so retry safely.
             await safeRecordPaymentReceived(event.orderId, refreshedOrder, "SYSTEM", { source: "OmQris Webhook Retry" });
             const { JobService } = await import("./job-service.js");
             await JobService.getInstance().enqueue({
@@ -520,10 +527,22 @@ export async function omqrisWebhook(req: any, res: any) {
               referenceId: event.orderId,
               idempotencyKey: `fulfillment_${event.orderId}`
             });
+            markWebhookEventProcessed("omqris:" + eventId);
+            return res.status(200).json({ status: "ok", message: "Already processed" });
           }
+          // Do not acknowledge a PAID callback unless the order is confirmed paid.
+          // A 500 response allows OmQris to retry after reconciliation is repaired.
+          clearWebhookEventStatus("omqris:" + eventId);
+          return res.status(500).json({ success: false, message: "Authoritative payment requires reconciliation" });
         }
-        markWebhookEventProcessed("omqris:" + eventId);
-        return res.status(200).json({ status: "ok", message: "Already processed" });
+        const refreshedOrder = await orderRepo.getOrderById(event.orderId);
+        const expectedTerminalState = targetState === "EXPIRED" ? "expired" : "failed";
+        if (String(refreshedOrder?.paymentStatus || "").toLowerCase() === expectedTerminalState) {
+          markWebhookEventProcessed("omqris:" + eventId);
+          return res.status(200).json({ status: "ok", message: "Already processed" });
+        }
+        clearWebhookEventStatus("omqris:" + eventId);
+        return res.status(500).json({ success: false, message: "Order state requires reconciliation" });
       }
       clearWebhookEventStatus("omqris:" + eventId);
       throw stateError;
