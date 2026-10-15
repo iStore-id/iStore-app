@@ -8,7 +8,7 @@ import { logSystem } from "./system-log-service.js";
 import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
-import { buildOmqrisWebhookEventKey, isOmqrisAuthoritativeLatePaid } from "./omqris-contract.js";
+import { buildOmqrisWebhookEventKey, buildOmqrisFulfillmentIdempotencyKey, isOmqrisAuthoritativeLatePaid, isOmqrisStaleTerminalEvent } from "./omqris-contract.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -396,7 +396,7 @@ export async function ipaymuWebhook(req: any, res: any) {
             payload: { orderId: event.orderId },
             priority: 'HIGH',
             referenceId: event.orderId,
-            idempotencyKey: `fulfillment_${event.orderId}`
+            idempotencyKey: buildOmqrisFulfillmentIdempotencyKey(event.orderId)
           });
         } catch (e) {
           console.error("[Queue] Failed to enqueue fulfillment job", e);
@@ -538,10 +538,14 @@ export async function omqrisWebhook(req: any, res: any) {
           return res.status(500).json({ success: false, message: "Authoritative payment requires reconciliation" });
         }
         const refreshedOrder = await orderRepo.getOrderById(event.orderId);
+        const refreshedPaymentStatus = String(refreshedOrder?.paymentStatus || "").toLowerCase();
         const expectedTerminalState = targetState === "EXPIRED" ? "expired" : "failed";
-        if (String(refreshedOrder?.paymentStatus || "").toLowerCase() === expectedTerminalState) {
+        if (refreshedPaymentStatus === expectedTerminalState ||
+            isOmqrisStaleTerminalEvent(refreshedPaymentStatus, event.status)) {
+          // A stale terminal callback must not downgrade a payment that has already settled.
+          // Acknowledge it only after confirming the newer authoritative order state.
           markWebhookEventProcessed("omqris:" + eventId);
-          return res.status(200).json({ status: "ok", message: "Already processed" });
+          return res.status(200).json({ status: "ok", message: "Stale or already processed terminal event" });
         }
         clearWebhookEventStatus("omqris:" + eventId);
         return res.status(500).json({ success: false, message: "Order state requires reconciliation" });
