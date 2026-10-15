@@ -55,6 +55,8 @@ export default function TransactionHistoryPage() {
         return <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700"><CheckCircle2 className="w-3.5 h-3.5"/> Berhasil</span>;
       case "failed":
         return <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700"><XCircle className="w-3.5 h-3.5"/> Gagal</span>;
+      case "expired":
+        return <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800"><AlertTriangle className="w-3.5 h-3.5"/> Kedaluwarsa</span>;
       case "processing":
       case "paid":
         return <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-100 text-brand-700"><Clock className="w-3.5 h-3.5"/> Diproses</span>;
@@ -115,7 +117,7 @@ export default function TransactionHistoryPage() {
                   <p className="text-sm text-slate-600">{formatRupiah(order.totalAmount)}</p>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
-                  {getStatusBadge(order.transactionStatus || order.paymentStatus)}
+                  {getStatusBadge(order.transactionStatus === "success" || order.transactionStatus === "failed" ? order.transactionStatus : order.paymentStatus === "expired" ? "expired" : order.transactionStatus || order.paymentStatus)}
                   <ChevronRight className="w-5 h-5 text-slate-400" />
                 </div>
               </div>
