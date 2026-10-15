@@ -226,6 +226,52 @@ export default function TransactionDetailPage() {
     fetchOrder();
   }, [invoice, user]);
 
+  // OmQris has a server-side status inquiry fallback if the provider webhook is delayed or missed.
+  // The backend only persists PAID after authoritative provider status and base-amount validation.
+  useEffect(() => {
+    if (
+      !invoice ||
+      order?.paymentGatewayCode !== "omqris" ||
+      String(order?.paymentStatus || "").toLowerCase() !== "pending"
+    ) return;
+
+    let stopped = false;
+    let inFlight = false;
+
+    const checkOmqrisStatus = async () => {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      try {
+        const statusResponse = await fetch(`/api/orders/${encodeURIComponent(invoice)}/payment-status`);
+        if (!statusResponse.ok) return;
+        const statusJson = await statusResponse.json();
+        const providerStatus = String(statusJson?.data?.status || "").toUpperCase();
+        const persistedStatus = String(statusJson?.data?.orderPaymentStatus || "").toLowerCase();
+
+        if (providerStatus !== "PAID" && persistedStatus !== "paid") return;
+
+        const orderResponse = await fetch(`/api/orders/${encodeURIComponent(invoice)}`);
+        if (!orderResponse.ok) return;
+        const orderJson = await orderResponse.json();
+        if (!stopped && orderJson?.success && orderJson?.data) {
+          setOrder(orderJson.data);
+        }
+      } catch (statusError) {
+        // A temporary inquiry failure must not alter the displayed payment state.
+        console.warn("OmQris status inquiry temporarily unavailable:", statusError);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void checkOmqrisStatus();
+    const timer = window.setInterval(() => { void checkOmqrisStatus(); }, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [invoice, order?.id, order?.paymentGatewayCode, order?.paymentStatus]);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     alert("Disalin!");
