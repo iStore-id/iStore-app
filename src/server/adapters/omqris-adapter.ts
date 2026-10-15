@@ -83,8 +83,8 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       const result: any = await response.json().catch(() => ({}));
       if (isOmqrisApiError(response.ok, result)) return null;
       const data = result?.data || result;
-      if (data.pg_mode && !isOmqrisPersonalMode(data.pg_mode)) {
-        console.error(`[OmQris Recovery] Refusing non-personal mode transaction for ${merchantRef}.`);
+      if (!isOmqrisPersonalMode(data.pg_mode)) {
+        console.error(`[OmQris Recovery] Refusing transaction without confirmed personal mode for ${merchantRef}.`);
         return null;
       }
       const returnedMerchantRef = String(data.merchant_ref || data.merchantRef || "");
@@ -172,10 +172,10 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
-    if (data.pg_mode && !isOmqrisPersonalMode(data.pg_mode)) {
+    if (!isOmqrisPersonalMode(data.pg_mode)) {
       return {
         success: false,
-        message: "OmQris mengembalikan mode pembayaran selain QRIS pribadi. Invoice tidak dapat digunakan.",
+        message: "Respons OmQris tidak mengonfirmasi mode QRIS pribadi. Invoice tidak dapat digunakan.",
         rawResponse: result
       };
     }
