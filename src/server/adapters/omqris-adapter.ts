@@ -1,7 +1,7 @@
 import * as crypto from "crypto";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
-import { isOmqrisApiError, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
+import { isOmqrisApiError, isOmqrisPersonalMode, mapOmqrisStatus, normalizeOmqrisAmounts, validateOmqrisAmounts } from "../omqris-contract.js";
 import {
   PaymentProviderAdapter, CreatePaymentInput, PaymentResult,
   PaymentStatusInput, PaymentStatusResult, WebhookRequest,
@@ -168,7 +168,7 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       return { success: false, message: String(result?.message || result?.error || `OmQris API error (${response.status})`), rawResponse: result };
     }
 
-    if (data.pg_mode && String(data.pg_mode).toLowerCase() !== "pribadi") {
+    if (data.pg_mode && !isOmqrisPersonalMode(data.pg_mode)) {
       return {
         success: false,
         message: "OmQris mengembalikan mode pembayaran selain QRIS pribadi. Invoice tidak dapat digunakan.",
