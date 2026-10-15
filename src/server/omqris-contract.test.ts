@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
+import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
 import {
   buildOmqrisWebhookEventKey,
   buildOmqrisFulfillmentIdempotencyKey,
@@ -159,50 +160,101 @@ test("Regression: fulfillment recovery retries reuse one idempotency key after l
 });
 
 
-test("Lifecycle regression harness: PAID then delayed EXPIRED preserves paid state", async () => {
-  const order = { paymentGatewayCode: "omqris", paymentStatus: "pending" };
-  const transition = async (status: string) => {
-    if (order.paymentStatus === "paid" && (status === "EXPIRED" || status === "FAILED")) {
-      throw new Error("INVALID_STATE_TRANSITION");
-    }
-    if (status === "PAID" && order.paymentStatus === "pending") order.paymentStatus = "paid";
-    if (status === "EXPIRED" && order.paymentStatus === "pending") order.paymentStatus = "expired";
+
+test("Lifecycle integration: PAID followed by delayed EXPIRED leaves order paid", async () => {
+  const order = { id: "test-paid-1", paymentGatewayCode: "omqris", paymentStatus: "pending" };
+  let processed = 0;
+  let cleared = 0;
+  const deps = {
+    transitionOrderState: async (_id: string, target: string) => {
+      if (order.paymentStatus === "paid" && target === "EXPIRED") throw new Error("INVALID_STATE_TRANSITION");
+      if (target === "PAID") order.paymentStatus = "paid";
+      if (target === "EXPIRED") order.paymentStatus = "expired";
+    },
+    getOrderById: async () => order,
+    recordPaymentReceived: async () => undefined,
+    enqueueFulfillment: async () => undefined,
+    markProcessed: () => { processed += 1; },
+    clearProcessing: () => { cleared += 1; }
   };
 
-  await transition("PAID");
-  await assert.rejects(() => transition("EXPIRED"), /INVALID_STATE_TRANSITION/);
-  assert.equal(isOmqrisStaleTerminalEvent(order.paymentStatus, "payment.expired"), true);
+  await processOmqrisCallbackLifecycle(
+    { orderId: order.id, targetState: "PAID", eventStatus: "payment.sukses", order: { ...order, paymentStatus: "pending" } }, deps
+  );
+  const delayed = await processOmqrisCallbackLifecycle(
+    { orderId: order.id, targetState: "EXPIRED", eventStatus: "payment.expired", order }, deps
+  );
+  assert.equal(delayed.statusCode, 200);
   assert.equal(order.paymentStatus, "paid");
+  assert.equal(processed, 2);
+  assert.equal(cleared, 0);
 });
 
-test("Lifecycle regression harness: expired OmQris order is paid only with authoritative success", async () => {
-  const order = { paymentGatewayCode: "omqris", paymentStatus: "expired" };
-  const transition = async (eventStatus: string, authoritative: boolean) => {
-    if (order.paymentStatus === "expired" && !(authoritative &&
-        isOmqrisAuthoritativeLatePaid(order.paymentGatewayCode, order.paymentStatus, eventStatus))) {
-      throw new Error("INVALID_STATE_TRANSITION");
-    }
-    order.paymentStatus = "paid";
+test("Lifecycle integration: EXPIRED to PAID requires OmQris authoritative callback marker", async () => {
+  const order = { id: "test-late-paid-1", paymentGatewayCode: "omqris", paymentStatus: "expired" };
+  let transitionPayload: Record<string, unknown> = {};
+  let ledgerCalls = 0;
+  let queueCalls = 0;
+  const deps = {
+    transitionOrderState: async (_id: string, target: string, payload: Record<string, unknown>) => {
+      transitionPayload = payload;
+      if (order.paymentStatus === "expired" &&
+          !(target === "PAID" && payload.omqrisAuthoritativePaid === true)) {
+        throw new Error("INVALID_STATE_TRANSITION");
+      }
+      if (target === "PAID") order.paymentStatus = "paid";
+    },
+    getOrderById: async () => order,
+    recordPaymentReceived: async () => { ledgerCalls += 1; },
+    enqueueFulfillment: async () => { queueCalls += 1; },
+    markProcessed: () => undefined,
+    clearProcessing: () => undefined
   };
 
-  await assert.rejects(() => transition("payment.sukses", false), /INVALID_STATE_TRANSITION/);
-  assert.equal(order.paymentStatus, "expired");
-  await transition("payment.sukses", true);
+  const result = await processOmqrisCallbackLifecycle(
+    { orderId: order.id, targetState: "PAID", eventStatus: "payment.sukses", order }, deps
+  );
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(transitionPayload, { omqrisAuthoritativePaid: true });
   assert.equal(order.paymentStatus, "paid");
+  assert.equal(ledgerCalls, 1);
+  assert.equal(queueCalls, 1);
 });
 
-test("Lifecycle regression harness: repeated recovery uses one ledger and fulfillment idempotency identity", async () => {
-  const orderId = "omqris-late-paid-test-order";
-  const ledgerKeys = new Set<string>();
-  const fulfillmentKeys = new Set<string>();
-  const recover = async () => {
-    ledgerKeys.add(`payment_received_${orderId}`);
-    fulfillmentKeys.add(buildOmqrisFulfillmentIdempotencyKey(orderId));
+test("Lifecycle integration: retry after fulfillment enqueue failure reuses idempotency key", async () => {
+  const order = { id: "test-recovery-1", paymentGatewayCode: "omqris", paymentStatus: "pending" };
+  const ledgerEntries = new Set<string>();
+  const queueKeys = new Set<string>();
+  let failFirstEnqueue = true;
+  let cleared = 0;
+  const deps = {
+    transitionOrderState: async (_id: string, target: string) => {
+      if (order.paymentStatus === "paid") throw new Error("INVALID_STATE_TRANSITION");
+      if (target === "PAID") order.paymentStatus = "paid";
+    },
+    getOrderById: async () => order,
+    recordPaymentReceived: async (id: string) => { ledgerEntries.add(`payment_received_${id}`); },
+    enqueueFulfillment: async (_id: string, key: string) => {
+      if (failFirstEnqueue) {
+        failFirstEnqueue = false;
+        throw new Error("temporary queue failure");
+      }
+      queueKeys.add(key);
+    },
+    markProcessed: () => undefined,
+    clearProcessing: () => { cleared += 1; }
   };
 
-  await recover();
-  await recover();
-  await recover();
-  assert.equal(ledgerKeys.size, 1);
-  assert.equal(fulfillmentKeys.size, 1);
+  const first = await processOmqrisCallbackLifecycle(
+    { orderId: order.id, targetState: "PAID", eventStatus: "payment.sukses", order }, deps
+  );
+  const retry = await processOmqrisCallbackLifecycle(
+    { orderId: order.id, targetState: "PAID", eventStatus: "payment.sukses", order }, deps
+  );
+  assert.equal(first.statusCode, 500);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(order.paymentStatus, "paid");
+  assert.equal(ledgerEntries.size, 1);
+  assert.equal(queueKeys.size, 1);
+  assert.equal(cleared, 1);
 });
