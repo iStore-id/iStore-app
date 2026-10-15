@@ -2,9 +2,11 @@ import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   buildOmqrisWebhookEventKey,
+  buildOmqrisFulfillmentIdempotencyKey,
   isOmqrisApiError,
   isOmqrisAuthoritativeLatePaid,
   isOmqrisPersonalMode,
+  isOmqrisStaleTerminalEvent,
   mapOmqrisStatus,
   normalizeOmqrisAmounts,
   validateOmqrisAmounts
@@ -40,6 +42,27 @@ test("Only a verified OmQris PAID event for an expired OmQris order qualifies fo
   assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "pending", "sukses"), false);
   assert.equal(isOmqrisAuthoritativeLatePaid("midtrans", "expired", "sukses"), false);
   assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "expired", "payment.expired"), false);
+});
+
+test("OmQris PAID then late EXPIRED/FAILED callbacks never downgrade a paid order", () => {
+  assert.equal(isOmqrisStaleTerminalEvent("paid", "payment.expired"), true);
+  assert.equal(isOmqrisStaleTerminalEvent("paid", "payment.failed"), true);
+  assert.equal(isOmqrisStaleTerminalEvent("pending", "payment.expired"), false);
+  assert.equal(isOmqrisStaleTerminalEvent("expired", "payment.failed"), false);
+});
+
+test("OmQris late PAID after local expiry qualifies for reconciliation, not stale-terminal acknowledgement", () => {
+  assert.equal(isOmqrisAuthoritativeLatePaid("omqris", "expired", "payment.sukses"), true);
+  assert.equal(isOmqrisStaleTerminalEvent("expired", "payment.sukses"), false);
+});
+
+test("OmQris fulfillment recovery uses the same idempotency key on every retry", () => {
+  const orderId = "order-123";
+  const firstAttemptKey = buildOmqrisFulfillmentIdempotencyKey(orderId);
+  const recoveryAttemptKey = buildOmqrisFulfillmentIdempotencyKey(orderId);
+  assert.equal(firstAttemptKey, "fulfillment_order-123");
+  assert.equal(recoveryAttemptKey, firstAttemptKey);
+  assert.throws(() => buildOmqrisFulfillmentIdempotencyKey(""), /Order ID is required/);
 });
 
 test("OmQris API ok:false error payload is rejected even on HTTP 200", () => {
