@@ -135,6 +135,8 @@ export class OmqrisProviderAdapter implements PaymentProviderAdapter {
       merchant_ref: input.orderId,
       webhook_url: config.webhookUrl,
       expire_minutes: 60,
+      // Explicitly use the store's own GoPay QRIS through OmQris personal mode.
+      pg_mode: "pribadi",
     };
     let response: Response;
     let result: any;
