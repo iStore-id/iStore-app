@@ -128,3 +128,32 @@ test("OmQris accepts the documented amount equation and rejects mismatched invoi
     total_amount: 10000, net_amount: 10000
   }, 10000)), /fee/);
 });
+
+test("Regression: PAID then delayed EXPIRED callback is acknowledged as stale without downgrade", () => {
+  // After the authoritative success event, the stored payment state is paid.
+  const storedPaymentStatus = "paid";
+  const delayedExpiry = "payment.expired";
+  assert.equal(mapOmqrisStatus("payment.sukses"), "PAID");
+  assert.equal(isOmqrisStaleTerminalEvent(storedPaymentStatus, delayedExpiry), true);
+  assert.equal(isOmqrisStaleTerminalEvent(storedPaymentStatus, "payment.failed"), true);
+});
+
+test("Regression: EXPIRED then authoritative late PAID is eligible only for OmQris reconciliation", () => {
+  const storedPaymentStatus = "expired";
+  const latePaidEvent = "payment.sukses";
+  assert.equal(isOmqrisAuthoritativeLatePaid("omqris", storedPaymentStatus, latePaidEvent), true);
+  assert.equal(isOmqrisStaleTerminalEvent(storedPaymentStatus, latePaidEvent), false);
+  assert.equal(isOmqrisAuthoritativeLatePaid("doit", storedPaymentStatus, latePaidEvent), false);
+  assert.equal(isOmqrisAuthoritativeLatePaid("midtrans", storedPaymentStatus, latePaidEvent), false);
+  assert.equal(isOmqrisAuthoritativeLatePaid("ipaymu", storedPaymentStatus, latePaidEvent), false);
+});
+
+test("Regression: fulfillment recovery retries reuse one idempotency key after late payment", () => {
+  const orderId = "late-paid-order-42";
+  const initialPaidCallbackKey = buildOmqrisFulfillmentIdempotencyKey(orderId);
+  const recoveryRetryKey = buildOmqrisFulfillmentIdempotencyKey(orderId);
+  const subsequentRetryKey = buildOmqrisFulfillmentIdempotencyKey(orderId);
+  assert.equal(initialPaidCallbackKey, "fulfillment_late-paid-order-42");
+  assert.equal(recoveryRetryKey, initialPaidCallbackKey);
+  assert.equal(subsequentRetryKey, initialPaidCallbackKey);
+});
