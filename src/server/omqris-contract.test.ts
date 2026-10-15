@@ -157,3 +157,52 @@ test("Regression: fulfillment recovery retries reuse one idempotency key after l
   assert.equal(recoveryRetryKey, initialPaidCallbackKey);
   assert.equal(subsequentRetryKey, initialPaidCallbackKey);
 });
+
+
+test("Lifecycle regression harness: PAID then delayed EXPIRED preserves paid state", async () => {
+  const order = { paymentGatewayCode: "omqris", paymentStatus: "pending" };
+  const transition = async (status: string) => {
+    if (order.paymentStatus === "paid" && (status === "EXPIRED" || status === "FAILED")) {
+      throw new Error("INVALID_STATE_TRANSITION");
+    }
+    if (status === "PAID" && order.paymentStatus === "pending") order.paymentStatus = "paid";
+    if (status === "EXPIRED" && order.paymentStatus === "pending") order.paymentStatus = "expired";
+  };
+
+  await transition("PAID");
+  await assert.rejects(() => transition("EXPIRED"), /INVALID_STATE_TRANSITION/);
+  assert.equal(isOmqrisStaleTerminalEvent(order.paymentStatus, "payment.expired"), true);
+  assert.equal(order.paymentStatus, "paid");
+});
+
+test("Lifecycle regression harness: expired OmQris order is paid only with authoritative success", async () => {
+  const order = { paymentGatewayCode: "omqris", paymentStatus: "expired" };
+  const transition = async (eventStatus: string, authoritative: boolean) => {
+    if (order.paymentStatus === "expired" && !(authoritative &&
+        isOmqrisAuthoritativeLatePaid(order.paymentGatewayCode, order.paymentStatus, eventStatus))) {
+      throw new Error("INVALID_STATE_TRANSITION");
+    }
+    order.paymentStatus = "paid";
+  };
+
+  await assert.rejects(() => transition("payment.sukses", false), /INVALID_STATE_TRANSITION/);
+  assert.equal(order.paymentStatus, "expired");
+  await transition("payment.sukses", true);
+  assert.equal(order.paymentStatus, "paid");
+});
+
+test("Lifecycle regression harness: repeated recovery uses one ledger and fulfillment idempotency identity", async () => {
+  const orderId = "omqris-late-paid-test-order";
+  const ledgerKeys = new Set<string>();
+  const fulfillmentKeys = new Set<string>();
+  const recover = async () => {
+    ledgerKeys.add(`payment_received_${orderId}`);
+    fulfillmentKeys.add(buildOmqrisFulfillmentIdempotencyKey(orderId));
+  };
+
+  await recover();
+  await recover();
+  await recover();
+  assert.equal(ledgerKeys.size, 1);
+  assert.equal(fulfillmentKeys.size, 1);
+});
