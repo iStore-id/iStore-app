@@ -8,7 +8,7 @@ import { logSystem } from "./system-log-service.js";
 import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
-import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
+import { buildOmqrisWebhookEventKey, isOmqrisAuthoritativeLatePaid } from "./omqris-contract.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -488,7 +488,9 @@ export async function omqrisWebhook(req: any, res: any) {
       await transitionOrderState(
         event.orderId,
         targetState,
-        event.status === "PAID" ? { omqrisAuthoritativePaid: true } : {},
+        isOmqrisAuthoritativeLatePaid(orderData.paymentGatewayCode, orderData.paymentStatus, event.status)
+          ? { omqrisAuthoritativePaid: true }
+          : {},
         `OmQris Webhook: ${event.status}`
       );
       if (targetState === "PAID") {
