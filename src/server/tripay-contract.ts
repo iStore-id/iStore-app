@@ -14,10 +14,13 @@ export const TRIPAY_METHOD_CODES: Record<string, string> = {
   danamon_va: "DANAMONVA"
 };
 
-export function mapTripayMethod(method?: string): string {
-  const key = String(method || "").trim().toLowerCase();
-  const code = TRIPAY_METHOD_CODES[key];
-  if (!code) throw new Error("Metode pembayaran TriPay tidak didukung atau belum dipilih.");
+export function mapTripayMethod(method?: string, availableCodes?: string[]): string {
+  const raw = String(method || "").trim();
+  const key = raw.toLowerCase();
+  const mappedCode = TRIPAY_METHOD_CODES[key];
+  const available = Array.isArray(availableCodes) ? new Set(availableCodes.map((code) => String(code || "").trim().toUpperCase()).filter(Boolean)) : null;
+  const code = mappedCode || raw.toUpperCase();
+  if (!code || (available && !available.has(code)) || (!available && !mappedCode)) throw new Error("Metode pembayaran TriPay tidak tersedia pada kanal akun ini.");
   return code;
 }
 
