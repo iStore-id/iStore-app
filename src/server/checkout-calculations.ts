@@ -62,6 +62,5 @@ export function isConfirmedPaymentFailure(gatewayCode: string, status: unknown):
   if (gatewayCode === "doit") {
     return ["failed", "failure", "cancelled", "canceled", "expired", "deny", "rejected"].includes(normalized);
   }
-  // No authoritative status query is implemented for iPaymu in checkout recovery.
   return false;
 }

@@ -1,6 +1,5 @@
 import { PaymentProviderAdapter } from "./adapters/payment-provider-interface.js";
 import { MidtransProviderAdapter } from "./adapters/midtrans-adapter.js";
-import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
@@ -17,8 +16,6 @@ export class PaymentRouter {
 
   public async getActiveGateway(): Promise<string> {
     const repo = SystemConfigRepository.getInstance();
-    // iPaymu is deliberately excluded from new checkout selection. Its adapter remains
-    // available only for existing orders, status checks, webhooks, and reconciliation.
     const [midtransConfig, doitConfig, omqrisConfig] = await Promise.all([
       repo.getConfig("midtrans_integration").catch(() => null),
       repo.getConfig("doit_integration").catch(() => null),
@@ -50,7 +47,6 @@ export class PaymentRouter {
     const code = (gatewayCode || "").toLowerCase().trim();
     if (code === "doit") return DoitProviderAdapter.getInstance();
     if (code === "omqris") return OmqrisProviderAdapter.getInstance();
-    if (code === "ipaymu") return IpaymuProviderAdapter.getInstance();
     // Keep the established Midtrans fallback for 'midtrans', empty, and legacy NULL orders.
     return MidtransProviderAdapter.getInstance();
   }

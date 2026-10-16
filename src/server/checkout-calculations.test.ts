@@ -61,6 +61,3 @@ test("Doit explicit failure statuses are recognized but unknown statuses are not
   assert.equal(isConfirmedPaymentFailure("doit", undefined), false);
 });
 
-test("iPaymu status is not treated as confirmed without an authoritative query", () => {
-  assert.equal(isConfirmedPaymentFailure("ipaymu", "failed"), false);
-});

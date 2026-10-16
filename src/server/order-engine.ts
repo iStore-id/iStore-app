@@ -487,10 +487,6 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
           } else {
             console.warn(`[Doit Recovery] Payment status for ${orderId} is uncertain; leaving order pending for reconciliation.`);
           }
-        } else if (gatewayCode === 'ipaymu') {
-          // No authoritative status check is available in this recovery path.
-          // Keep the order pending and points reserved until reconciliation confirms failure.
-          console.warn(`[iPaymu Recovery] Payment status for ${orderId} is uncertain; leaving order pending for reconciliation.`);
         }
       } catch (recoveryError) {
         console.error("[Recovery Error]", recoveryError);

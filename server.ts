@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import { processCheckout } from "./src/server/order-engine.js";
-import { midtransWebhook, tokovoucherWebhook, ipaymuWebhook, doitWebhook, omqrisWebhook } from "./src/server/webhooks.js";
+import { midtransWebhook, tokovoucherWebhook, doitWebhook, omqrisWebhook } from "./src/server/webhooks.js";
 import { getPaymentStatusHandler } from "./src/server/payment-status-api.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
@@ -23,7 +23,7 @@ import {
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
 } from "./src/server/admin-api.js";
-import { getIpaymuIntegration, updateIpaymuIntegration, testIpaymuIntegration, removeIpaymuIntegration, getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration } from "./src/server/admin-api.js";
+import { getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
 import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway, getPublicPwaManifest } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
@@ -334,7 +334,6 @@ export async function initServerLogic() {
   app.post("/api/checkout", emergencyLockdownMiddleware, rateLimitMiddleware("checkout"), optionalAuth, processCheckout);
   app.post("/api/webhooks/midtrans", midtransWebhook);
   app.post("/api/webhooks/tokovoucher", tokovoucherWebhook);
-  app.post("/api/webhooks/ipaymu", ipaymuWebhook);
   app.post("/api/webhooks/doit", doitWebhook);
   app.post("/api/webhooks/omqris", omqrisWebhook);
 
@@ -503,11 +502,6 @@ export async function initServerLogic() {
   app.post("/api/admin/integrations/midtrans/test", requirePermission("system", "edit"), testMidtransIntegration);
   app.delete("/api/admin/integrations/midtrans", requirePermission("system", "edit"), removeMidtransIntegration);
 
-  // iPaymu Integration Management
-  app.get("/api/admin/integrations/ipaymu", requirePermission("system", "view"), getIpaymuIntegration);
-  app.put("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), updateIpaymuIntegration);
-  app.post("/api/admin/integrations/ipaymu/test", requirePermission("system", "edit"), testIpaymuIntegration);
-  app.delete("/api/admin/integrations/ipaymu", requirePermission("system", "edit"), removeIpaymuIntegration);
   app.get("/api/admin/integrations/omqris", requirePermission("system", "view"), getOmqrisIntegration);
   app.put("/api/admin/integrations/omqris", requirePermission("system", "edit"), updateOmqrisIntegration);
   app.post("/api/admin/integrations/omqris/test", requirePermission("system", "edit"), testOmqrisIntegration);
