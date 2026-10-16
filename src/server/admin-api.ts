@@ -163,7 +163,6 @@ export async function importFromCatalogDiscovery(req: AuthenticatedRequest, res:
 }
 import { PaymentGatewayService } from "./payment-gateway-service.js";
 import { refundMidtransTransaction } from "./midtrans.js";
-import { IpaymuProviderAdapter } from "./adapters/ipaymu-adapter.js";
 import * as crypto from "crypto";
 import { transitionOrderState } from "./state-machine.js";
 import { dispatchFulfillment } from "./fulfillment-dispatcher.js";
@@ -784,7 +783,7 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
           currency: "IDR",
           reason,
           status: "PROCESSING",
-          provider: gatewayCode === "ipaymu" ? "ipaymu" : "midtrans",
+          provider: "midtrans",
           requestedBy: req.user.uid,
           createdAt: now,
           updatedAt: now
@@ -817,6 +816,9 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
       if (txError.message === "ORDER_NOT_PAID") {
         return res.status(400).json({ success: false, message: "Pesanan belum dibayar sehingga tidak memenuhi syarat refund." });
       }
+      if (txError.message === "REFUND_GATEWAY_UNSUPPORTED") {
+        return res.status(400).json({ success: false, message: "Refund otomatis hanya didukung untuk transaksi Midtrans." });
+      }
       if (txError.message === "OMQRIS_REFUND_UNSUPPORTED") {
         return res.status(400).json({ success: false, message: "Refund otomatis OmQris belum didukung. Gunakan prosedur refund manual; permintaan gateway tidak dikirim." });
       }
@@ -847,27 +849,16 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
     try {
       let providerRefundId: string | null = null;
 
-      if (gatewayCode === "ipaymu") {
-        const ipaymuAdapter = IpaymuProviderAdapter.getInstance();
-        const ipaymuRes = await ipaymuAdapter.refundPayment({
-          orderId,
-          amount,
-          reason,
-          transactionId: gatewayTransactionId || orderId
-        });
-        if (!ipaymuRes.success) {
-          throw new Error(ipaymuRes.message || "Gagal memproses refund iPaymu");
-        }
-        providerRefundId = ipaymuRes.refundId || refundKey;
-      } else {
-        const midtransRes = await refundMidtransTransaction({
-          orderId,
-          refundKey,
-          amount,
-          reason
-        });
-        providerRefundId = midtransRes.refund_id || midtransRes.id || null;
+      if (gatewayCode !== "midtrans") {
+        throw new Error("REFUND_GATEWAY_UNSUPPORTED");
       }
+      const midtransRes = await refundMidtransTransaction({
+        orderId,
+        refundKey,
+        amount,
+        reason
+      });
+      providerRefundId = midtransRes.refund_id || midtransRes.id || null;
 
       const now = new Date().toISOString();
       await SupabaseRefundRepository.getInstance().updateRefund(refundKey, {
@@ -1052,16 +1043,8 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
 
     await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", newData);
 
-    // Single active gateway enforcement: If Midtrans is explicitly set to active, deactivate iPaymu and Doit
+    // Single active gateway enforcement: If Midtrans is explicitly set to active, deactivate Doit
     if (isActive === true || isActive === "true") {
-      const existingIpaymu = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration");
-      if (existingIpaymu && existingIpaymu.isActive) {
-        await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", {
-          ...existingIpaymu,
-          isActive: false,
-          updatedAt: now
-        });
-      }
       const existingDoit = await SystemConfigRepository.getInstance().getConfig("doit_integration");
       if (existingDoit && existingDoit.isActive) {
         await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
@@ -1078,7 +1061,6 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
-      process.env.IPAYMU_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
     }
@@ -2265,182 +2247,6 @@ export async function bulkImportProviderSkus(req: AuthenticatedRequest, res: Res
   }
 }
 
-export async function getIpaymuIntegration(req: AuthenticatedRequest, res: Response) {
-  try {
-    const config = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration") || {};
-    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
-    const apiKeyMasked = apiKey ? apiKey.substring(0, 6) + "************************" : "";
-    
-    return res.status(200).json({
-      success: true,
-      data: {
-        va: config.va || "",
-        apiKeyMasked,
-        isProduction: config.isProduction || false,
-        isActive: config.isActive === true,
-        callbackUrl: config.callbackUrl || "https://ist.web.id/api/webhooks/ipaymu",
-        configured: !!config.encryptedApiKey || !!config.va,
-        lastTestedAt: config.lastTestedAt || null,
-        lastTestResult: config.lastTestResult || null
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Gagal mengambil konfigurasi iPaymu." });
-  }
-}
-
-export async function updateIpaymuIntegration(req: AuthenticatedRequest, res: Response) {
-  try {
-    const { va, apiKey, isProduction, isActive, callbackUrl } = req.body;
-    const actor = {
-      uid: req.user.uid,
-      email: req.user.email || req.user.uid
-    };
-    const role = req.user.role || "pemilik";
-
-    const existingData = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration") || {};
-
-    let encryptedApiKey = existingData.encryptedApiKey || "";
-    if (apiKey && typeof apiKey === "string" && apiKey.trim() && !apiKey.includes("****")) {
-      encryptedApiKey = encryptSecret(apiKey.trim());
-    }
-
-    const now = new Date().toISOString();
-    const newData = {
-      key: "ipaymu_integration",
-      va: va !== undefined ? String(va).trim() : (existingData.va || ""),
-      encryptedApiKey,
-      isProduction: isProduction !== undefined ? !!isProduction : (existingData.isProduction || false),
-      isActive: isActive !== undefined ? !!isActive : (existingData.isActive === true),
-      callbackUrl: callbackUrl !== undefined ? String(callbackUrl).trim() : (existingData.callbackUrl || ""),
-      lastTestedAt: existingData.lastTestedAt || null,
-      lastTestResult: existingData.lastTestResult || null,
-      updatedBy: actor.uid,
-      updatedAt: now,
-      createdAt: existingData.createdAt || now
-    };
-
-    await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", newData);
-
-    // Single active gateway enforcement: If iPaymu is explicitly set to active, deactivate Midtrans and Doit
-    if (isActive === true || isActive === "true") {
-      const existingMidtrans = await SystemConfigRepository.getInstance().getConfig("midtrans_integration");
-      if (existingMidtrans && existingMidtrans.isActive) {
-        await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", {
-          ...existingMidtrans,
-          isActive: false,
-          updatedAt: now
-        });
-      }
-      const existingDoit = await SystemConfigRepository.getInstance().getConfig("doit_integration");
-      if (existingDoit && existingDoit.isActive) {
-        await SystemConfigRepository.getInstance().upsertConfig("doit_integration", {
-          ...existingDoit,
-          isActive: false,
-          updatedAt: now
-        });
-      }
-      process.env.MIDTRANS_IS_ACTIVE = "false";
-      process.env.DOIT_IS_ACTIVE = "false";
-      process.env.IPAYMU_IS_ACTIVE = "true";
-    } else if (isActive === false || isActive === "false") {
-      process.env.IPAYMU_IS_ACTIVE = "false";
-    }
-
-    await logCoreAudit(actor, role, "UPDATE_IPAYMU_INTEGRATION", "systemConfigs/ipaymu_integration", {
-      va: existingData.va ? "****" : null,
-      isProduction: existingData.isProduction,
-      isActive: existingData.isActive,
-      callbackUrl: existingData.callbackUrl || null
-    }, {
-      va: newData.va ? "****" : null,
-      isProduction: newData.isProduction,
-      isActive: newData.isActive,
-      callbackUrl: newData.callbackUrl || null
-    }, "Updated iPaymu configuration");
-
-    const apiKeyMasked = newData.encryptedApiKey ? "••••••••" : "";
-
-    return res.status(200).json({
-      success: true,
-      message: "Konfigurasi iPaymu berhasil disimpan.",
-      data: {
-        va: newData.va,
-        isProduction: newData.isProduction,
-        isActive: newData.isActive,
-        callbackUrl: newData.callbackUrl || "https://ist.web.id/api/webhooks/ipaymu",
-        configured: !!newData.encryptedApiKey,
-        apiKeyMasked
-      }
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi iPaymu." });
-  }
-}
-
-export async function testIpaymuIntegration(req: AuthenticatedRequest, res: Response) {
-  try {
-    const actor = {
-      uid: req.user.uid,
-      email: req.user.email || req.user.uid
-    };
-    const role = req.user.role || "pemilik";
-
-    const config = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration") || {};
-    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
-    const va = config.va || "";
-
-    if (!va || !apiKey) {
-      return res.status(400).json({ success: false, message: "iPaymu VA atau API Key belum dikonfigurasi." });
-    }
-
-    const adapter = IpaymuProviderAdapter.getInstance();
-    await adapter.getPaymentStatus({ orderId: "ping_test_" + Date.now() });
-
-    const now = new Date().toISOString();
-    await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", {
-      ...config,
-      lastTestedAt: now,
-      lastTestResult: "SUCCESS",
-      lastTestMessage: "Koneksi iPaymu berhasil diuji"
-    });
-
-    await logCoreAudit(actor, role, "TEST_IPAYMU_CONNECTION", "systemConfigs/ipaymu_integration", null, {
-      success: true,
-      message: "Connection OK"
-    }, "Tested iPaymu connection");
-
-    return res.status(200).json({
-      success: true,
-      message: "Koneksi ke iPaymu berhasil!",
-      data: { success: true, testedAt: now }
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Tes koneksi iPaymu gagal." });
-  }
-}
-
-export async function removeIpaymuIntegration(req: AuthenticatedRequest, res: Response) {
-  try {
-    const actor = {
-      uid: req.user.uid,
-      email: req.user.email || req.user.uid
-    };
-    const role = req.user.role || "pemilik";
-
-    await SystemConfigRepository.getInstance().deleteConfig("ipaymu_integration");
-    await logCoreAudit(actor, role, "REMOVE_IPAYMU_INTEGRATION", "systemConfigs/ipaymu_integration", null, null, "Removed iPaymu configuration");
-
-    return res.status(200).json({
-      success: true,
-      message: "Konfigurasi iPaymu berhasil dihapus."
-    });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message || "Gagal menghapus konfigurasi iPaymu." });
-  }
-}
-
-
 export async function getOmqrisIntegration(req: AuthenticatedRequest, res: Response) {
   try {
     const config = await SystemConfigRepository.getInstance().getConfig("omqris_integration") || {};
@@ -2734,20 +2540,12 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
 
     await SystemConfigRepository.getInstance().upsertConfig("doit_integration", newData);
 
-    // Single active gateway enforcement: If Doit.id is explicitly set to active, deactivate Midtrans & iPaymu
+    // Single active gateway enforcement: If Doit.id is explicitly set to active, deactivate other gateways
     if (isActive === true || isActive === "true") {
       const existingMidtrans = await SystemConfigRepository.getInstance().getConfig("midtrans_integration");
       if (existingMidtrans && existingMidtrans.isActive) {
         await SystemConfigRepository.getInstance().upsertConfig("midtrans_integration", {
           ...existingMidtrans,
-          isActive: false,
-          updatedAt: now
-        });
-      }
-      const existingIpaymu = await SystemConfigRepository.getInstance().getConfig("ipaymu_integration");
-      if (existingIpaymu && existingIpaymu.isActive) {
-        await SystemConfigRepository.getInstance().upsertConfig("ipaymu_integration", {
-          ...existingIpaymu,
           isActive: false,
           updatedAt: now
         });
@@ -2761,7 +2559,6 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
         });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
-      process.env.IPAYMU_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
