@@ -2458,6 +2458,11 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
     const nextMerchantCode = typeof merchantCode === "string" && merchantCode.trim() ? merchantCode.trim() : String(existing.merchantCode || "");
     const requestedActive = isActive === true || isActive === "true";
     const nextIsProduction = isProduction !== undefined ? (isProduction === true || isProduction === "true") : existing.isProduction === true;
+    const connectionSettingsChanged =
+      (typeof apiKey === "string" && !!apiKey.trim() && !apiKey.includes("••••") && !apiKey.includes("****")) ||
+      (typeof privateKey === "string" && !!privateKey.trim() && !privateKey.includes("••••") && !privateKey.includes("****")) ||
+      nextMerchantCode !== String(existing.merchantCode || "") ||
+      nextIsProduction !== (existing.isProduction === true);
 
     if (requestedActive && (!encryptedApiKey || !encryptedPrivateKey || !nextMerchantCode)) {
       return res.status(400).json({ success: false, message: "API Key, Private Key, dan Kode Merchant TriPay harus disimpan sebelum aktivasi." });
@@ -2471,6 +2476,9 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
       merchantCode: nextMerchantCode,
       isProduction: nextIsProduction,
       callbackUrl: "https://ist.web.id/api/webhooks/tripay",
+      availableChannels: connectionSettingsChanged ? [] : (existing.availableChannels || []),
+      lastTestedAt: connectionSettingsChanged ? null : (existing.lastTestedAt || null),
+      lastTestResult: connectionSettingsChanged ? null : (existing.lastTestResult || null),
       isActive: isActive !== undefined ? requestedActive : existing.isActive === true,
       updatedBy: req.user.uid,
       updatedAt: now,
