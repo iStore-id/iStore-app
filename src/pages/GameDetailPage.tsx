@@ -1486,7 +1486,13 @@ export default function GameDetailPage() {
                     (["QRIS", "E-Wallet", "BANK", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
                       const channels = group === "BANK"
                         ? tripayAvailableChannels.filter((channel) => ["Virtual Account", "Transfer Bank"].includes(getTripayChannelGroup(channel)))
-                        : tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
+                        : group === "QRIS"
+                          ? (() => {
+                              const qrisChannels = tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === "QRIS");
+                              const standardQris = qrisChannels.find((channel) => channel.code.toUpperCase() === "QRIS");
+                              return standardQris ? [standardQris] : qrisChannels.slice(0, 1);
+                            })()
+                          : tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
                       if (!channels.length) return null;
                       const isPrimary = group === "QRIS";
                       const isExpanded = isPrimary || Boolean(expandedPaymentGroups[group]);
@@ -1504,7 +1510,7 @@ export default function GameDetailPage() {
                             }}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <span className="text-xs font-bold tracking-wide text-slate-800">{groupLabel}{isPrimary ? " (UTAMA)" : ""}</span>
+                              <span className="text-xs font-bold tracking-wide text-slate-800">{groupLabel}{isPrimary ? " (KODE QRIS)" : ""}</span>
                               {!isPrimary && <span className="text-[11px] text-slate-500">{isExpanded ? "SEMBUNYIKAN" : "TAMPILKAN"}</span>}
                             </span>
                             {!isPrimary && <ChevronRight className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />}
