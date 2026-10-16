@@ -522,7 +522,8 @@ export default function TransactionDetailPage() {
                 }
 
                 // Existing Midtrans and other gateways
-                if (order.qrImage) {
+                const tripayQrImage = order.qrImage || order.gatewayResponse?.qrImage;
+                if (tripayQrImage) {
                   return (
                     <div className="flex flex-col items-center space-y-4 w-full">
                       <div className="text-center space-y-1">
@@ -530,7 +531,7 @@ export default function TransactionDetailPage() {
                         <p className="text-[11px] text-slate-500">Silakan scan kode QR di bawah ini</p>
                       </div>
                       <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
-                        <img src={order.qrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                        <img src={tripayQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-brand-600 font-bold bg-brand-50 px-3 py-1.5 rounded-full animate-pulse">
                         <Clock className="w-3 h-3" />
