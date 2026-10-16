@@ -324,7 +324,7 @@ export default function GameDetailPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
-  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "ipaymu" | "omqris" | null>(null);
+  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
