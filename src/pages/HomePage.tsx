@@ -16,6 +16,9 @@ const BlogPreviewSection = lazy(() => import("../components/home/BlogPreviewSect
 import { PublicFAQItem } from "../types/faq";
 import { useSEO } from "../lib/seo";
 
+// Hide E-Money top-up from the homepage only; keep catalog data and other routes unchanged.
+const HIDDEN_HOMEPAGE_CATEGORY_ID = "934a2b92-2d94-478f-9477-e20c01382383";
+
 const DEFAULT_HOMEPAGE_LAYOUT = [
   { id: "hero", order: 0, visible: true },
   { id: "ticker", order: 1, visible: true },
@@ -189,7 +192,9 @@ export default function HomePage() {
         const faqsData = await faqsRes.json();
         
         if (categoriesData.success) {
-          const sortedCategories = (categoriesData.data || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+          const sortedCategories = (categoriesData.data || [])
+            .filter((category: any) => category.id !== HIDDEN_HOMEPAGE_CATEGORY_ID)
+            .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
           setActiveCategories(sortedCategories);
         }
         if (bannersData.success) {
@@ -217,7 +222,7 @@ export default function HomePage() {
         const gamesRes = await fetch("/api/public/catalog/games");
         const gamesData = await gamesRes.json();
         if (gamesData.success) {
-          setPopularGames(gamesData.data || []);
+          setPopularGames((gamesData.data || []).filter((game: Game) => !game.categoryIds?.includes(HIDDEN_HOMEPAGE_CATEGORY_ID)));
         } else {
           setCatalogErrorState("service_error");
         }
