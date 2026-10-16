@@ -1545,7 +1545,7 @@ export default function GameDetailPage() {
                                       <span className={`block line-clamp-2 break-words text-xs font-semibold leading-snug ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channel.name}</span>
                                     </span>
                                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                                      isSelected ? (isDarkMode ? "border-violet-400 bg-brand-600 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
+                                      isSelected ? (isDarkMode ? "border-brand-500 bg-brand-600 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
                                     }`}>
                                       {isSelected && <ShieldCheck className="h-3.5 w-3.5" />}
                                     </span>
