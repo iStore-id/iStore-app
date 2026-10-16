@@ -1426,14 +1426,18 @@ export default function GameDetailPage() {
                     { id: "bca_va", name: "BCA VA", logo: "/payment-logos/bca.svg" },
                     { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
                     { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
+                    { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
+                    { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
+                    { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" },
                     { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
                     { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
                     { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
                   ].filter((method) => {
-                    if (activeGateway !== "tripay") return true;
+                    if (activeGateway !== "tripay") return !["bsi_va", "cimb_va", "danamon_va"].includes(method.id);
                     const tripayCodes: Record<string, string> = {
                       qris: "QRIS", gopay: "GOPAY", shopeepay: "SHOPEEPAY",
                       bca_va: "BCAVA", bni_va: "BNIVA", bri_va: "BRIVA",
+                      bsi_va: "BSIVA", cimb_va: "CIMBVA", danamon_va: "DANAMONVA",
                       echannel: "MANDIRIVA", permata_va: "PERMATAVA"
                     };
                     const code = tripayCodes[method.id];
