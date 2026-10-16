@@ -1521,12 +1521,14 @@ export default function GameDetailPage() {
                             <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                               {channels.map((channel) => {
                                 const isSelected = selectedPaymentMethod === channel.code;
+                                const channelDisplayName = group === "QRIS" ? "QRIS" : channel.name;
+                                const channelDisplayLogo = group === "QRIS" ? "/payment-logos/qris.svg" : (channel.iconUrl || getTripayChannelLogo(channel.code));
                                 return (
                                   <button
                                     key={channel.code}
                                     type="button"
                                     aria-pressed={isSelected}
-                                    aria-label={`Pilih metode pembayaran ${channel.name}`}
+                                    aria-label={`Pilih metode pembayaran ${channelDisplayName}`}
                                     onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
                                     className={`group flex min-h-[64px] w-full min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                                       isSelected
@@ -1539,10 +1541,10 @@ export default function GameDetailPage() {
                             }}
                                   >
                                     <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-sm transition-transform duration-200 group-hover:scale-[1.03]">
-                                      <img src={channel.iconUrl || getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                                      <img src={channelDisplayLogo} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                      <span className={`block line-clamp-2 break-words text-xs font-semibold leading-snug ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channel.name}</span>
+                                      <span className={`block line-clamp-2 break-words text-xs font-semibold leading-snug ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channelDisplayName}</span>
                                     </span>
                                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                                       isSelected ? (isDarkMode ? "border-brand-500 bg-brand-600 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
@@ -1637,7 +1639,7 @@ export default function GameDetailPage() {
             <div className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs leading-relaxed text-slate-600" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-color)" }}>
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
               <span>{selectedPaymentMethod
-                ? `Metode dipilih: ${activeGateway === "tripay" ? tripayAvailableChannels.find((channel) => channel.code === selectedPaymentMethod)?.name || selectedPaymentMethod : selectedPaymentMethod.toUpperCase()}. Instruksi pembayaran akan ditampilkan setelah Anda melanjutkan.`
+                ? `Metode dipilih: ${activeGateway === "tripay" ? (getTripayChannelGroup(tripayAvailableChannels.find((channel) => channel.code === selectedPaymentMethod) || { code: selectedPaymentMethod, name: selectedPaymentMethod }) === "QRIS" ? "QRIS" : tripayAvailableChannels.find((channel) => channel.code === selectedPaymentMethod)?.name || selectedPaymentMethod) : selectedPaymentMethod.toUpperCase()}. Instruksi pembayaran akan ditampilkan setelah Anda melanjutkan.`
                 : "Pilih satu metode pembayaran yang tersedia. iStore tidak memilih metode secara otomatis agar Anda tetap memegang kendali."}</span>
             </div>
 
