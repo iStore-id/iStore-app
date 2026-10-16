@@ -131,7 +131,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
         vaNumber: payCode || undefined,
         vaBank: method.endsWith("VA") ? method.replace(/VA$/, "") : undefined,
         rail: method,
-        totalAmount: Number(data.amount || input.grossAmount),
+        totalAmount: Number(data.total_amount ?? (Number(data.amount || input.grossAmount) + Number(data.fee_customer || 0))),
         feeAmount: Number(data.total_fee || data.fee_merchant || 0),
         expiresAt: data.expired_time ? new Date(Number(data.expired_time) * 1000).toISOString() : undefined,
         rawResponse: data
@@ -173,8 +173,14 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
     const merchantRef = String(data.merchant_ref || "").trim();
     const reference = String(data.reference || "").trim();
     if (!merchantRef || !reference) throw new Error("TriPay callback is missing merchant_ref or reference.");
-    const amount = Number(data.total_amount);
-    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("TriPay callback amount is invalid.");
+    const totalAmount = Number(data.total_amount);
+    const customerFee = Number(data.fee_customer || 0);
+    const amount = totalAmount - customerFee;
+    if (
+      !Number.isSafeInteger(totalAmount) || totalAmount <= 0 ||
+      !Number.isSafeInteger(customerFee) || customerFee < 0 ||
+      !Number.isSafeInteger(amount) || amount <= 0
+    ) throw new Error("TriPay callback amount is invalid.");
 
     return {
       provider: "tripay",
