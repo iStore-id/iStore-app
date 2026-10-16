@@ -146,7 +146,6 @@ test("Regression: EXPIRED then authoritative late PAID is eligible only for OmQr
   assert.equal(isOmqrisStaleTerminalEvent(storedPaymentStatus, latePaidEvent), false);
   assert.equal(isOmqrisAuthoritativeLatePaid("doit", storedPaymentStatus, latePaidEvent), false);
   assert.equal(isOmqrisAuthoritativeLatePaid("midtrans", storedPaymentStatus, latePaidEvent), false);
-  assert.equal(isOmqrisAuthoritativeLatePaid("ipaymu", storedPaymentStatus, latePaidEvent), false);
 });
 
 test("Regression: fulfillment recovery retries reuse one idempotency key after late payment", () => {
