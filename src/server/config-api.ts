@@ -91,7 +91,13 @@ export async function getPublicTripayChannels(_req: Request, res: Response) {
     const { TripayProviderAdapter } = await import("./adapters/tripay-adapter.js");
     const channels = await TripayProviderAdapter.getInstance().getPaymentChannels();
     const normalized = channels.filter((item: any) => item && item.active !== false && typeof item.code === "string" && item.code.trim())
-      .map((item: any) => ({ code: String(item.code).trim().toUpperCase(), name: String(item.name || item.code).trim() }));
+      .map((item: any) => ({
+        code: String(item.code).trim().toUpperCase(),
+        name: String(item.name || item.code).trim(),
+        group: String(item.group || "").trim(),
+        type: String(item.type || "").trim(),
+        iconUrl: typeof item.icon_url === "string" && item.icon_url.trim().toLowerCase().startsWith("https://") ? item.icon_url.trim() : ""
+      }));
     if (!normalized.length) return res.status(503).json({ success: false, channels: [], message: "TriPay tidak mengembalikan kanal pembayaran yang tersedia." });
     res.setHeader("Cache-Control", "no-store, max-age=0");
     res.setHeader("CDN-Cache-Control", "no-store");
