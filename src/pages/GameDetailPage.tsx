@@ -1549,7 +1549,7 @@ export default function GameDetailPage() {
                   {(activeGateway === "tripay"
                     ? tripayAvailableChannels.map((channel) => ({
                         id: channel.code, name: channel.name,
-                        logo: getTripayChannelLogo(channel.code)
+                        logo: channel.iconUrl || getTripayChannelLogo(channel.code)
                       }))
                     : [
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
