@@ -479,9 +479,14 @@ export async function tripayWebhook(req: any, res: any) {
       markWebhookEventProcessed(eventId);
       return res.status(200).json({ success: true, message: "Status acknowledged; no order transition required" });
     }
-    if (String(orderData.paymentStatus || "").toLowerCase() === "paid" && event.status === "PAID") {
+    const currentPaymentStatus = String(orderData.paymentStatus || "").toLowerCase();
+    if (
+      (currentPaymentStatus === "paid" && event.status === "PAID") ||
+      (currentPaymentStatus === "expired" && event.status === "EXPIRED") ||
+      (currentPaymentStatus === "failed" && event.status === "FAILED")
+    ) {
       markWebhookEventProcessed(eventId);
-      return res.status(200).json({ success: true, message: "Order already paid" });
+      return res.status(200).json({ success: true, message: "Order already has this payment status" });
     }
 
     const targetState = event.status === "PAID" ? "PAID" : event.status === "EXPIRED" ? "EXPIRED" : "FAILED";
