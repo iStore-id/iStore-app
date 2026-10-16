@@ -481,7 +481,6 @@ export async function tripayWebhook(req: any, res: any) {
     }
     const currentPaymentStatus = String(orderData.paymentStatus || "").toLowerCase();
     if (
-      (currentPaymentStatus === "paid" && event.status === "PAID") ||
       (currentPaymentStatus === "expired" && event.status === "EXPIRED") ||
       (currentPaymentStatus === "failed" && event.status === "FAILED")
     ) {
@@ -490,15 +489,19 @@ export async function tripayWebhook(req: any, res: any) {
     }
 
     const targetState = event.status === "PAID" ? "PAID" : event.status === "EXPIRED" ? "EXPIRED" : "FAILED";
-    await transitionOrderState(orderData.id, targetState as any, {
-      gatewayTransactionId: event.transactionId,
-      gatewayPaymentType: String(event.rawPayload?.data?.payment_method_code || event.rawPayload?.payment_method_code || ""),
-      gatewayResponse: event.rawPayload
-    }, `TriPay webhook: ${event.status}`);
+    if (!(targetState === "PAID" && currentPaymentStatus === "paid")) {
+      await transitionOrderState(orderData.id, targetState as any, {
+        gatewayTransactionId: event.transactionId,
+        gatewayPaymentType: String(event.rawPayload?.data?.payment_method_code || event.rawPayload?.payment_method_code || ""),
+        gatewayResponse: event.rawPayload
+      }, `TriPay webhook: ${event.status}`);
+    }
 
+    // Repeat these idempotent side effects on PAID retries so a transient ledger/job failure
+    // after the state transition cannot leave an order paid but unfulfilled.
     if (targetState === "PAID") {
       const refreshedOrder = await orderRepo.getOrderById(orderData.id);
-      if (refreshedOrder) {
+      if (refreshedOrder && String(refreshedOrder.paymentStatus || "").toLowerCase() === "paid") {
         await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "TriPay Webhook" });
         const { JobService } = await import("./job-service.js");
         await JobService.getInstance().enqueue({
