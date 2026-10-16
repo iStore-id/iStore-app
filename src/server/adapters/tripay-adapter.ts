@@ -40,7 +40,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
       apiKey: saved?.encryptedApiKey ? decryptSecret(saved.encryptedApiKey) : String(saved?.apiKey || process.env.TRIPAY_API_KEY || ""),
       privateKey: saved?.encryptedPrivateKey ? decryptSecret(saved.encryptedPrivateKey) : String(saved?.privateKey || process.env.TRIPAY_PRIVATE_KEY || ""),
       merchantCode: String(saved?.merchantCode || process.env.TRIPAY_MERCHANT_CODE || ""),
-      isProduction: saved?.isProduction === true || process.env.TRIPAY_IS_PRODUCTION === "true",
+      isProduction: saved?.isProduction !== undefined ? saved.isProduction === true : process.env.TRIPAY_IS_PRODUCTION === "true",
       isActive: saved?.isActive === true,
       callbackUrl: String(saved?.callbackUrl || "https://ist.web.id/api/webhooks/tripay")
     };
@@ -102,7 +102,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
     form.set("customer_email", input.customerDetails.email || "customer@ist.web.id");
     if (input.customerDetails.phone) form.set("customer_phone", input.customerDetails.phone);
     form.set("callback_url", input.callbackUrl || config.callbackUrl);
-    if (input.returnUrl) form.set("return_url", input.returnUrl);
+    form.set("return_url", input.returnUrl || `https://ist.web.id/transactions/${encodeURIComponent(merchantRef)}`);
     form.set("expired_time", String(Math.floor(Date.now() / 1000) + 24 * 60 * 60));
     form.set("signature", signature);
     input.itemDetails.slice(0, 20).forEach((item, index) => {
