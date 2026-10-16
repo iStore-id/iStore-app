@@ -84,18 +84,21 @@ export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Re
 import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans.js";
 import { PaymentRouter } from "./payment-router.js";
 
-export async function getPublicTripayChannels(req: Request, res: Response) {
+export async function getPublicTripayChannels(_req: Request, res: Response) {
   try {
     const config = await SystemConfigRepository.getInstance().getConfig("tripay_integration");
-    if (!config || config.isActive !== true || !Array.isArray(config.availableChannels)) {
-      return res.status(200).json({ success: true, channels: [] });
-    }
-    const channels = config.availableChannels
-      .filter((item: any) => item && item.active !== false && typeof item.code === "string")
-      .map((item: any) => ({ code: item.code, name: String(item.name || item.code) }));
-    return res.status(200).json({ success: true, channels });
-  } catch {
-    return res.status(200).json({ success: true, channels: [] });
+    if (!config || config.isActive !== true) return res.status(503).json({ success: false, channels: [], message: "TriPay tidak aktif." });
+    const { TripayProviderAdapter } = await import("./adapters/tripay-adapter.js");
+    const channels = await TripayProviderAdapter.getInstance().getPaymentChannels();
+    const normalized = channels.filter((item: any) => item && item.active !== false && typeof item.code === "string" && item.code.trim())
+      .map((item: any) => ({ code: String(item.code).trim().toUpperCase(), name: String(item.name || item.code).trim() }));
+    if (!normalized.length) return res.status(503).json({ success: false, channels: [], message: "TriPay tidak mengembalikan kanal pembayaran yang tersedia." });
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.setHeader("CDN-Cache-Control", "no-store");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+    return res.status(200).json({ success: true, channels: normalized });
+  } catch (error: any) {
+    return res.status(503).json({ success: false, channels: [], message: error?.message || "Kanal pembayaran TriPay tidak dapat diverifikasi saat ini." });
   }
 }
 
