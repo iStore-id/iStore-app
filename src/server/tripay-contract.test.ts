@@ -7,8 +7,8 @@ import {
 
 test("TriPay transaction signature follows merchantCode + merchantRef + amount", () => {
   assert.equal(
-    createTripayTransactionSignature("T123", "INV-1", 15000, "private"),
-    createTripayTransactionSignature("T123", "INV-1", 15000, "private")
+    createTripayTransactionSignature("T0001", "INV55567", 1500000, "ytf6ooi2gmlNPfpchd94jDOk8hRWOu"),
+    "9f167eba844d1fcb369404e2bda53702e2f78f7aa12e91da6715414e65b8c86a"
   );
   assert.notEqual(
     createTripayTransactionSignature("T123", "INV-1", 15000, "private"),
