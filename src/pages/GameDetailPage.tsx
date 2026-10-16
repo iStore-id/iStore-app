@@ -1381,7 +1381,7 @@ export default function GameDetailPage() {
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
                                 ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_8px_24px_rgba(139,92,246,0.12)]"
-                                : "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]
+                                : "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]"
                             }`}
                             style={{ backgroundColor: isSelected ? "rgba(35, 28, 54, 0.98)" : "rgba(25, 29, 39, 0.96)", borderColor: isSelected ? "rgba(167, 139, 250, 0.95)" : "rgba(148, 163, 184, 0.22)" }}
                           >
@@ -1441,7 +1441,7 @@ export default function GameDetailPage() {
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
                                 ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_8px_24px_rgba(139,92,246,0.12)]"
-                                : "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]
+                                : "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]"
                             }`}
                             style={{ backgroundColor: isSelected ? "rgba(35, 28, 54, 0.98)" : "rgba(25, 29, 39, 0.96)", borderColor: isSelected ? "rgba(167, 139, 250, 0.95)" : "rgba(148, 163, 184, 0.22)" }}
                           >
