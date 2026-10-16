@@ -160,6 +160,33 @@ function normalizeCheckoutErrorMessage(value: unknown, fallback: string): string
   return fallback;
 }
 
+
+function getTripayChannelGroup(channel: { code: string; name: string }): "QRIS" | "E-Wallet" | "Virtual Account" | "Transfer Bank" | "Lainnya" {
+  const code = channel.code.toUpperCase().replace(/[\s_-]+/g, "");
+  const name = channel.name.toUpperCase();
+  if (code.includes("QRIS") || name.includes("QRIS")) return "QRIS";
+  if (/(SHOPEEPAY|GOPAY|DANA|OVO|LINKAJA|ASTRAPAY|JENIUSPAY|EWALLET|E-WALLET|WALLET)/.test(code + " " + name)) return "E-Wallet";
+  if (/(VIRTUALACCOUNT|\bVA\b)/.test(name) || /VA$/.test(code) || code.includes("VIRTUALACCOUNT")) return "Virtual Account";
+  if (/(TRANSFERBANK|BANKTRANSFER|IBANK|INTERNETBANKING|BIFAST)/.test(code + " " + name)) return "Transfer Bank";
+  return "Lainnya";
+}
+
+function getTripayChannelLogo(code: string): string {
+  return ({
+    QRIS: "/payment-logos/qris.svg",
+    SHOPEEPAY: "/payment-logos/shopee-pay.svg",
+    GOPAY: "/payment-logos/gopay.svg",
+    BCAVA: "/payment-logos/bca.svg",
+    BNIVA: "/payment-logos/bni.svg",
+    BRIVA: "/payment-logos/bri.svg",
+    BSIVA: "/payment-logos/bsi.svg",
+    CIMBVA: "/payment-logos/cimb-niaga.svg",
+    DANAMONVA: "/payment-logos/danamon.svg",
+    MANDIRIVA: "/payment-logos/mandiri.svg",
+    PERMATAVA: "/payment-logos/permata.svg"
+  } as Record<string, string>)[code.toUpperCase()] || "/payment-logos/bi-fast.svg";
+}
+
 export default function GameDetailPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -327,6 +354,7 @@ export default function GameDetailPage() {
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
   const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
+  const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -347,10 +375,12 @@ export default function GameDetailPage() {
   useEffect(() => {
     if (activeGateway !== "tripay") {
       setTripayAvailableChannels([]);
+      setTripayChannelsLoading(false);
       return;
     }
     let cancelled = false;
     setTripayAvailableChannels([]);
+    setTripayChannelsLoading(true);
     setTripayChannelsError("");
     fetch("/api/public/tripay/channels", { cache: "no-store" })
       .then(async (res) => {
@@ -363,11 +393,12 @@ export default function GameDetailPage() {
           const channels = data.channels.filter((channel: any) => channel && typeof channel.code === "string" && channel.code.trim())
             .map((channel: any) => ({ code: String(channel.code).trim().toUpperCase(), name: String(channel.name || channel.code).trim() }));
           setTripayAvailableChannels(channels);
-          if (!channels.some((channel: { code: string }) => channel.code === selectedPaymentMethod)) setSelectedPaymentMethod("");
+          setTripayChannelsLoading(false);
+          setSelectedPaymentMethod((current) => channels.some((channel: { code: string }) => channel.code === current) ? current : "");
           if (!channels.length) setTripayChannelsError("Tidak ada kanal pembayaran TriPay yang tersedia saat ini.");
         }
       })
-      .catch((error) => { if (!cancelled) { setTripayAvailableChannels([]); setSelectedPaymentMethod(""); setTripayChannelsError(error?.message || "Metode pembayaran TriPay tidak dapat dimuat."); } });
+      .catch((error) => { if (!cancelled) { setTripayAvailableChannels([]); setTripayChannelsLoading(false); setSelectedPaymentMethod(""); setTripayChannelsError(error?.message || "Metode pembayaran TriPay tidak dapat dimuat."); } });
     return () => { cancelled = true; };
   }, [activeGateway]);
 
@@ -1428,6 +1459,76 @@ export default function GameDetailPage() {
                     </div>
                   </div>
                 </div>
+              ) : activeGateway === "tripay" ? (
+                <div className="space-y-5">
+                  {tripayChannelsLoading ? (
+                    <div className="flex items-center gap-3 rounded-xl border p-4 text-sm text-slate-500" style={{ borderColor: "var(--border-color)" }} role="status">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
+                      Memuat metode pembayaran yang tersedia...
+                    </div>
+                  ) : (
+                    (["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"] as const).map((group) => {
+                      const channels = tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
+                      if (!channels.length) return null;
+                      const description: Record<typeof group, string> = {
+                        "QRIS": "Scan kode QR menggunakan aplikasi pembayaran yang mendukung QRIS.",
+                        "E-Wallet": "Pilih dompet digital yang tersedia untuk transaksi ini.",
+                        "Virtual Account": "Bayar melalui nomor Virtual Account bank yang dipilih.",
+                        "Transfer Bank": "Ikuti instruksi transfer yang ditampilkan setelah melanjutkan.",
+                        "Lainnya": "Metode tambahan yang saat ini tersedia dari TriPay."
+                      };
+                      return (
+                        <section key={group} className="space-y-2.5" aria-label={group}>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-800">{group}</h3>
+                            <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{description[group]}</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {channels.map((channel) => {
+                              const isSelected = selectedPaymentMethod === channel.code;
+                              return (
+                                <button
+                                  key={channel.code}
+                                  type="button"
+                                  aria-pressed={isSelected}
+                                  aria-label={`Pilih metode pembayaran ${channel.name}`}
+                                  onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
+                                  className={`flex min-h-[76px] w-full min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
+                                    isSelected
+                                      ? "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20"
+                                      : "hover:border-brand-300"
+                                  }`}
+                                  style={isSelected ? {} : {
+                                    backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
+                                    borderColor: "var(--border-color)"
+                                  }}
+                                >
+                                  <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-2">
+                                    <img src={getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block break-words text-sm font-bold leading-snug text-slate-900">{channel.name}</span>
+                                    <span className="mt-1 block text-xs text-slate-500">{group === "QRIS" ? "Bayar dengan scan QR" : group === "E-Wallet" ? "Pembayaran dompet digital" : group === "Virtual Account" ? "Transfer ke nomor VA" : group === "Transfer Bank" ? "Transfer melalui bank" : "Metode pembayaran tersedia"}</span>
+                                  </span>
+                                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                    isSelected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"
+                                  }`}>
+                                    {isSelected && <ShieldCheck className="h-3.5 w-3.5" />}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      );
+                    })
+                  )}
+                  {!tripayChannelsLoading && !tripayChannelsError && tripayAvailableChannels.length === 0 && (
+                    <div className="rounded-xl border p-4 text-sm text-slate-500" style={{ borderColor: "var(--border-color)" }}>
+                      Metode pembayaran belum tersedia. Silakan coba beberapa saat lagi.
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {(activeGateway === "tripay"
@@ -1509,9 +1610,12 @@ export default function GameDetailPage() {
               )}
             </div>
 
-            <p className="text-xs leading-relaxed text-slate-500">
-              Pilih salah satu metode pembayaran di atas. Metode belum dipilih secara otomatis.
-            </p>
+            <div className="flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs leading-relaxed text-slate-600" style={{ borderColor: "var(--border-color)", backgroundColor: "var(--surface-color)" }}>
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{selectedPaymentMethod
+                ? `Metode dipilih: ${activeGateway === "tripay" ? tripayAvailableChannels.find((channel) => channel.code === selectedPaymentMethod)?.name || selectedPaymentMethod : selectedPaymentMethod.toUpperCase()}. Instruksi pembayaran akan ditampilkan setelah Anda melanjutkan.`
+                : "Pilih satu metode pembayaran yang tersedia. iStore tidak memilih metode secara otomatis agar Anda tetap memegang kendali."}</span>
+            </div>
 
             {/* Total Pembayaran */}
             <div className="space-y-4">
@@ -1544,7 +1648,7 @@ export default function GameDetailPage() {
               >
                 {processing ? "Memproses..." : (
                   <>
-                    Bayar Sekarang
+                    Lanjutkan ke pembayaran
                     <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
