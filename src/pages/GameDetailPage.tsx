@@ -325,6 +325,7 @@ export default function GameDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
+  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<string[]>([]);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -341,6 +342,23 @@ export default function GameDetailPage() {
         setActiveGateway(null);
       });
   }, []);
+
+  useEffect(() => {
+    if (activeGateway !== "tripay") {
+      setTripayAvailableChannels([]);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/public/tripay/channels")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.success && Array.isArray(data.channels)) {
+          setTripayAvailableChannels(data.channels.map((channel: any) => String(channel.code || "").toUpperCase()).filter(Boolean));
+        }
+      })
+      .catch(() => { if (!cancelled) setTripayAvailableChannels([]); });
+    return () => { cancelled = true; };
+  }, [activeGateway]);
 
   useEffect(() => {
     if (user?.email && !buyerEmail) {
@@ -1411,7 +1429,16 @@ export default function GameDetailPage() {
                     { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
                     { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
                     { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
-                  ].filter((method) => activeGateway !== "tripay" || method.id !== "other_va").map((method) => {
+                  ].filter((method) => {
+                    if (activeGateway !== "tripay") return true;
+                    const tripayCodes: Record<string, string> = {
+                      qris: "QRIS", gopay: "GOPAY", shopeepay: "SHOPEEPAY",
+                      bca_va: "BCAVA", bni_va: "BNIVA", bri_va: "BRIVA",
+                      echannel: "MANDIRIVA", permata_va: "PERMATAVA"
+                    };
+                    const code = tripayCodes[method.id];
+                    return Boolean(code && tripayAvailableChannels.includes(code));
+                  }).map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
                       <button
