@@ -1359,7 +1359,7 @@ export default function GameDetailPage() {
             {/* 3. Metode Pembayaran */}
             <div className="space-y-4">
               <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? "bg-brand-600/15 text-brand-300 ring-1 ring-violet-400/30" : "bg-brand-100 text-brand-600"}`}>3</span>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? "bg-brand-600/15 text-brand-300 ring-1 ring-brand-400/30" : "bg-brand-100 text-brand-600"}`}>3</span>
                 Pilih Metode Pembayaran
               </h2>
               {activeGateway === "doit" || activeGateway === "omqris" ? (
