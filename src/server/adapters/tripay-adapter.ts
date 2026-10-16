@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { SystemConfigRepository } from "../supabase/system-config-repository.js";
 import { decryptSecret } from "../midtrans.js";
 import {
@@ -72,7 +73,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
     const config = await this.getConfig();
     if (!config.apiKey) throw new Error("API Key TriPay belum dikonfigurasi.");
     const data = await this.request(config, "/merchant/payment-channel", { method: "GET" });
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.filter((item: any) => item && item.active !== false) : [];
   }
 
   public async createPayment(input: CreatePaymentInput): Promise<PaymentResult> {
@@ -116,15 +117,17 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
       const reference = String(data.reference || "");
       const checkoutUrl = String(data.checkout_url || data.pay_url || "");
       const qrUrl = String(data.qr_url || "");
+      const qrString = String(data.qr_string || "");
+      const qrImage = qrUrl || (qrString ? await QRCode.toDataURL(qrString, { errorCorrectionLevel: "M", margin: 2, scale: 8 }) : "");
       const payCode = String(data.pay_code || "");
-      if (!reference || (!checkoutUrl && !qrUrl && !payCode)) {
+      if (!reference || (!checkoutUrl && !qrImage && !payCode)) {
         return { success: false, message: "Respons TriPay tidak memiliki referensi atau detail pembayaran yang dapat digunakan.", rawResponse: data };
       }
       return {
         success: true,
         token: reference,
         redirectUrl: checkoutUrl || undefined,
-        qrImage: qrUrl || undefined,
+        qrImage: qrImage || undefined,
         vaNumber: payCode || undefined,
         vaBank: method.endsWith("VA") ? method.replace(/VA$/, "") : undefined,
         rail: method,
