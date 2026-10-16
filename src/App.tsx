@@ -81,7 +81,6 @@ const AdminFeatureFlagsPage = lazy(() => import("./pages/admin/AdminFeatureFlags
 const AdminSystemConfigPage = lazy(() => import("./pages/admin/AdminSystemConfigPage").then(m => ({ default: m.AdminSystemConfigPage })));
 const AdminIntegrationsHubPage = lazy(() => import("./pages/admin/AdminIntegrationsHubPage"));
 const AdminMidtransIntegrationPage = lazy(() => import("./pages/admin/AdminMidtransIntegrationPage"));
-const AdminIpaymuIntegrationPage = lazy(() => import("./pages/admin/AdminIpaymuIntegrationPage"));
 const AdminDoitIntegrationPage = lazy(() => import("./pages/admin/AdminDoitIntegrationPage"));
 const AdminOmqrisIntegrationPage = lazy(() => import("./pages/admin/AdminOmqrisIntegrationPage"));
 const AdminApiGamesIntegrationPage = lazy(() => import("./pages/admin/AdminApiGamesIntegrationPage"));
@@ -286,7 +285,6 @@ export default function App() {
             <Route path="system-config" element={<AdminSystemConfigPage />} />
             <Route path="integrations" element={<AdminIntegrationsHubPage />} />
             <Route path="integrations/midtrans" element={<AdminMidtransIntegrationPage />} />
-            <Route path="integrations/ipaymu" element={<AdminIpaymuIntegrationPage />} />
             <Route path="integrations/doit" element={<AdminDoitIntegrationPage />} />
             <Route path="integrations/omqris" element={<AdminOmqrisIntegrationPage />} />
             <Route path="integrations/apigames" element={<AdminApiGamesIntegrationPage />} />
