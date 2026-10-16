@@ -1510,7 +1510,7 @@ export default function GameDetailPage() {
                             }}
                           >
                             <span className="flex min-w-0 items-center gap-2">
-                              <span className="text-xs font-bold tracking-wide text-slate-800">{groupLabel}{isPrimary ? " (KODE QRIS)" : ""}</span>
+                              <span className="text-xs font-bold tracking-wide text-slate-800">{groupLabel}</span>
                               {!isPrimary && <span className="text-[11px] text-slate-500">{isExpanded ? "SEMBUNYIKAN" : "TAMPILKAN"}</span>}
                             </span>
                             {!isPrimary && <ChevronRight className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />}
