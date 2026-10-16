@@ -364,6 +364,7 @@ export default function GameDetailPage() {
   const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
+  const [expandedPaymentGroups, setExpandedPaymentGroups] = useState<Record<string, boolean>>({});
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -1482,56 +1483,69 @@ export default function GameDetailPage() {
                       Memuat metode pembayaran yang tersedia...
                     </div>
                   ) : (
-                    (["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
-                      const channels = tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
+                    (["QRIS", "E-Wallet", "BANK", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
+                      const channels = group === "BANK"
+                        ? tripayAvailableChannels.filter((channel) => ["Virtual Account", "Transfer Bank"].includes(getTripayChannelGroup(channel)))
+                        : tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
                       if (!channels.length) return null;
-                      const description: Record<string, string> = {
-                        "QRIS": "Scan kode QR menggunakan aplikasi pembayaran yang mendukung QRIS.",
-                        "E-Wallet": "Pilih dompet digital yang tersedia untuk transaksi ini.",
-                        "Virtual Account": "Bayar melalui nomor Virtual Account bank yang dipilih.",
-                        "Transfer Bank": "Ikuti instruksi transfer yang ditampilkan setelah melanjutkan.",
-                        "Lainnya": "Metode tambahan yang saat ini tersedia dari TriPay."
-                      };
+                      const isPrimary = group === "QRIS";
+                      const isExpanded = isPrimary || Boolean(expandedPaymentGroups[group]);
+                      const groupLabel = group === "E-Wallet" ? "E-WALLET" : group;
                       return (
-                        <section key={group} className="space-y-1.5" aria-label={group}>
-                          <div>
-                            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">{group}</h3>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {channels.map((channel) => {
-                              const isSelected = selectedPaymentMethod === channel.code;
-                              return (
-                                <button
-                                  key={channel.code}
-                                  type="button"
-                                  aria-pressed={isSelected}
-                                  aria-label={`Pilih metode pembayaran ${channel.name}`}
-                                  onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
-                                  className={`flex min-h-[58px] w-full min-w-0 items-center gap-2 rounded-lg border p-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
-                                    isSelected
-                                      ? "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20"
-                                      : "hover:border-brand-300"
-                                  }`}
-                                  style={isSelected ? {} : {
-                                    backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
-                                    borderColor: "var(--border-color)"
-                                  }}
-                                >
-                                  <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded-md border border-slate-100 bg-white p-1.5">
-                                    <img src={channel.iconUrl || getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900">{channel.name}</span>
-                                  </span>
-                                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                                    isSelected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"
-                                  }`}>
-                                    {isSelected && <ShieldCheck className="h-3.5 w-3.5" />}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
+                        <section key={group} className="space-y-2" aria-label={group}>
+                          <button
+                            type="button"
+                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${isPrimary ? "border-brand-200 bg-brand-50/70" : "hover:border-brand-300"}`}
+                            style={isPrimary ? {} : { backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)), borderColor: "var(--border-color)" }}
+                            aria-expanded={isExpanded}
+                            onClick={() => {
+                              if (isPrimary) return;
+                              setExpandedPaymentGroups((current) => ({ ...current, [group]: !current[group] }));
+                            }}
+                          >
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="text-xs font-bold tracking-wide text-slate-800">{groupLabel}{isPrimary ? " (UTAMA)" : ""}</span>
+                              {!isPrimary && <span className="text-[11px] text-slate-500">{isExpanded ? "SEMBUNYIKAN" : "TAMPILKAN"}</span>}
+                            </span>
+                            {!isPrimary && <ChevronRight className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />}
+                          </button>
+                          {isExpanded && (
+                            <div className="grid grid-cols-2 gap-2">
+                              {channels.map((channel) => {
+                                const isSelected = selectedPaymentMethod === channel.code;
+                                return (
+                                  <button
+                                    key={channel.code}
+                                    type="button"
+                                    aria-pressed={isSelected}
+                                    aria-label={`Pilih metode pembayaran ${channel.name}`}
+                                    onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
+                                    className={`flex min-h-[58px] w-full min-w-0 items-center gap-2 rounded-lg border p-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
+                                      isSelected
+                                        ? "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20"
+                                        : "hover:border-brand-300"
+                                    }`}
+                                    style={isSelected ? {} : {
+                                      backgroundColor: hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
+                                      borderColor: "var(--border-color)"
+                                    }}
+                                  >
+                                    <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded-md border border-slate-100 bg-white p-1.5">
+                                      <img src={channel.iconUrl || getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900">{channel.name}</span>
+                                    </span>
+                                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                      isSelected ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"
+                                    }`}>
+                                      {isSelected && <ShieldCheck className="h-3.5 w-3.5" />}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
                         </section>
                       );
                     })
