@@ -1376,6 +1376,7 @@ export default function GameDetailPage() {
                           <button
                             key={method.id}
                             type="button"
+                            aria-pressed={isSelected}
                             onClick={() => setSelectedPaymentMethod(method.id)}
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
@@ -1408,7 +1409,7 @@ export default function GameDetailPage() {
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white">
+                                <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
@@ -1438,6 +1439,7 @@ export default function GameDetailPage() {
                           <button
                             key={method.id}
                             type="button"
+                            aria-pressed={isSelected}
                             onClick={() => setSelectedPaymentMethod(method.id)}
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
@@ -1450,7 +1452,7 @@ export default function GameDetailPage() {
                             }}
                           >
                             <div className="flex items-center justify-between w-full mb-1">
-                              <div className="h-10 w-full flex items-center justify-center rounded-xl bg-white border border-slate-100 px-3 py-2">
+                              <div className="h-10 w-full flex items-center justify-center rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm transition-transform duration-200 group-hover:scale-[1.02]">
                                 <img
                                   src={method.logo}
                                   alt={method.name}
@@ -1460,11 +1462,11 @@ export default function GameDetailPage() {
                               </div>
                             </div>
                             <div className="mt-1">
-                              <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
+                              <div className={`line-clamp-1 text-xs font-bold leading-tight sm:text-sm ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{method.name}</div>
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className="bg-brand-600 text-white rounded-bl-xl p-1.5">
+                                <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
@@ -1597,7 +1599,7 @@ export default function GameDetailPage() {
                             }}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <div className="h-10 w-full flex items-center justify-center rounded-xl bg-white border border-slate-100 px-3 py-2">
+                          <div className="h-10 w-full flex items-center justify-center rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-sm transition-transform duration-200 group-hover:scale-[1.02]">
                             <img
                               src={method.logo}
                               alt={method.name}
@@ -1612,12 +1614,12 @@ export default function GameDetailPage() {
                           )}
                         </div>
                         <div className="mt-1">
-                          <div className="font-bold text-xs sm:text-sm text-slate-900 leading-tight line-clamp-1">{method.name}</div>
+                          <div className={`line-clamp-1 text-xs font-bold leading-tight sm:text-sm ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{method.name}</div>
                           {method.desc && <div className="text-[10px] sm:text-xs text-slate-500 leading-tight mt-0.5 line-clamp-1">{method.desc}</div>}
                         </div>
                         {isSelected && (
                           <div className="absolute top-0 right-0">
-                            <div className="bg-brand-600 text-white rounded-bl-xl p-1.5">
+                            <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                               <ShieldCheck className="w-3.5 h-3.5" />
                             </div>
                           </div>
