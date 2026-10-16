@@ -1381,7 +1381,7 @@ export default function GameDetailPage() {
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
                                 ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                             }`}
                             style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1444,7 +1444,7 @@ export default function GameDetailPage() {
                             className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
                                 ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                             }`}
                             style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1591,7 +1591,7 @@ export default function GameDetailPage() {
                         className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                           isSelected
                             ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                            : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                            : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                         }`}
                         style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
