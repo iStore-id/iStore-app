@@ -1486,7 +1486,13 @@ export default function GameDetailPage() {
                     (["QRIS", "E-Wallet", "BANK", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
                       const channels = group === "BANK"
                         ? tripayAvailableChannels.filter((channel) => ["Virtual Account", "Transfer Bank"].includes(getTripayChannelGroup(channel)))
-                        : tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
+                        : group === "QRIS"
+                          ? (() => {
+                              const qrisChannels = tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === "QRIS");
+                              const standardQris = qrisChannels.find((channel) => channel.code.toUpperCase() === "QRIS");
+                              return standardQris ? [standardQris] : qrisChannels.slice(0, 1);
+                            })()
+                          : tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
                       if (!channels.length) return null;
                       const isPrimary = group === "QRIS";
                       const isExpanded = isPrimary || Boolean(expandedPaymentGroups[group]);
