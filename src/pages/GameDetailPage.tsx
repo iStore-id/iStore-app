@@ -1549,6 +1549,7 @@ export default function GameDetailPage() {
                         </section>
                       );
                     })
+                  )}
                   {!tripayChannelsLoading && !tripayChannelsError && tripayAvailableChannels.length === 0 && (
                     <div className="rounded-xl border p-4 text-sm text-slate-500" style={{ borderColor: "var(--border-color)" }}>
                       Metode pembayaran belum tersedia. Silakan coba beberapa saat lagi.
