@@ -1,4 +1,4 @@
-name: OmQris Contract Tests
+name: Payment Gateway Contract Tests
 
 on:
   push:
