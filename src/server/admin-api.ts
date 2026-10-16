@@ -819,6 +819,9 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
       if (txError.message === "REFUND_GATEWAY_UNSUPPORTED") {
         return res.status(400).json({ success: false, message: "Refund otomatis hanya didukung untuk transaksi Midtrans." });
       }
+      if (txError.message === "REFUND_GATEWAY_UNSUPPORTED") {
+        return res.status(400).json({ success: false, message: "Refund otomatis hanya didukung untuk transaksi Midtrans." });
+      }
       if (txError.message === "OMQRIS_REFUND_UNSUPPORTED") {
         return res.status(400).json({ success: false, message: "Refund otomatis OmQris belum didukung. Gunakan prosedur refund manual; permintaan gateway tidak dikirim." });
       }
