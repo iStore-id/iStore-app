@@ -391,6 +391,51 @@ export default function TransactionDetailPage() {
                   );
                 }
 
+                if (order.paymentGatewayCode === "tripay") {
+                  const tripayQrImage = gwResp.qrImage || order.qrImage;
+                  const tripayVaNumber = gwResp.vaNumber;
+                  const tripayVaBank = String(gwResp.vaBank || "").toUpperCase();
+                  const tripayBankInfo = getBankInfo(tripayVaBank);
+                  if (tripayQrImage) {
+                    return (
+                      <div className="flex flex-col items-center space-y-4 w-full max-w-sm mx-auto">
+                        <div className="text-center space-y-1">
+                          <h3 className="text-sm font-bold text-slate-900">Bayar melalui TriPay</h3>
+                          <p className="text-[11px] text-slate-500">Scan QRIS menggunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                          <img src={tripayQrImage} alt="TriPay QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                        </div>
+                        <div className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</div>
+                        {order.paymentUrl && <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-brand-600 text-white px-5 py-3 text-sm font-semibold">Buka halaman pembayaran TriPay</a>}
+                      </div>
+                    );
+                  }
+                  if (tripayVaNumber) {
+                    return (
+                      <div className="flex flex-col items-center space-y-4 w-full max-w-md mx-auto">
+                        <div className="w-full bg-white rounded-2xl border-2 border-slate-200 shadow-sm p-5 space-y-4">
+                          <div className="font-bold text-sm text-slate-800">{tripayBankInfo.name} Virtual Account</div>
+                          <div>
+                            <span className="text-[11px] font-medium text-slate-500 block mb-1">Nomor Virtual Account</span>
+                            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl p-3">
+                              <span className="font-mono text-base sm:text-lg font-bold text-slate-900 tracking-wider break-all">{tripayVaNumber}</span>
+                              <button type="button" onClick={() => { navigator.clipboard.writeText(String(tripayVaNumber)); setCopiedVa(true); setTimeout(() => setCopiedVa(false), 2000); }} className="ml-3 px-3 py-1.5 bg-brand-600 text-white rounded-lg text-xs font-semibold">
+                                {copiedVa ? "Tersalin!" : "Salin"}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</div>
+                        </div>
+                        {order.paymentUrl && <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-brand-600 text-white px-5 py-3 text-sm font-semibold">Buka halaman pembayaran TriPay</a>}
+                      </div>
+                    );
+                  }
+                  if (order.paymentUrl) {
+                    return <a href={order.paymentUrl} target="_blank" rel="noreferrer" className="rounded-xl bg-brand-600 text-white px-6 py-3 text-sm font-semibold">Lanjutkan Pembayaran TriPay</a>;
+                  }
+                }
+
                 if (isDoit) {
                   if (doitRail === 'qris' || doitQrImage) {
                     return (
