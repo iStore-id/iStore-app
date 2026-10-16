@@ -161,10 +161,12 @@ function normalizeCheckoutErrorMessage(value: unknown, fallback: string): string
 }
 
 
-function getTripayChannelGroup(channel: { code: string; name: string }): "QRIS" | "E-Wallet" | "Virtual Account" | "Transfer Bank" | "Lainnya" {
+function getTripayChannelGroup(channel: { code: string; name: string; group?: string }): string {
   const code = channel.code.toUpperCase().replace(/[\s_-]+/g, "");
   const name = channel.name.toUpperCase();
   if (code.includes("QRIS") || name.includes("QRIS")) return "QRIS";
+  const apiGroup = String(channel.group || "").trim();
+  if (apiGroup) return apiGroup;
   if (/(SHOPEEPAY|GOPAY|DANA|OVO|LINKAJA|ASTRAPAY|JENIUSPAY|EWALLET|E-WALLET|WALLET)/.test(code + " " + name)) return "E-Wallet";
   if (/(VIRTUALACCOUNT|\bVA\b)/.test(name) || /VA$/.test(code) || code.includes("VIRTUALACCOUNT")) return "Virtual Account";
   if (/(TRANSFERBANK|BANKTRANSFER|IBANK|INTERNETBANKING|BIFAST)/.test(code + " " + name)) return "Transfer Bank";
@@ -359,7 +361,7 @@ export default function GameDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
-  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string }>>([]);
+  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
@@ -398,7 +400,13 @@ export default function GameDetailPage() {
       .then((data) => {
         if (!cancelled) {
           const channels = data.channels.filter((channel: any) => channel && typeof channel.code === "string" && channel.code.trim())
-            .map((channel: any) => ({ code: String(channel.code).trim().toUpperCase(), name: String(channel.name || channel.code).trim() }));
+            .map((channel: any) => ({
+              code: String(channel.code).trim().toUpperCase(),
+              name: String(channel.name || channel.code).trim(),
+              group: String(channel.group || "").trim(),
+              type: String(channel.type || "").trim(),
+              iconUrl: typeof channel.iconUrl === "string" && channel.iconUrl.trim().toLowerCase().startsWith("https://") ? channel.iconUrl.trim() : ""
+            }));
           setTripayAvailableChannels(channels);
           setTripayChannelsLoading(false);
           setSelectedPaymentMethod((current) => channels.some((channel: { code: string }) => channel.code === current) ? current : "");
@@ -1474,10 +1482,10 @@ export default function GameDetailPage() {
                       Memuat metode pembayaran yang tersedia...
                     </div>
                   ) : (
-                    (["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"] as const).map((group) => {
+                    (["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
                       const channels = tripayAvailableChannels.filter((channel) => getTripayChannelGroup(channel) === group);
                       if (!channels.length) return null;
-                      const description: Record<typeof group, string> = {
+                      const description: Record<string, string> = {
                         "QRIS": "Scan kode QR menggunakan aplikasi pembayaran yang mendukung QRIS.",
                         "E-Wallet": "Pilih dompet digital yang tersedia untuk transaksi ini.",
                         "Virtual Account": "Bayar melalui nomor Virtual Account bank yang dipilih.",
@@ -1511,7 +1519,7 @@ export default function GameDetailPage() {
                                   }}
                                 >
                                   <span className="flex h-11 w-14 shrink-0 items-center justify-center rounded-lg border border-slate-100 bg-white p-2">
-                                    <img src={getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
+                                    <img src={channel.iconUrl || getTripayChannelLogo(channel.code)} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
                                   </span>
                                   <span className="min-w-0 flex-1">
                                     <span className="block break-words text-sm font-bold leading-snug text-slate-900">{channel.name}</span>
