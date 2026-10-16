@@ -142,20 +142,21 @@ export async function getPaymentStatusHandler(req: any, res: any) {
             return res.status(409).json({ success: false, message: "TriPay reports PAID, but the order state requires reconciliation." });
           }
         }
-        const refreshed = await orderRepo.getOrderById(order.id);
-        if (refreshed && String(refreshed.paymentStatus || "").toLowerCase() === "paid") {
-          await safeRecordPaymentReceived(order.id, refreshed, "SYSTEM", { source: "TriPay Status Inquiry" });
-          const { JobService } = await import("./job-service.js");
-          await JobService.getInstance().enqueue({
-            type: "FULFILLMENT",
-            payload: { orderId: order.id },
-            priority: "HIGH",
-            referenceId: order.id,
-            idempotencyKey: `fulfillment_${order.id}`
-          });
-        }
       }
+
+      // Always retry idempotent ledger/fulfillment work for confirmed PAID orders.
       const refreshed = await orderRepo.getOrderById(order.id);
+      if (refreshed && String(refreshed.paymentStatus || "").toLowerCase() === "paid") {
+        await safeRecordPaymentReceived(order.id, refreshed, "SYSTEM", { source: "TriPay Status Inquiry" });
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: "FULFILLMENT",
+          payload: { orderId: order.id },
+          priority: "HIGH",
+          referenceId: order.id,
+          idempotencyKey: `fulfillment_${order.id}`
+        });
+      }
       return res.status(200).json({
         success: true,
         data: {
