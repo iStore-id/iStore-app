@@ -7,7 +7,9 @@ import { safeRecordPaymentReceived } from "./ledger-service.js";
 import { logSystem } from "./system-log-service.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
+import { TripayProviderAdapter } from "./adapters/tripay-adapter.js";
 import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
+import { buildTripayWebhookEventKey } from "./tripay-contract.js";
 import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
 import * as crypto from "crypto";
 
@@ -433,6 +435,99 @@ export async function omqrisWebhook(req: any, res: any) {
       });
     if (eventId) clearWebhookEventStatus("omqris:" + eventId);
     return res.status(signatureError ? 401 : 500).json({ success: false, message: signatureError ? "Invalid callback signature" : "Webhook processing failed" });
+  }
+}
+
+
+
+/** Dedicated TriPay callback endpoint; signature, gateway, amount and status are validated before order mutation. */
+export async function tripayWebhook(req: any, res: any) {
+  let eventId = "";
+  try {
+    const adapter = TripayProviderAdapter.getInstance();
+    const event = await adapter.verifyWebhook({ body: req.rawBody || req.body, headers: req.headers, ip: req.ip });
+    eventId = "tripay:" + buildTripayWebhookEventKey(event.transactionId, event.status);
+    if (!eventId || eventId === "tripay:") return res.status(400).json({ success: false, message: "Missing TriPay event identifier" });
+
+    const previous = getWebhookEventStatus(eventId);
+    if (previous === "COMPLETED" || previous === "PROCESSING") {
+      return res.status(200).json({ success: true, message: "Event already received" });
+    }
+    setWebhookEventStatus(eventId, "PROCESSING");
+
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = await orderRepo.getOrderByInvoice(event.orderId) || await orderRepo.getOrderById(event.orderId);
+    if (!orderData) {
+      clearWebhookEventStatus(eventId);
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (String(orderData.paymentGatewayCode || "").toLowerCase() !== "tripay") {
+      clearWebhookEventStatus(eventId);
+      return res.status(409).json({ success: false, message: "Order gateway does not match TriPay" });
+    }
+    if (Number(event.amount) !== Number(orderData.totalAmount)) {
+      logSystem("CRITICAL", "PAYMENT", "TRIPAY_AMOUNT_MISMATCH",
+        `Nominal TriPay tidak cocok untuk order ${orderData.id}`, "tripay-webhook", {
+          orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
+          metadata: { expectedAmount: orderData.totalAmount, receivedAmount: event.amount }
+        });
+      clearWebhookEventStatus(eventId);
+      return res.status(400).json({ success: false, message: "Amount mismatch" });
+    }
+
+    if (event.status === "REFUNDED" || event.status === "PENDING") {
+      markWebhookEventProcessed(eventId);
+      return res.status(200).json({ success: true, message: "Status acknowledged; no order transition required" });
+    }
+    const currentPaymentStatus = String(orderData.paymentStatus || "").toLowerCase();
+    if (
+      (currentPaymentStatus === "expired" && event.status === "EXPIRED") ||
+      (currentPaymentStatus === "failed" && event.status === "FAILED")
+    ) {
+      markWebhookEventProcessed(eventId);
+      return res.status(200).json({ success: true, message: "Order already has this payment status" });
+    }
+
+    const targetState = event.status === "PAID" ? "PAID" : event.status === "EXPIRED" ? "EXPIRED" : "FAILED";
+    if (!(targetState === "PAID" && currentPaymentStatus === "paid")) {
+      await transitionOrderState(orderData.id, targetState as any, {
+        gatewayTransactionId: event.transactionId,
+        gatewayPaymentType: String(event.rawPayload?.data?.payment_method_code || event.rawPayload?.payment_method_code || ""),
+        gatewayResponse: event.rawPayload
+      }, `TriPay webhook: ${event.status}`);
+    }
+
+    // Repeat these idempotent side effects on PAID retries so a transient ledger/job failure
+    // after the state transition cannot leave an order paid but unfulfilled.
+    if (targetState === "PAID") {
+      const refreshedOrder = await orderRepo.getOrderById(orderData.id);
+      if (refreshedOrder && String(refreshedOrder.paymentStatus || "").toLowerCase() === "paid") {
+        await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "TriPay Webhook" });
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: "FULFILLMENT",
+          payload: { orderId: orderData.id },
+          priority: "HIGH",
+          referenceId: orderData.id,
+          idempotencyKey: `fulfillment_${orderData.id}`
+        });
+      }
+    }
+    markWebhookEventProcessed(eventId);
+    return res.status(200).json({ success: true });
+  } catch (error: any) {
+    if (eventId) clearWebhookEventStatus(eventId);
+    const signatureError = /signature/i.test(String(error?.message || ""));
+    logSystem(signatureError ? "WARN" : "ERROR", "WEBHOOK",
+      signatureError ? "TRIPAY_INVALID_SIGNATURE" : "TRIPAY_WEBHOOK_FAILED",
+      String(error?.message || "TriPay webhook failed"), "tripay-webhook", {
+        httpStatus: signatureError ? 401 : 500,
+        outcome: signatureError ? "BLOCKED" : "FAILURE"
+      });
+    return res.status(signatureError ? 401 : 500).json({
+      success: false,
+      message: signatureError ? "Invalid callback signature" : "TriPay webhook processing failed"
+    });
   }
 }
 

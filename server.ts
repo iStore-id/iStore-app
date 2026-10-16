@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import { processCheckout } from "./src/server/order-engine.js";
-import { midtransWebhook, tokovoucherWebhook, doitWebhook, omqrisWebhook } from "./src/server/webhooks.js";
+import { midtransWebhook, tokovoucherWebhook, doitWebhook, omqrisWebhook, tripayWebhook } from "./src/server/webhooks.js";
 import { getPaymentStatusHandler } from "./src/server/payment-status-api.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
@@ -23,9 +23,9 @@ import {
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
 } from "./src/server/admin-api.js";
-import { getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration } from "./src/server/admin-api.js";
+import { getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration, getTripayIntegration, updateTripayIntegration, testTripayIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
-import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway, getPublicPwaManifest } from "./src/server/config-api.js";
+import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway, getPublicTripayChannels, getPublicPwaManifest } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
 import { getCustomerProfileApi, getCustomerOrdersApi } from "./src/server/customer-api.js";
 import { getRoles, createRoleApi, updateRoleApi, deleteRoleApi, assignRoleApi, getUserPermissionsApi, checkPermissionApi, getAdminUsersApi, updateProfileApi } from "./src/server/auth-api.js";
@@ -336,6 +336,7 @@ export async function initServerLogic() {
   app.post("/api/webhooks/tokovoucher", tokovoucherWebhook);
   app.post("/api/webhooks/doit", doitWebhook);
   app.post("/api/webhooks/omqris", omqrisWebhook);
+  app.post("/api/webhooks/tripay", tripayWebhook);
 
   // Admin Routes (Using Permissions instead of just requireAdmin)
   app.post("/api/admin/games", requirePermission("games", "create"), createGame);
@@ -506,6 +507,10 @@ export async function initServerLogic() {
   app.put("/api/admin/integrations/omqris", requirePermission("system", "edit"), updateOmqrisIntegration);
   app.post("/api/admin/integrations/omqris/test", requirePermission("system", "edit"), testOmqrisIntegration);
   app.delete("/api/admin/integrations/omqris", requirePermission("system", "edit"), removeOmqrisIntegration);
+
+  app.get("/api/admin/integrations/tripay", requirePermission("system", "view"), getTripayIntegration);
+  app.put("/api/admin/integrations/tripay", requirePermission("system", "edit"), updateTripayIntegration);
+  app.post("/api/admin/integrations/tripay/test", requirePermission("system", "edit"), testTripayIntegration);
 
   // Doit.id Integration Management
   app.get("/api/admin/integrations/doit", requirePermission("system", "view"), getDoitIntegration);
@@ -682,6 +687,7 @@ export async function initServerLogic() {
   app.get("/api/public/pwa-manifest", getPublicPwaManifest);
   app.get("/api/public/config/midtrans", getPublicMidtransConfig);
   app.get("/api/public/payment-gateway", getPublicPaymentGateway);
+  app.get("/api/public/tripay/channels", getPublicTripayChannels);
   app.get("/api/public/seo", getPublicSEOSettings);
   app.get("/api/admin/seo", requirePermission("seo", "view"), getAdminSEOSettings);
   app.put("/api/admin/seo", requirePermission("seo", "edit"), updateAdminSEOSettings);

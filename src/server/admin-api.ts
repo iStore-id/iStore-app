@@ -2418,6 +2418,144 @@ export async function removeOmqrisIntegration(req: AuthenticatedRequest, res: Re
   }
 }
 
+
+
+export async function getTripayIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("tripay_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    const privateKey = config.encryptedPrivateKey ? decryptSecret(config.encryptedPrivateKey) : "";
+    return res.status(200).json({
+      success: true,
+      data: {
+        apiKeyMasked: apiKey ? "••••••••••••••••" : "",
+        privateKeyConfigured: !!privateKey,
+        merchantCode: config.merchantCode || "",
+        isProduction: config.isProduction === true,
+        isActive: config.isActive === true,
+        configured: !!apiKey && !!privateKey && !!config.merchantCode,
+        callbackUrl: config.callbackUrl || "https://ist.web.id/api/webhooks/tripay",
+        lastTestedAt: config.lastTestedAt || null,
+        lastTestResult: config.lastTestResult || null,
+        availableChannels: Array.isArray(config.availableChannels) ? config.availableChannels : []
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal mengambil konfigurasi TriPay." });
+  }
+}
+
+export async function updateTripayIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { apiKey, privateKey, merchantCode, isProduction, isActive } = req.body || {};
+    const repo = SystemConfigRepository.getInstance();
+    const existing = await repo.getConfig("tripay_integration") || {};
+    const now = new Date().toISOString();
+    const encryptedApiKey = typeof apiKey === "string" && apiKey.trim() && !apiKey.includes("••••") && !apiKey.includes("****")
+      ? encryptSecret(apiKey.trim()) : (existing.encryptedApiKey || "");
+    const encryptedPrivateKey = typeof privateKey === "string" && privateKey.trim() && !privateKey.includes("••••") && !privateKey.includes("****")
+      ? encryptSecret(privateKey.trim()) : (existing.encryptedPrivateKey || "");
+    const nextMerchantCode = typeof merchantCode === "string" && merchantCode.trim() ? merchantCode.trim() : String(existing.merchantCode || "");
+    const requestedActive = isActive === true || isActive === "true";
+    const nextIsProduction = isProduction !== undefined ? (isProduction === true || isProduction === "true") : existing.isProduction === true;
+    const connectionSettingsChanged =
+      (typeof apiKey === "string" && !!apiKey.trim() && !apiKey.includes("••••") && !apiKey.includes("****")) ||
+      (typeof privateKey === "string" && !!privateKey.trim() && !privateKey.includes("••••") && !privateKey.includes("****")) ||
+      nextMerchantCode !== String(existing.merchantCode || "") ||
+      nextIsProduction !== (existing.isProduction === true);
+
+    if (requestedActive && (!encryptedApiKey || !encryptedPrivateKey || !nextMerchantCode)) {
+      return res.status(400).json({ success: false, message: "API Key, Private Key, dan Kode Merchant TriPay harus disimpan sebelum aktivasi." });
+    }
+    if (requestedActive && (connectionSettingsChanged || existing.lastTestResult !== "success")) {
+      return res.status(409).json({ success: false, message: "TriPay hanya dapat diaktifkan setelah kredensial dan mode yang tersimpan berhasil diuji. Simpan konfigurasi dalam keadaan nonaktif, tes koneksi, lalu aktifkan." });
+    }
+
+    const newConfig = {
+      ...existing,
+      key: "tripay_integration",
+      encryptedApiKey,
+      encryptedPrivateKey,
+      merchantCode: nextMerchantCode,
+      isProduction: nextIsProduction,
+      callbackUrl: "https://ist.web.id/api/webhooks/tripay",
+      availableChannels: connectionSettingsChanged ? [] : (existing.availableChannels || []),
+      lastTestedAt: connectionSettingsChanged ? null : (existing.lastTestedAt || null),
+      lastTestResult: connectionSettingsChanged ? null : (existing.lastTestResult || null),
+      isActive: isActive !== undefined ? requestedActive : existing.isActive === true,
+      updatedBy: req.user.uid,
+      updatedAt: now,
+      createdAt: existing.createdAt || now
+    };
+    await repo.upsertConfig("tripay_integration", newConfig);
+
+    if (requestedActive) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration"] as const) {
+        const current = await repo.getConfig(key).catch(() => null);
+        if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
+      process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "true";
+    } else if (isActive === false || isActive === "false") {
+      process.env.TRIPAY_IS_ACTIVE = "false";
+    }
+
+    const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
+    await logCoreAudit(actor, req.user.role || "pemilik", "UPDATE_TRIPAY_INTEGRATION",
+      "systemConfigs/tripay_integration",
+      { isActive: existing.isActive === true, configured: !!existing.encryptedApiKey && !!existing.encryptedPrivateKey && !!existing.merchantCode },
+      { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedPrivateKey && !!nextMerchantCode },
+      "Updated TriPay configuration");
+
+    return res.status(200).json({
+      success: true,
+      message: "Konfigurasi TriPay berhasil disimpan.",
+      data: { isActive: newConfig.isActive, configured: !!encryptedApiKey && !!encryptedPrivateKey && !!nextMerchantCode, isProduction: nextIsProduction, callbackUrl: newConfig.callbackUrl }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi TriPay." });
+  }
+}
+
+export async function testTripayIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const repo = SystemConfigRepository.getInstance();
+    const config = await repo.getConfig("tripay_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    const privateKey = config.encryptedPrivateKey ? decryptSecret(config.encryptedPrivateKey) : "";
+    if (!apiKey || !privateKey || !config.merchantCode) {
+      return res.status(400).json({ success: false, message: "Simpan API Key, Private Key, dan Kode Merchant TriPay terlebih dahulu." });
+    }
+    const { TripayProviderAdapter } = await import("./adapters/tripay-adapter.js");
+    const channels = await TripayProviderAdapter.getInstance().getPaymentChannels();
+    if (!channels.length) throw new Error("TriPay tidak mengembalikan kanal pembayaran aktif untuk akun ini.");
+    const now = new Date().toISOString();
+    await repo.upsertConfig("tripay_integration", {
+      ...config,
+      lastTestedAt: now,
+      lastTestResult: "success",
+      availableChannels: channels.map((item: any) => ({
+        code: String(item.code || ""),
+        name: String(item.name || item.code || ""),
+        active: item.active !== false
+      })).filter((item: any) => item.code)
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Koneksi TriPay berhasil. Kanal pembayaran aktif berhasil dibaca.",
+      data: {
+        isProduction: config.isProduction === true,
+        channelCount: channels.length,
+        channels: channels.map((item: any) => ({ code: String(item.code || ""), name: String(item.name || item.code || "") })).filter((item: any) => item.code)
+      }
+    });
+  } catch (err: any) {
+    return res.status(502).json({ success: false, message: err.message || "Tes koneksi TriPay gagal." });
+  }
+}
+
 const ALLOWED_DOIT_HOSTS = new Set([
   "pay.doit.id"
 ]);

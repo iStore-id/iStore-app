@@ -22,7 +22,7 @@ export async function getPaymentStatusHandler(req: any, res: any) {
     }
 
     const gatewayCode = (order.paymentGatewayCode || "").toLowerCase().trim();
-    if (gatewayCode !== 'doit' && gatewayCode !== 'omqris') {
+    if (gatewayCode !== 'doit' && gatewayCode !== 'omqris' && gatewayCode !== 'tripay') {
       return res.status(400).json({ success: false, message: "Gateway not supported for status inquiry" });
     }
 
@@ -105,6 +105,64 @@ export async function getPaymentStatusHandler(req: any, res: any) {
           ...statusResult,
           status: String(refreshedOrder?.paymentStatus || "").toUpperCase() === "PAID" ? "PAID" : statusResult.status,
           orderPaymentStatus: refreshedOrder?.paymentStatus || order.paymentStatus
+        }
+      });
+    }
+
+    if (gatewayCode === "tripay" && String(statusResult.status || "").toUpperCase() === "PAID") {
+      const providerAmount = Number(statusResult.grossAmount || 0);
+      const expectedAmount = Number(order.totalAmount || 0);
+      if (!Number.isSafeInteger(providerAmount) || providerAmount <= 0 || providerAmount !== expectedAmount) {
+        logSystem("CRITICAL", "PAYMENT", "TRIPAY_STATUS_AMOUNT_MISMATCH",
+          `Nominal TriPay tidak cocok untuk order ${order.id}`, "tripay-status-inquiry", {
+            orderId: order.id,
+            httpStatus: 409,
+            outcome: "BLOCKED",
+            metadata: { expectedAmount, providerAmount }
+          });
+        return res.status(409).json({ success: false, message: "TriPay confirmed payment but the amount requires review." });
+      }
+
+      if (String(order.paymentStatus || "").toLowerCase() !== "paid") {
+        try {
+          await transitionOrderState(order.id, "PAID" as any, {
+            gatewayTransactionId: order.gatewayTransactionId || statusResult.rawData?.reference,
+            gatewayPaymentType: statusResult.rawData?.payment_method || statusResult.rawData?.payment_method_code || order.gatewayPaymentType,
+            gatewayResponse: statusResult.rawData || statusResult
+          }, "TriPay status inquiry confirmed payment");
+        } catch (transitionError: any) {
+          const refreshed = await orderRepo.getOrderById(order.id);
+          if (String(refreshed?.paymentStatus || "").toLowerCase() !== "paid") {
+            logSystem("WARN", "PAYMENT", "TRIPAY_STATUS_TRANSITION_REQUIRES_REVIEW",
+              String(transitionError?.message || "TriPay paid status could not be applied"), "tripay-status-inquiry", {
+                orderId: order.id,
+                httpStatus: 409,
+                outcome: "BLOCKED"
+              });
+            return res.status(409).json({ success: false, message: "TriPay reports PAID, but the order state requires reconciliation." });
+          }
+        }
+      }
+
+      // Always retry idempotent ledger/fulfillment work for confirmed PAID orders.
+      const refreshed = await orderRepo.getOrderById(order.id);
+      if (refreshed && String(refreshed.paymentStatus || "").toLowerCase() === "paid") {
+        await safeRecordPaymentReceived(order.id, refreshed, "SYSTEM", { source: "TriPay Status Inquiry" });
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: "FULFILLMENT",
+          payload: { orderId: order.id },
+          priority: "HIGH",
+          referenceId: order.id,
+          idempotencyKey: `fulfillment_${order.id}`
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...statusResult,
+          status: String(refreshed?.paymentStatus || "").toLowerCase() === "paid" ? "PAID" : statusResult.status,
+          orderPaymentStatus: refreshed?.paymentStatus || order.paymentStatus
         }
       });
     }

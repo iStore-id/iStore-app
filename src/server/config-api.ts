@@ -84,6 +84,21 @@ export async function getSystemConfigOverview(req: AuthenticatedRequest, res: Re
 import { getMidtransServerConfig, encryptSecret, decryptSecret, testMidtransConnection } from "./midtrans.js";
 import { PaymentRouter } from "./payment-router.js";
 
+export async function getPublicTripayChannels(req: Request, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("tripay_integration");
+    if (!config || config.isActive !== true || !Array.isArray(config.availableChannels)) {
+      return res.status(200).json({ success: true, channels: [] });
+    }
+    const channels = config.availableChannels
+      .filter((item: any) => item && item.active !== false && typeof item.code === "string")
+      .map((item: any) => ({ code: item.code, name: String(item.name || item.code) }));
+    return res.status(200).json({ success: true, channels });
+  } catch {
+    return res.status(200).json({ success: true, channels: [] });
+  }
+}
+
 export async function getPublicPaymentGateway(req: Request, res: Response) {
   try {
     const gatewayCode = await PaymentRouter.getInstance().getActiveGateway();
