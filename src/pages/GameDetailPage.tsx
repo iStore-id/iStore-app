@@ -1359,14 +1359,14 @@ export default function GameDetailPage() {
             {/* 3. Metode Pembayaran */}
             <div className="space-y-4">
               <h2 className={`text-base font-bold flex items-center gap-2 ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? "bg-violet-500/15 text-violet-300 ring-1 ring-violet-400/30" : "bg-brand-100 text-brand-600"}`}>3</span>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? "bg-brand-600/15 text-brand-300 ring-1 ring-brand-400/30" : "bg-brand-100 text-brand-600"}`}>3</span>
                 Pilih Metode Pembayaran
               </h2>
               {activeGateway === "doit" || activeGateway === "omqris" ? (
                 <div className="space-y-4">
                   {/* Kelompok QRIS */}
                   <div>
-                    <h3 className={`mb-2 text-xs font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-violet-300" : "text-slate-500"}`}>QRIS</h3>
+                    <h3 className={`mb-2 text-xs font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-brand-300" : "text-slate-500"}`}>QRIS</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       {[
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Instant", logo: "/payment-logos/qris.svg" }
@@ -1378,10 +1378,10 @@ export default function GameDetailPage() {
                             type="button"
                             aria-pressed={isSelected}
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
+                            className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
-                                ? (isDarkMode ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_8px_24px_rgba(139,92,246,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                                ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
+                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                             }`}
                             style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1398,7 +1398,7 @@ export default function GameDetailPage() {
                                 />
                               </div>
                               {method.tag && (
-                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold leading-none ${isDarkMode ? "border-violet-400/30 bg-violet-500/15 text-violet-200" : "border-violet-200 bg-violet-50 text-violet-700"}`}>
+                                <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold leading-none ${isDarkMode ? "border-brand-400/30 bg-brand-500/15 text-brand-200" : "border-brand-200 bg-brand-50 text-brand-700"}`}>
                                   {method.tag}
                                 </span>
                               )}
@@ -1409,7 +1409,7 @@ export default function GameDetailPage() {
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
+                                <div className={`${isDarkMode ? "bg-brand-600" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
@@ -1441,10 +1441,10 @@ export default function GameDetailPage() {
                             type="button"
                             aria-pressed={isSelected}
                             onClick={() => setSelectedPaymentMethod(method.id)}
-                            className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
+                            className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                               isSelected
-                                ? (isDarkMode ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_8px_24px_rgba(139,92,246,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                                ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
+                                : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                             }`}
                             style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1466,7 +1466,7 @@ export default function GameDetailPage() {
                             </div>
                             {isSelected && (
                               <div className="absolute top-0 right-0">
-                                <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
+                                <div className={`${isDarkMode ? "bg-brand-600" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                 </div>
                               </div>
@@ -1503,7 +1503,7 @@ export default function GameDetailPage() {
                         <section key={group} className="space-y-2" aria-label={group}>
                           <button
                             type="button"
-                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 ${isPrimary ? (isDarkMode ? "border-violet-400/50 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.08)]" : "border-brand-200 bg-brand-50/70") : (isDarkMode ? "border-slate-700/80 hover:border-cyan-400/50" : "hover:border-brand-300")}`}
+                            className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${isPrimary ? (isDarkMode ? "border-brand-400/50 bg-brand-500/10 shadow-[0_0_20px_rgba(255,68,0,0.08)]" : "border-brand-200 bg-brand-50/70") : (isDarkMode ? "border-slate-700/80 hover:border-brand-400/50" : "hover:border-brand-300")}`}
                             style={isPrimary ? {} : { backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)), borderColor: isDarkMode ? "rgba(148, 163, 184, 0.22)" : "var(--border-color)" }}
                             aria-expanded={isExpanded}
                             onClick={() => {
@@ -1528,10 +1528,10 @@ export default function GameDetailPage() {
                                     aria-pressed={isSelected}
                                     aria-label={`Pilih metode pembayaran ${channel.name}`}
                                     onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
-                                    className={`group flex min-h-[64px] w-full min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
+                                    className={`group flex min-h-[64px] w-full min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                                       isSelected
-                                        ? (isDarkMode ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_6px_18px_rgba(139,92,246,0.10)]" : "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20")
-                                        : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300")
+                                        ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_6px_18px_rgba(255,68,0,0.10)]" : "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20")
+                                        : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300")
                                     }`}
                                     style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1545,7 +1545,7 @@ export default function GameDetailPage() {
                                       <span className={`block line-clamp-2 break-words text-xs font-semibold leading-snug ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channel.name}</span>
                                     </span>
                                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                                      isSelected ? (isDarkMode ? "border-violet-400 bg-violet-500 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
+                                      isSelected ? (isDarkMode ? "border-brand-500 bg-brand-600 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
                                     }`}>
                                       {isSelected && <ShieldCheck className="h-3.5 w-3.5" />}
                                     </span>
@@ -1588,10 +1588,10 @@ export default function GameDetailPage() {
                         type="button"
                         onClick={() => setSelectedPaymentMethod(method.id)}
                         aria-pressed={isSelected}
-                        className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 active:scale-[0.98] ${
+                        className={`group relative flex h-auto min-h-[112px] w-full min-w-0 flex-col justify-between overflow-hidden rounded-2xl border p-3.5 text-left shadow-sm transition-all duration-200 ease-out sm:min-h-[120px] sm:p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
                           isSelected
-                            ? (isDarkMode ? "border-violet-400 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_8px_24px_rgba(139,92,246,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
-                            : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-cyan-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(34,211,238,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
+                            ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_8px_24px_rgba(255,68,0,0.12)]" : "border-brand-600 bg-brand-50/70 shadow-md ring-2 ring-brand-500/20")
+                            : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95 hover:shadow-[0_8px_24px_rgba(255,68,0,0.08)]" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md")
                         }`}
                         style={isSelected ? {} : {
                               backgroundColor: isDarkMode ? "rgba(25, 29, 39, 0.96)" : hexToRgba(effectiveCardColor, Math.min(100, cardOpacity + 5)),
@@ -1608,7 +1608,7 @@ export default function GameDetailPage() {
                             />
                           </div>
                           {method.tag && (
-                            <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold leading-none ${isDarkMode ? "border-violet-400/30 bg-violet-500/15 text-violet-200" : "border-violet-200 bg-violet-50 text-violet-700"}`}>
+                            <span className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-bold leading-none ${isDarkMode ? "border-brand-400/30 bg-brand-500/15 text-brand-200" : "border-brand-200 bg-brand-50 text-brand-700"}`}>
                               {method.tag}
                             </span>
                           )}
@@ -1619,7 +1619,7 @@ export default function GameDetailPage() {
                         </div>
                         {isSelected && (
                           <div className="absolute top-0 right-0">
-                            <div className={`${isDarkMode ? "bg-violet-500" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
+                            <div className={`${isDarkMode ? "bg-brand-600" : "bg-brand-600"} rounded-bl-xl p-1.5 text-white`}>
                               <ShieldCheck className="w-3.5 h-3.5" />
                             </div>
                           </div>
