@@ -99,8 +99,10 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
     form.set("merchant_ref", merchantRef);
     form.set("amount", String(input.grossAmount));
     form.set("customer_name", input.customerDetails.first_name || "Customer");
-    form.set("customer_email", input.customerDetails.email || "customer@ist.web.id");
-    if (input.customerDetails.phone) form.set("customer_phone", input.customerDetails.phone);
+    const customerEmail = String(input.customerDetails.email || "").trim();
+    form.set("customer_email", customerEmail && customerEmail !== "customer@istore.id" ? customerEmail : "customer@ist.web.id");
+    const customerPhone = String(input.customerDetails.phone || "").trim();
+    if (customerPhone && customerPhone !== "08123456789") form.set("customer_phone", customerPhone);
     form.set("callback_url", input.callbackUrl || config.callbackUrl);
     form.set("return_url", input.returnUrl || `https://ist.web.id/transactions/${encodeURIComponent(merchantRef)}`);
     form.set("expired_time", String(Math.floor(Date.now() / 1000) + 24 * 60 * 60));
