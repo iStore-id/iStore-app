@@ -1485,8 +1485,8 @@ export default function GameDetailPage() {
                       Memuat metode pembayaran yang tersedia...
                     </div>
                   ) : (
-                    (["QRIS", "E-Wallet", "BANK", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
-                      const channels = group === "BANK"
+                    (["QRIS", "E-Wallet", "Virtual Account", ...Array.from(new Set(tripayAvailableChannels.map((channel) => getTripayChannelGroup(channel)).filter((group) => !["QRIS", "E-Wallet", "Virtual Account", "Transfer Bank", "Lainnya"].includes(group)))), "Lainnya"]).map((group) => {
+                      const channels = group === "Virtual Account"
                         ? tripayAvailableChannels.filter((channel) => ["Virtual Account", "Transfer Bank"].includes(getTripayChannelGroup(channel)))
                         : group === "QRIS"
                           ? (() => {
