@@ -87,9 +87,10 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
 
     let method: string;
     try {
-      method = mapTripayMethod(input.paymentMethod);
+      const availableChannels = await this.getPaymentChannels();
+      method = mapTripayMethod(input.paymentMethod, availableChannels.map((channel: any) => String(channel.code || "")));
     } catch (error: any) {
-      return { success: false, message: error.message };
+      return { success: false, message: error.message || "Kanal pembayaran TriPay tidak dapat diverifikasi." };
     }
 
     const merchantRef = String(input.orderId);
