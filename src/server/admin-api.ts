@@ -2467,6 +2467,9 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
     if (requestedActive && (!encryptedApiKey || !encryptedPrivateKey || !nextMerchantCode)) {
       return res.status(400).json({ success: false, message: "API Key, Private Key, dan Kode Merchant TriPay harus disimpan sebelum aktivasi." });
     }
+    if (requestedActive && (connectionSettingsChanged || existing.lastTestResult !== "success")) {
+      return res.status(409).json({ success: false, message: "TriPay hanya dapat diaktifkan setelah kredensial dan mode yang tersimpan berhasil diuji. Simpan konfigurasi dalam keadaan nonaktif, tes koneksi, lalu aktifkan." });
+    }
 
     const newConfig = {
       ...existing,
