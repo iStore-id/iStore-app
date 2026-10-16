@@ -209,10 +209,6 @@ export class SystemHealthService {
           ...disabledGateway('midtrans', 'Midtrans Gateway'),
           message: 'Intentionally disabled by owner; not checked.'
         });
-        components.push({
-          ...disabledGateway('ipaymu', 'iPaymu Gateway'),
-          message: 'Intentionally disabled by owner; not checked.'
-        });
       } else if (gatewayCode === 'midtrans') {
         const midtransTest = await checkMidtransHealth();
         components.push({
@@ -225,18 +221,6 @@ export class SystemHealthService {
           isCritical: true
         });
         components.push(disabledGateway('doit', 'Doit.id Gateway'));
-        components.push(disabledGateway('ipaymu', 'iPaymu Gateway'));
-      } else if (gatewayCode === 'ipaymu') {
-        components.push({
-          id: 'ipaymu',
-          name: 'iPaymu Gateway',
-          state: 'DEGRADED',
-          lastChecked: new Date().toISOString(),
-          message: 'Active iPaymu gateway health check is not implemented.',
-          isCritical: true
-        });
-        components.push(disabledGateway('doit', 'Doit.id Gateway'));
-        components.push(disabledGateway('midtrans', 'Midtrans Gateway'));
       } else {
         throw new Error(`Unsupported active payment gateway: ${gatewayCode}`);
       }
