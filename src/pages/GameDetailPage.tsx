@@ -172,10 +172,14 @@ function getTripayChannelGroup(channel: { code: string; name: string }): "QRIS" 
 }
 
 function getTripayChannelLogo(code: string): string {
-  return ({
+  const normalizedCode = String(code || "").trim().toUpperCase().replace(/[\\s_-]+/g, "");
+  const logos: Record<string, string> = {
     QRIS: "/payment-logos/qris.svg",
     SHOPEEPAY: "/payment-logos/shopee-pay.svg",
     GOPAY: "/payment-logos/gopay.svg",
+    DANA: "/payment-logos/dana.svg",
+    OVO: "/payment-logos/ovo.svg",
+    LINKAJA: "/payment-logos/linkaja.svg",
     BCAVA: "/payment-logos/bca.svg",
     BNIVA: "/payment-logos/bni.svg",
     BRIVA: "/payment-logos/bri.svg",
@@ -183,8 +187,11 @@ function getTripayChannelLogo(code: string): string {
     CIMBVA: "/payment-logos/cimb-niaga.svg",
     DANAMONVA: "/payment-logos/danamon.svg",
     MANDIRIVA: "/payment-logos/mandiri.svg",
-    PERMATAVA: "/payment-logos/permata.svg"
-  } as Record<string, string>)[code.toUpperCase()] || "/payment-logos/bi-fast.svg";
+    PERMATAVA: "/payment-logos/permata.svg",
+    SEABANKVA: "/payment-logos/seabank.svg",
+    BANKSAQUVA: "/payment-logos/bank-saqu.svg"
+  };
+  return logos[normalizedCode] || "/payment-logos/payment-generic.svg";
 }
 
 export default function GameDetailPage() {
@@ -1534,14 +1541,7 @@ export default function GameDetailPage() {
                   {(activeGateway === "tripay"
                     ? tripayAvailableChannels.map((channel) => ({
                         id: channel.code, name: channel.name,
-                        logo: ({
-                          QRIS: "/payment-logos/qris.svg", SHOPEEPAY: "/payment-logos/shopee-pay.svg",
-                          GOPAY: "/payment-logos/gopay.svg", BCAVA: "/payment-logos/bca.svg",
-                          BNIVA: "/payment-logos/bni.svg", BRIVA: "/payment-logos/bri.svg",
-                          BSIVA: "/payment-logos/bsi.svg", CIMBVA: "/payment-logos/cimb-niaga.svg",
-                          DANAMONVA: "/payment-logos/danamon.svg", MANDIRIVA: "/payment-logos/mandiri.svg",
-                          PERMATAVA: "/payment-logos/permata.svg"
-                        } as Record<string, string>)[channel.code] || "/payment-logos/bi-fast.svg"
+                        logo: getTripayChannelLogo(channel.code)
                       }))
                     : [
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
