@@ -5,7 +5,8 @@ import { OrderRepository } from "./supabase/order-repository.js";
 import { getStoreConfiguration } from "./core-service.js";
 import { checkMidtransStatus } from "./midtrans.js";
 import { PaymentRouter } from "./payment-router.js";
-import { TRIPAY_METHOD_CODES } from "./tripay-contract.js";
+import { mapTripayMethod } from "./tripay-contract.js";
+import { TripayProviderAdapter } from "./adapters/tripay-adapter.js";
 import { AuthenticatedRequest } from "./middleware.js";
 import { ProviderService } from "./provider-service.js";
 import { transitionOrderState } from "./state-machine.js";
@@ -118,10 +119,13 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     let validatedPaymentMethod: string | undefined = undefined;
 
     if (gatewayCode === "tripay") {
-      if (typeof paymentMethod !== "string" || !Object.prototype.hasOwnProperty.call(TRIPAY_METHOD_CODES, paymentMethod.toLowerCase())) {
-        return res.status(400).json({ success: false, message: "Metode pembayaran TriPay tidak valid atau belum dipilih." });
+      if (typeof paymentMethod !== "string" || !paymentMethod.trim()) return res.status(400).json({ success: false, message: "Pilih metode pembayaran TriPay yang tersedia." });
+      try {
+        const channels = await TripayProviderAdapter.getInstance().getPaymentChannels();
+        validatedPaymentMethod = mapTripayMethod(paymentMethod, channels.map((channel: any) => String(channel.code || "")));
+      } catch (error: any) {
+        return res.status(400).json({ success: false, message: error.message || "Kanal pembayaran TriPay tidak tersedia." });
       }
-      validatedPaymentMethod = paymentMethod.toLowerCase();
     } else if (gatewayCode === "omqris") {
       if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
         return res.status(400).json({
