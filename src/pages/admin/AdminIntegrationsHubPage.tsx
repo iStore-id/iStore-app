@@ -17,15 +17,6 @@ export default function AdminIntegrationsHubPage() {
       badge: "Configured / Secure"
     },
     {
-      id: "ipaymu",
-      title: "iPaymu Integration",
-      description: "Payment gateway alternatif untuk QRIS dan Virtual Account.",
-      icon: Wallet,
-      status: "ACTIVE",
-      href: "/admin/integrations/ipaymu",
-      badge: "Configured / Secure"
-    },
-    {
       id: "omqris",
       title: "OmQris Integration",
       description: "Payment gateway QRIS dengan konfigurasi dan webhook terpisah.",
