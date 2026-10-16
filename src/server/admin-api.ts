@@ -2528,7 +2528,7 @@ export async function testTripayIntegration(req: AuthenticatedRequest, res: Resp
       availableChannels: channels.map((item: any) => ({
         code: String(item.code || ""),
         name: String(item.name || item.code || ""),
-        active: item.active === true
+        active: item.active !== false
       })).filter((item: any) => item.code)
     });
     return res.status(200).json({
