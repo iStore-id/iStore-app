@@ -26,6 +26,15 @@ export default function AdminIntegrationsHubPage() {
       badge: "Inactive by default"
     },
     {
+      id: "tripay",
+      title: "TriPay Integration",
+      description: "Gateway pembayaran dengan QRIS, Virtual Account, dan kanal lain yang aktif pada akun merchant.",
+      icon: CreditCard,
+      status: "INACTIVE",
+      href: "/admin/integrations/tripay",
+      badge: "Sandbox first / Inactive by default"
+    },
+    {
       id: "doit",
       title: "Doit.id Integration",
       description: "Payment gateway QRIS dinamis berizin Bank Indonesia dengan settlement instan.",
