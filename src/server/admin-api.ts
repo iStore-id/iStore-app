@@ -816,12 +816,6 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
       if (txError.message === "ORDER_NOT_PAID") {
         return res.status(400).json({ success: false, message: "Pesanan belum dibayar sehingga tidak memenuhi syarat refund." });
       }
-      if (txError.message === "REFUND_GATEWAY_UNSUPPORTED") {
-        return res.status(400).json({ success: false, message: "Refund otomatis hanya didukung untuk transaksi Midtrans." });
-      }
-      if (txError.message === "REFUND_GATEWAY_UNSUPPORTED") {
-        return res.status(400).json({ success: false, message: "Refund otomatis hanya didukung untuk transaksi Midtrans." });
-      }
       if (txError.message === "OMQRIS_REFUND_UNSUPPORTED") {
         return res.status(400).json({ success: false, message: "Refund otomatis OmQris belum didukung. Gunakan prosedur refund manual; permintaan gateway tidak dikirim." });
       }
@@ -852,9 +846,6 @@ export async function createRefund(req: AuthenticatedRequest, res: Response) {
     try {
       let providerRefundId: string | null = null;
 
-      if (gatewayCode !== "midtrans") {
-        throw new Error("REFUND_GATEWAY_UNSUPPORTED");
-      }
       const midtransRes = await refundMidtransTransaction({
         orderId,
         refundKey,
