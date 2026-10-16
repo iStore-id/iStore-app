@@ -324,7 +324,7 @@ export default function GameDetailPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
-  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | null>(null);
+  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -1411,7 +1411,7 @@ export default function GameDetailPage() {
                     { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
                     { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
                     { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
-                  ].map((method) => {
+                  ].filter((method) => activeGateway !== "tripay" || method.id !== "other_va").map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
                       <button
