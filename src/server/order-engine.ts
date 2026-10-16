@@ -5,6 +5,7 @@ import { OrderRepository } from "./supabase/order-repository.js";
 import { getStoreConfiguration } from "./core-service.js";
 import { checkMidtransStatus } from "./midtrans.js";
 import { PaymentRouter } from "./payment-router.js";
+import { TRIPAY_METHOD_CODES } from "./tripay-contract.js";
 import { AuthenticatedRequest } from "./middleware.js";
 import { ProviderService } from "./provider-service.js";
 import { transitionOrderState } from "./state-machine.js";
@@ -116,7 +117,12 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     // 4. Payment Provider Dispatch & Native Method Validation
     let validatedPaymentMethod: string | undefined = undefined;
 
-    if (gatewayCode === "omqris") {
+    if (gatewayCode === "tripay") {
+      if (typeof paymentMethod !== "string" || !Object.prototype.hasOwnProperty.call(TRIPAY_METHOD_CODES, paymentMethod.toLowerCase())) {
+        return res.status(400).json({ success: false, message: "Metode pembayaran TriPay tidak valid atau belum dipilih." });
+      }
+      validatedPaymentMethod = paymentMethod.toLowerCase();
+    } else if (gatewayCode === "omqris") {
       if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
         return res.status(400).json({
           success: false,
@@ -380,7 +386,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
-      ...(gatewayCode === "omqris" && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
+      ...((gatewayCode === "omqris" || gatewayCode === "tripay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,
