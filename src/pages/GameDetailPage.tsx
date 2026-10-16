@@ -325,7 +325,8 @@ export default function GameDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
-  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<string[]>([]);
+  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string }>>([]);
+  const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [checkoutStep, setCheckoutStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
@@ -349,14 +350,24 @@ export default function GameDetailPage() {
       return;
     }
     let cancelled = false;
-    fetch("/api/public/tripay/channels")
-      .then((res) => res.json())
+    setTripayAvailableChannels([]);
+    setTripayChannelsError("");
+    fetch("/api/public/tripay/channels", { cache: "no-store" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success || !Array.isArray(data.channels)) throw new Error(data.message || "Metode pembayaran TriPay tidak dapat dimuat.");
+        return data;
+      })
       .then((data) => {
-        if (!cancelled && data.success && Array.isArray(data.channels)) {
-          setTripayAvailableChannels(data.channels.map((channel: any) => String(channel.code || "").toUpperCase()).filter(Boolean));
+        if (!cancelled) {
+          const channels = data.channels.filter((channel: any) => channel && typeof channel.code === "string" && channel.code.trim())
+            .map((channel: any) => ({ code: String(channel.code).trim().toUpperCase(), name: String(channel.name || channel.code).trim() }));
+          setTripayAvailableChannels(channels);
+          if (!channels.some((channel: { code: string }) => channel.code === selectedPaymentMethod)) setSelectedPaymentMethod("");
+          if (!channels.length) setTripayChannelsError("Tidak ada kanal pembayaran TriPay yang tersedia saat ini.");
         }
       })
-      .catch(() => { if (!cancelled) setTripayAvailableChannels([]); });
+      .catch((error) => { if (!cancelled) { setTripayAvailableChannels([]); setSelectedPaymentMethod(""); setTripayChannelsError(error?.message || "Metode pembayaran TriPay tidak dapat dimuat."); } });
     return () => { cancelled = true; };
   }, [activeGateway]);
 
@@ -1419,30 +1430,33 @@ export default function GameDetailPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {[
-                    { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
-                    { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
-                    { id: "shopeepay", name: "ShopeePay", desc: "Pembayaran digital", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
-                    { id: "bca_va", name: "BCA VA", logo: "/payment-logos/bca.svg" },
-                    { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
-                    { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
-                    { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
-                    { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
-                    { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" },
-                    { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
-                    { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
-                    { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
-                  ].filter((method) => {
-                    if (activeGateway !== "tripay") return !["bsi_va", "cimb_va", "danamon_va"].includes(method.id);
-                    const tripayCodes: Record<string, string> = {
-                      qris: "QRIS", gopay: "GOPAY", shopeepay: "SHOPEEPAY",
-                      bca_va: "BCAVA", bni_va: "BNIVA", bri_va: "BRIVA",
-                      bsi_va: "BSIVA", cimb_va: "CIMBVA", danamon_va: "DANAMONVA",
-                      echannel: "MANDIRIVA", permata_va: "PERMATAVA"
-                    };
-                    const code = tripayCodes[method.id];
-                    return Boolean(code && tripayAvailableChannels.includes(code));
-                  }).map((method) => {
+                  {(activeGateway === "tripay"
+                    ? tripayAvailableChannels.map((channel) => ({
+                        id: channel.code, name: channel.name,
+                        logo: ({
+                          QRIS: "/payment-logos/qris.svg", SHOPEEPAY: "/payment-logos/shopee-pay.svg",
+                          GOPAY: "/payment-logos/gopay.svg", BCAVA: "/payment-logos/bca.svg",
+                          BNIVA: "/payment-logos/bni.svg", BRIVA: "/payment-logos/bri.svg",
+                          BSIVA: "/payment-logos/bsi.svg", CIMBVA: "/payment-logos/cimb-niaga.svg",
+                          DANAMONVA: "/payment-logos/danamon.svg", MANDIRIVA: "/payment-logos/mandiri.svg",
+                          PERMATAVA: "/payment-logos/permata.svg"
+                        } as Record<string, string>)[channel.code] || "/payment-logos/bi-fast.svg"
+                      }))
+                    : [
+                        { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
+                        { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
+                        { id: "shopeepay", name: "ShopeePay", desc: "Pembayaran digital", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
+                        { id: "bca_va", name: "BCA VA", logo: "/payment-logos/bca.svg" },
+                        { id: "bni_va", name: "BNI VA", logo: "/payment-logos/bni.svg" },
+                        { id: "bri_va", name: "BRI VA", logo: "/payment-logos/bri.svg" },
+                        { id: "bsi_va", name: "BSI VA", logo: "/payment-logos/bsi.svg" },
+                        { id: "cimb_va", name: "CIMB Niaga VA", logo: "/payment-logos/cimb-niaga.svg" },
+                        { id: "danamon_va", name: "Danamon VA", logo: "/payment-logos/danamon.svg" },
+                        { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
+                        { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
+                        { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
+                      ].filter((method) => !["bsi_va", "cimb_va", "danamon_va"].includes(method.id))
+                  ).map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
                       <button
@@ -1489,6 +1503,9 @@ export default function GameDetailPage() {
                     );
                   })}
                 </div>
+              )}
+              {activeGateway === "tripay" && tripayChannelsError && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800" role="status">{tripayChannelsError}</div>
               )}
             </div>
 
