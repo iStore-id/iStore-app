@@ -114,7 +114,7 @@ export default function AdminOmqrisIntegrationPage() {
         <p className="text-sm text-slate-500 mt-1">Gateway QRIS terpisah. Doit.id dan Midtrans tetap menggunakan adapter serta webhook masing-masing.</p>
       </div>
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <strong>Nonaktif secara default.</strong> Aktivasi OmQris akan menonaktifkan gateway lain untuk transaksi baru. Transaksi lama iPaymu tetap memakai jalur legacy.
+        <strong>Nonaktif secara default.</strong> Aktivasi OmQris akan menonaktifkan gateway lain untuk transaksi baru. Riwayat transaksi lama tetap tersimpan dan tidak diubah.
       </div>
       {message && <div className="rounded-xl border p-3 text-sm flex gap-2 items-start"><AlertCircle size={18} />{message}</div>}
       <div className="rounded-2xl border bg-white p-5 space-y-5">
