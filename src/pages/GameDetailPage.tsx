@@ -1496,7 +1496,7 @@ export default function GameDetailPage() {
                         <section key={group} className="space-y-2.5" aria-label={group}>
                           <div>
                             <h3 className="text-sm font-bold text-slate-800">{group}</h3>
-                            <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{description[group]}</p>
+                            <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{description[group] || "Metode pembayaran tersedia dari TriPay."}</p>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {channels.map((channel) => {
@@ -1546,12 +1546,7 @@ export default function GameDetailPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {(activeGateway === "tripay"
-                    ? tripayAvailableChannels.map((channel) => ({
-                        id: channel.code, name: channel.name,
-                        logo: channel.iconUrl || getTripayChannelLogo(channel.code)
-                      }))
-                    : [
+                  {([
                         { id: "qris", name: "QRIS", desc: "Scan & bayar dengan QRIS", tag: "Hot", logo: "/payment-logos/qris.svg" },
                         { id: "gopay", name: "GoPay", desc: "Pembayaran digital", logo: "/payment-logos/gopay.svg" },
                         { id: "shopeepay", name: "ShopeePay", desc: "Pembayaran digital", tag: "Hot", logo: "/payment-logos/shopee-pay.svg" },
@@ -1564,7 +1559,7 @@ export default function GameDetailPage() {
                         { id: "echannel", name: "Mandiri", logo: "/payment-logos/mandiri.svg" },
                         { id: "permata_va", name: "Permata VA", logo: "/payment-logos/permata.svg" },
                         { id: "other_va", name: "VA", logo: "/payment-logos/bi-fast.svg" }
-                      ].filter((method) => !["bsi_va", "cimb_va", "danamon_va"].includes(method.id))
+                      ].filter((method) => !["bsi_va", "cimb_va", "danamon_va"].includes(method.id)) as Array<{ id: string; name: string; desc?: string; tag?: string; logo: string }>
                   ).map((method) => {
                     const isSelected = selectedPaymentMethod === method.id;
                     return (
