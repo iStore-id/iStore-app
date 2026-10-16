@@ -302,7 +302,7 @@ export default function AdminDoitIntegrationPage() {
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <div>
                     <h4 className="text-sm font-semibold text-slate-800">Status Aktif Gateway</h4>
-                    <p className="text-xs text-slate-500">Aktifkan Doit.id sebagai gateway pembayaran aktif tunggal (otomatis menonaktifkan Midtrans & iPaymu).</p>
+                    <p className="text-xs text-slate-500">Aktifkan Doit.id sebagai gateway pembayaran aktif tunggal (otomatis menonaktifkan gateway pembayaran lain).</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
