@@ -161,7 +161,7 @@ export async function getPublicPwaManifest(_req: Request, res: Response) {
     res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=60, s-maxage=60");
     return res.status(200).json({
-      id: "/", name: "iStore.id - Top Up Game & Voucher", short_name: "iStore",
+      id: "/", name: (typeof storeConfig?.name === "string" && storeConfig.name.trim() && !/^(?:istore|istore\.id|istore\.co\.id)$/i.test(storeConfig.name.trim()) ? storeConfig.name.trim() : "TEMAN GAMES"), short_name: (typeof storeConfig?.name === "string" && storeConfig.name.trim() && !/^(?:istore|istore\.id|istore\.co\.id)$/i.test(storeConfig.name.trim()) ? storeConfig.name.trim() : "TEMAN GAMES"),
       description: "Platform top up game dan voucher digital terpercaya di Indonesia",
       lang: "id-ID", start_url: "/", scope: "/", display: "standalone",
       background_color: "#f8fafc", theme_color: "#155dbd",
@@ -174,7 +174,7 @@ export async function getPublicPwaManifest(_req: Request, res: Response) {
     console.error("[PWA Manifest] Owner favicon lookup failed:", error);
     res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
     return res.status(200).json({
-      id: "/", name: "iStore.id - Top Up Game & Voucher", short_name: "iStore",
+      id: "/", name: "TEMAN GAMES", short_name: "TEMAN GAMES",
       lang: "id-ID", start_url: "/", scope: "/", display: "standalone",
       background_color: "#f8fafc", theme_color: "#155dbd",
       icons: [
@@ -195,7 +195,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
       return res.status(200).json({
         success: true,
         data: {
-          name: "",
+          name: "TEMAN GAMES",
           logo: "",
           favicon: "",
           description: "Platform Top Up Game Terpercaya",
@@ -262,7 +262,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       data: {
-        name: config.name ?? "",
+        name: typeof config.name === "string" && config.name.trim() && !/^(?:istore|istore\.id|istore\.co\.id)$/i.test(config.name.trim()) ? config.name.trim() : "TEMAN GAMES",
         logo: config.logo || "",
         favicon: config.favicon || "",
         description: config.description || "",

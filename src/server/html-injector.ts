@@ -207,7 +207,7 @@ export async function serveGameDetailHtml(req: Request, res: Response, next: Nex
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
     const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
-    const siteName = seoSettings.siteName || "iStore.id";
+    const siteName = seoSettings.siteName || "TEMAN GAMES";
     const separator = seoSettings.titleSeparator || " | ";
 
     const rawTitle = `${game.name} - Top Up Murah & Instan`;
@@ -313,7 +313,7 @@ export async function serveBlogDetailHtml(req: Request, res: Response, next: Nex
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
     const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
-    const siteName = seoSettings.siteName || "iStore.id";
+    const siteName = seoSettings.siteName || "TEMAN GAMES";
     const separator = seoSettings.titleSeparator || " | ";
 
     const articleTitle = blog.seoTitle || blog.title;
@@ -411,8 +411,9 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
     const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
-    const siteName = seoSettings.siteName || "iStore.id";
-    const title = seoSettings.defaultTitle || "Solusi Top Up Game & Voucher Digital Terpercaya";
+    const siteName = seoSettings.siteName || "TEMAN GAMES";
+    const defaultTitle = seoSettings.defaultTitle || "Solusi Top Up Game & Voucher Digital Terpercaya";
+    const title = defaultTitle.includes(siteName) ? defaultTitle : `${defaultTitle}${seoSettings.titleSeparator || " | "}${siteName}`;
     const description = seoSettings.defaultDescription || "Platform top up game dan voucher digital terpercaya di Indonesia.";
     const canonicalUrl = `${baseUrl.replace(/\/+$/, "")}/`;
     const ogImage = seoSettings.defaultOgImage?.url;
@@ -480,7 +481,7 @@ export async function serveLegalHtml(req: Request, res: Response, next: NextFunc
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
     const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
-    const siteName = seoSettings.siteName || "ist.web.id";
+    const siteName = seoSettings.siteName || "TEMAN GAMES";
 
     let title = "";
     let description = "";

@@ -167,7 +167,7 @@ export default function RegisterPage() {
   };
 
   const primaryColor = config?.primaryColor || "#ff4400";
-  const storeName = config?.name || "iStore.id";
+  const storeName = config?.name || "TEMAN GAMES";
   const storeLogo = config?.logo;
 
   return (

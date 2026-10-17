@@ -3,7 +3,7 @@ import { PageMetadataInput, PublicSEOSettings } from "../types/seo";
 import { initGA4, trackPageView } from "./gtag";
 
 export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
-  siteName: "iStore.id",
+  siteName: "TEMAN GAMES",
   titleSeparator: " | ",
   defaultTitle: "Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
@@ -12,12 +12,12 @@ export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
     "voucher game",
     "top up mlbb",
     "voucher ff",
-    "istore indonesia"
+    "teman games indonesia"
   ],
   canonicalBaseUrl: "https://ist.web.id",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
+    altText: "TEMAN GAMES - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
@@ -219,7 +219,8 @@ export function useSEO(metadata: PageMetadataInput) {
     const separator = globalSettings.titleSeparator || " | ";
 
     // 1. Resolve Title
-    let resolvedTitle = globalSettings.defaultTitle;
+    const defaultTitle = globalSettings.defaultTitle || "TEMAN GAMES";
+    let resolvedTitle = defaultTitle.includes(siteName) ? defaultTitle : `${defaultTitle}${separator}${siteName}`;
     if (metadata.title && metadata.title.trim()) {
       const cleanTitle = sanitizeMetaText(metadata.title);
       if (cleanTitle.includes(siteName)) {
