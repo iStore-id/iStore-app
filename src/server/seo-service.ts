@@ -179,18 +179,29 @@ class SEOService {
     } catch {
       favicon = "";
     }
+    const resolvedBrand = storeName || "TEMAN GAMES";
+    const normalizeLegacyBrand = (value: string): string =>
+      value.replace(/\b(?:iStore\.co\.id|iStore\.id|iStore)\b/gi, () => resolvedBrand);
+
     return {
-      siteName: storeName || "TEMAN GAMES",
+      siteName: resolvedBrand,
       titleSeparator: s.titleSeparator,
-      defaultTitle: s.defaultTitle,
+      defaultTitle: normalizeLegacyBrand(s.defaultTitle),
       defaultDescription: s.defaultDescription,
-      defaultKeywords: s.defaultKeywords,
+      defaultKeywords: s.defaultKeywords.map((keyword) =>
+        /^(?:istore(?:\.id|\.co\.id)?|istore indonesia)$/i.test(keyword.trim())
+          ? resolvedBrand
+          : keyword
+      ),
       canonicalBaseUrl: s.canonicalBaseUrl,
       favicon: s.favicon || favicon,
       googleSiteVerification: s.googleSiteVerification,
       ga4Enabled: s.ga4Enabled,
       ga4MeasurementId: s.ga4MeasurementId,
-      defaultOgImage: s.defaultOgImage,
+      defaultOgImage: {
+        ...s.defaultOgImage,
+        altText: normalizeLegacyBrand(s.defaultOgImage.altText)
+      },
       socialMetadata: s.socialMetadata
     };
   }
