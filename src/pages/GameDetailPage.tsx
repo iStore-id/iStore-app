@@ -953,22 +953,22 @@ export default function GameDetailPage() {
               <li className="flex items-start gap-2">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">1</span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-800">Pilih nominal</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pilih layanan dan nominal yang ingin dibeli.</p>
+                  <p className="font-semibold text-slate-800">Pilih layanan & nominal</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pilih layanan yang sesuai, lalu tentukan nominal atau produk yang ingin dibeli.</p>
                 </div>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">2</span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-800">Isi data akun</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pastikan ID akun sudah benar sebelum lanjut.</p>
+                  <p className="font-semibold text-slate-800">Isi data akun & pembeli</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Periksa ID akun dan data pembeli sebelum melanjutkan.</p>
                 </div>
               </li>
               <li className="flex items-start gap-2">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">3</span>
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-800">Bayar transaksi</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Pilih metode pembayaran dan ikuti instruksinya.</p>
+                  <p className="font-semibold text-slate-800">Pilih metode & bayar</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-500">Periksa ringkasan, pilih metode pembayaran, lalu ikuti instruksi yang muncul.</p>
                 </div>
               </li>
             </ol>
