@@ -412,7 +412,8 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
     const protocol = req.protocol || "https";
     const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
     const siteName = seoSettings.siteName || "TEMAN GAMES";
-    const title = seoSettings.defaultTitle || "Solusi Top Up Game & Voucher Digital Terpercaya";
+    const defaultTitle = seoSettings.defaultTitle || "Solusi Top Up Game & Voucher Digital Terpercaya";
+    const title = defaultTitle.includes(siteName) ? defaultTitle : `${defaultTitle}${seoSettings.titleSeparator || " | "}${siteName}`;
     const description = seoSettings.defaultDescription || "Platform top up game dan voucher digital terpercaya di Indonesia.";
     const canonicalUrl = `${baseUrl.replace(/\/+$/, "")}/`;
     const ogImage = seoSettings.defaultOgImage?.url;
