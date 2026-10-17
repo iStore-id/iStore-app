@@ -607,9 +607,15 @@ class SEOService {
 
   private sanitizeSitemapPath(pathStr: string): string | null {
     const raw = (pathStr || "").trim();
-    if (!raw || raw.startsWith("//") || /[\\\\?#\\s<>"'\\\\]/.test(raw) || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
+    if (!raw || raw.startsWith("//") || /[\\?#\s<>"'\\]/.test(raw) || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
     const path = raw.startsWith("/") ? raw : `/${raw}`;
-    if (!/^\/(?!\/)[A-Za-z0-9._~!  private sanitizePath(pathStr: string): string {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) return null;
+    if (!/^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) return null;
+    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+    if (/^\/(?:admin|api)(?:\/|$)/i.test(normalized)) return null;
+    return normalized;
+  }
+
+  private sanitizePath(pathStr: string): string {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) return null;
     const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
     if (/^\/(?:admin|api)(?:\/|$)/i.test(normalized)) return null;
     return normalized;
