@@ -1083,6 +1083,7 @@ export default function MainLayout() {
                 { name: "Blog", path: "/blog" },
                 { name: "FAQ", path: "/faq" },
                 { name: "Cek Transaksi", path: "/transactions" },
+                { name: "Riwayat Transaksi", path: "/transactions/history" },
               ].map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
@@ -1248,6 +1249,7 @@ export default function MainLayout() {
             <Link to="/blog" className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-brand-600 hover:bg-slate-50">Blog & Berita</Link>
             <Link to="/faq" className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-brand-600 hover:bg-slate-50">FAQ</Link>
             <Link to="/transactions" className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-brand-600 hover:bg-slate-50">Cek Transaksi</Link>
+            <Link to="/transactions/history" className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-brand-600 hover:bg-slate-50">Riwayat Transaksi</Link>
             
             {/* Mobile Customer Theme Preference */}
             <div className="pt-2 border-t border-slate-100">
