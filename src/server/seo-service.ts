@@ -615,12 +615,6 @@ class SEOService {
     return normalized;
   }
 
-  private sanitizePath(pathStr: string): string {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) return null;
-    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
-    if (/^\/(?:admin|api)(?:\/|$)/i.test(normalized)) return null;
-    return normalized;
-  }
-
   private sanitizePath(pathStr: string): string {
     let p = (pathStr || "").trim();
     if (!p.startsWith("/")) p = `/${p}`;
