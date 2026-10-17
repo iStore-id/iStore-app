@@ -4,6 +4,14 @@ import { FileText, ArrowLeft, RefreshCw, AlertCircle, Calendar, Clock, FileCheck
 import { PublicPrivacySettings } from "../types/privacy";
 import { useSEO } from "../lib/seo";
 
+function renderBrandAwareText(text: string): React.ReactNode {
+  return text.split(/(TEMAN GAMES)/gi).map((part, index) =>
+    /^TEMAN GAMES$/i.test(part) ? (
+      <span key={index} style={{ color: "var(--brand-text-color, var(--primary-color))" }}>{part}</span>
+    ) : part
+  );
+}
+
 export default function TermsPage() {
   const [privacyData, setPrivacyData] = useState<PublicPrivacySettings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,7 +132,7 @@ export default function TermsPage() {
             {/* Content Body */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
               <div className="text-slate-800 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-wrap font-sans">
-                {privacyData.termsOfService.content}
+                {renderBrandAwareText(privacyData.termsOfService.content)}
               </div>
             </div>
 

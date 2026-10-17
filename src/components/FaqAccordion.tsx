@@ -12,6 +12,15 @@ interface FaqAccordionProps {
   showCategoryBadge?: boolean;
 }
 
+// Brand identity text follows the existing storefront brand color token.
+function renderBrandAwareText(text: string): React.ReactNode {
+  return text.split(/(TEMAN GAMES)/gi).map((part, index) =>
+    /^TEMAN GAMES$/i.test(part) ? (
+      <span key={index} style={{ color: "var(--brand-text-color, var(--primary-color))" }}>{part}</span>
+    ) : part
+  );
+}
+
 // Render safe inline formatted text (bold, italic, inline code, safe links)
 function renderSafeInline(text: string): React.ReactNode {
   // Replace bold: **text**
@@ -21,14 +30,14 @@ function renderSafeInline(text: string): React.ReactNode {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
         <strong key={index} className="font-semibold text-slate-900">
-          {part.slice(2, -2)}
+          {renderBrandAwareText(part.slice(2, -2))}
         </strong>
       );
     }
     if (part.startsWith("*") && part.endsWith("*")) {
       return (
         <em key={index} className="italic text-slate-800">
-          {part.slice(1, -1)}
+          {renderBrandAwareText(part.slice(1, -1))}
         </em>
       );
     }
@@ -38,7 +47,7 @@ function renderSafeInline(text: string): React.ReactNode {
           key={index}
           className="px-1.5 py-0.5 rounded bg-slate-100 text-primary font-mono text-xs"
         >
-          {part.slice(1, -1)}
+          {renderBrandAwareText(part.slice(1, -1))}
         </code>
       );
     }
@@ -62,7 +71,7 @@ function renderSafeInline(text: string): React.ReactNode {
       }
       return <span key={index}>{label}</span>;
     }
-    return part;
+    return renderBrandAwareText(part);
   });
 }
 
@@ -181,7 +190,7 @@ export default function FaqAccordion({
                 <h3 className={`text-sm sm:text-base font-semibold leading-snug transition-colors ${
                   isOpen ? "text-slate-900" : "text-slate-900"
                 }`}>
-                  {item.question}
+                  {renderBrandAwareText(item.question)}
                 </h3>
               </div>
               <div
