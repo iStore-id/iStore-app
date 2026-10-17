@@ -168,14 +168,19 @@ class SEOService {
   async getPublicSettings(): Promise<PublicSEOSettings> {
     const s = await this.getSettings();
     let favicon = "";
+    let storeName = "";
     try {
       const storeConfig = await getStoreConfiguration();
       favicon = storeConfig?.favicon?.trim() || "";
+      const configuredName = typeof storeConfig?.name === "string" ? storeConfig.name.trim() : "";
+      if (configuredName && !/^(?:istore|istore\.id|istore\.co\.id)$/i.test(configuredName)) {
+        storeName = configuredName;
+      }
     } catch {
       favicon = "";
     }
     return {
-      siteName: s.siteName,
+      siteName: storeName || "TEMAN GAMES",
       titleSeparator: s.titleSeparator,
       defaultTitle: s.defaultTitle,
       defaultDescription: s.defaultDescription,
