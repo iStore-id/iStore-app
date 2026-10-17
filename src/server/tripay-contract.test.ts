@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   mapTripayMethod, mapTripayStatus, createTripayTransactionSignature,
-  createTripayCallbackSignature, safeTripaySignatureEqual, buildTripayWebhookEventKey
+  createTripayCallbackSignature, safeTripaySignatureEqual, buildTripayWebhookEventKey,
+  resolveTripayCustomerTotal
 } from "./tripay-contract.js";
 
 test("TriPay transaction signature follows merchantCode + merchantRef + amount", () => {
@@ -36,4 +37,18 @@ test("TriPay callback signature validates exact raw body and event keys include 
   assert.equal(safeTripaySignatureEqual(signature, signature), true);
   assert.equal(safeTripaySignatureEqual(signature, "bad"), false);
   assert.notEqual(buildTripayWebhookEventKey("REF-1", "PAID"), buildTripayWebhookEventKey("REF-1", "EXPIRED"));
+});
+
+
+test("TriPay customer total uses amount plus customer fee and ignores inconsistent total_amount", () => {
+  // Sandbox may expose an undocumented total_amount that already contains the fee
+  // twice. The documented amount + fee_customer fields match the checkout bill.
+  assert.equal(resolveTripayCustomerTotal(10536, 4250), 14786);
+  assert.equal(resolveTripayCustomerTotal(10536, 0), 10536);
+});
+
+test("TriPay customer total rejects invalid amount and fee values", () => {
+  assert.throws(() => resolveTripayCustomerTotal(0, 4250));
+  assert.throws(() => resolveTripayCustomerTotal(10536, -1));
+  assert.throws(() => resolveTripayCustomerTotal("invalid", 0));
 });
