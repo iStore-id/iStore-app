@@ -317,7 +317,8 @@ export async function initServerLogic() {
 
       const orderRepo = OrderRepository.getInstance();
       const order = await orderRepo.getOrderByInvoice(reference) || await orderRepo.getOrderById(reference);
-      if (!order) {
+      if (!order || (order.userId && order.userId !== "guest")) {
+        // This public summary is only for guest orders; account orders remain behind authenticated APIs.
         return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan." });
       }
 
