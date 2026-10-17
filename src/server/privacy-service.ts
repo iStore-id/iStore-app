@@ -1,9 +1,9 @@
-import { supabaseAdmin } from "./supabase-admin.js";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "./supabase-admin.js";
 import { PrivacySettings, PublicPrivacySettings } from "../types/privacy.js";
 import { logCoreAudit } from "./core-service.js";
 
 const PRIVACY_DOC_PATH = "privacySettings/global";
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
+const CACHE_TTL_MS = 5 * 1000; // Keep public policy updates visible promptly
 
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   id: "global",
@@ -97,12 +97,26 @@ export async function getPrivacySettings(): Promise<PrivacySettings> {
   }
 
   try {
-    const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
-    const { data: snapData, error: snapError } = await docRef.maybeSingle();
+    if (!supabaseAdmin) {
+      cachedPrivacySettings = { ...DEFAULT_PRIVACY_SETTINGS };
+      lastCacheTime = now;
+      return cachedPrivacySettings;
+    }
+
+    const { data: snapData, error: snapError } = await supabaseAdmin
+      .from('privacy')
+      .select('*')
+      .eq('id', 'singleton')
+      .maybeSingle();
+
+    if (snapError) throw snapError;
 
     if (!snapData) {
-      // Seed default
-      await supabaseAdmin!.from('privacy').upsert({ ...DEFAULT_PRIVACY_SETTINGS, id: 'singleton' });
+      // Seed defaults only after the storage table is reachable.
+      const { error: seedError } = await supabaseAdmin
+        .from('privacy')
+        .upsert({ ...DEFAULT_PRIVACY_SETTINGS, id: 'singleton' });
+      if (seedError) throw seedError;
       cachedPrivacySettings = { ...DEFAULT_PRIVACY_SETTINGS };
       lastCacheTime = now;
       return cachedPrivacySettings;
@@ -140,6 +154,7 @@ export async function getPrivacySettings(): Promise<PrivacySettings> {
   } catch (error) {
     console.error("[PrivacyService] Failed to get privacy settings:", error);
     if (cachedPrivacySettings) return cachedPrivacySettings;
+    if (isSupabaseAdminConfigured) throw error;
     return DEFAULT_PRIVACY_SETTINGS;
   }
 }
@@ -211,8 +226,16 @@ export async function updatePrivacySettings(
     merged.termsOfService.lastUpdated = new Date().toISOString();
   }
 
-  const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
-  await supabaseAdmin!.from('privacy').upsert({ ...merged, id: 'singleton' });
+  if (!supabaseAdmin) {
+    throw new Error("Penyimpanan kebijakan belum terhubung ke database.");
+  }
+  const { error: saveError } = await supabaseAdmin
+    .from('privacy')
+    .upsert({ ...merged, id: 'singleton' });
+  if (saveError) {
+    console.error("[PrivacyService] Failed to persist privacy settings:", saveError);
+    throw new Error("Gagal menyimpan kebijakan ke database. Perubahan belum tersimpan.");
+  }
 
   // Update in-memory cache
   cachedPrivacySettings = merged;
@@ -243,8 +266,16 @@ export async function resetPrivacySettings(
     updatedBy: actor.email
   };
 
-  const docRef = supabaseAdmin!.from('privacy').select('*').eq('id', 'singleton');
-  await supabaseAdmin!.from('privacy').upsert({ ...resetData, id: 'singleton' });
+  if (!supabaseAdmin) {
+    throw new Error("Penyimpanan kebijakan belum terhubung ke database.");
+  }
+  const { error: resetError } = await supabaseAdmin
+    .from('privacy')
+    .upsert({ ...resetData, id: 'singleton' });
+  if (resetError) {
+    console.error("[PrivacyService] Failed to reset privacy settings:", resetError);
+    throw new Error("Gagal menyimpan reset kebijakan ke database. Perubahan belum tersimpan.");
+  }
 
   cachedPrivacySettings = resetData;
   lastCacheTime = Date.now();
