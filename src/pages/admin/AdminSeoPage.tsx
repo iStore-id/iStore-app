@@ -49,6 +49,7 @@ export default function AdminSeoPage() {
 
   // Robots disallow path new input
   const [newDisallowPath, setNewDisallowPath] = useState("");
+  const [newSitemapPath, setNewSitemapPath] = useState("");
   const [copiedRobots, setCopiedRobots] = useState(false);
   const [copiedSitemap, setCopiedSitemap] = useState(false);
 
@@ -193,6 +194,56 @@ export default function AdminSeoPage() {
       robotsPolicy: {
         ...settings.robotsPolicy,
         disallowPaths: settings.robotsPolicy.disallowPaths.filter(p => p !== pathToRemove)
+      }
+    });
+  };
+
+  // Custom sitemap paths
+  const handleAddSitemapPath = () => {
+    if (!settings || !newSitemapPath.trim()) return;
+    let path = newSitemapPath.trim();
+    if (!path.startsWith("/")) path = `/${path}`;
+    if (!/^\/(?!\/)[A-Za-z0-9._~!  const copyToClipboard = (text: string, type: "robots" | "sitemap") => {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
+      setMessage({ type: "error", text: "Path sitemap tidak valid. Masukkan jalur internal seperti /cek-transaksi." });
+      return;
+    }
+    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+    if ((settings.sitemapPolicy.customPaths || []).some(p => p.toLowerCase() === normalized.toLowerCase())) {
+      setMessage({ type: "error", text: "Path tersebut sudah ada di daftar sitemap." });
+      return;
+    }
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        customPaths: [...(settings.sitemapPolicy.customPaths || []), normalized],
+        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== normalized)
+      }
+    });
+    setNewSitemapPath("");
+    setMessage(null);
+  };
+
+  const handleToggleSitemapPath = (path: string, enabled: boolean) => {
+    if (!settings) return;
+    const disabled = settings.sitemapPolicy.disabledCustomPaths || [];
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        disabledCustomPaths: enabled ? disabled.filter(p => p !== path) : [...disabled.filter(p => p !== path), path]
+      }
+    });
+  };
+
+  const handleRemoveSitemapPath = (path: string) => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        customPaths: (settings.sitemapPolicy.customPaths || []).filter(p => p !== path),
+        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== path)
       }
     });
   };
@@ -913,6 +964,62 @@ export default function AdminSeoPage() {
                     <span className="text-sm font-medium text-slate-800">Pusat Bantuan & FAQ (/faq)</span>
                   </label>
                 </div>
+              </div>
+
+              {/* Custom paths */}
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-900">Halaman Tambahan</h4>
+                  <p className="text-xs text-slate-500 mt-1">Tambahkan jalur halaman publik lain. Centang untuk memasukkannya ke sitemap, atau hapus jika tidak diperlukan.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={newSitemapPath}
+                    onChange={e => setNewSitemapPath(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddSitemapPath(); } }}
+                    placeholder="/cek-transaksi"
+                    aria-label="Path halaman tambahan sitemap"
+                    className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSitemapPath}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition"
+                  >
+                    <Plus className="w-4 h-4" /> Tambahkan
+                  </button>
+                </div>
+                {(settings.sitemapPolicy.customPaths || []).length > 0 ? (
+                  <div className="space-y-2">
+                    {(settings.sitemapPolicy.customPaths || []).map(path => {
+                      const checked = !(settings.sitemapPolicy.disabledCustomPaths || []).includes(path);
+                      return (
+                        <div key={path} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={e => handleToggleSitemapPath(path, e.target.checked)}
+                            aria-label={`Masukkan ${path} ke sitemap`}
+                            className="rounded text-blue-600 focus:ring-blue-500"
+                          />
+                          <code className="flex-1 min-w-0 text-sm text-slate-800 break-all">{path}</code>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSitemapPath(path)}
+                            aria-label={`Hapus ${path}`}
+                            title="Hapus path"
+                            className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 p-3 border border-dashed border-slate-200 rounded-xl">Belum ada halaman tambahan. Isi path lalu tekan Tambahkan.</p>
+                )}
               </div>
 
               {/* Sitemap Live URL Card */}
