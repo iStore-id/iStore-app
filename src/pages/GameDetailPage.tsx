@@ -842,6 +842,26 @@ export default function GameDetailPage() {
       setSnapToken(data.snapToken);
       setQrImage(data.qrImage);
 
+      // Register guest transaction references immediately after order creation so
+      // customers can find this order in history even if they refresh payment.
+      if (!user && data.orderId) {
+        try {
+          const stored = JSON.parse(localStorage.getItem("istore_guest_transaction_invoices") || "[]");
+          const existing = Array.isArray(stored)
+            ? stored.filter((value): value is string => typeof value === "string" && value.length > 0 && value.length <= 128)
+            : [];
+          const reference = String(data.invoice || data.orderId);
+          if (reference.length <= 128) {
+            localStorage.setItem(
+              "istore_guest_transaction_invoices",
+              JSON.stringify([reference, ...existing.filter(value => value !== reference)].slice(0, 100))
+            );
+          }
+        } catch {
+          // Storage restrictions must not block checkout.
+        }
+      }
+
       // For Doit: navigate directly to transaction page for native presentation
       if (data.gatewayCode === "doit" || data.gatewayCode === "omqris") {
         navigate(`/transactions/${data.orderId}`);
@@ -1752,6 +1772,26 @@ export default function GameDetailPage() {
                   <h3 className="text-lg font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                   <p className="text-sm text-slate-500">Silakan scan kode QR di bawah ini menggunakan aplikasi pembayaran Anda</p>
                 </div>
+
+                {orderId && (
+                  <div className="w-full max-w-md rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs font-medium text-slate-500 mb-2">Nomor Invoice / Referensi Transaksi</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-sm font-bold text-slate-900 break-all">{orderId}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(orderId).catch(() => {});
+                        }}
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-brand-600 hover:bg-brand-50"
+                        aria-label="Salin nomor invoice"
+                      >
+                        Salin
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Simpan nomor ini untuk melacak transaksi atau membukanya kembali melalui Riwayat Transaksi.</p>
+                  </div>
+                )}
                 
                 <div className="bg-white p-4 rounded-2xl border-2 border-brand-100 shadow-inner">
                   <img 
