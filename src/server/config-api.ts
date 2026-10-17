@@ -96,6 +96,10 @@ export async function getPublicTripayChannels(_req: Request, res: Response) {
         name: String(item.name || item.code).trim(),
         group: String(item.group || "").trim(),
         type: String(item.type || "").trim(),
+        feeCustomer: item.fee_customer && typeof item.fee_customer === "object" ? {
+          flat: Number.isFinite(Number(item.fee_customer.flat)) && Number(item.fee_customer.flat) >= 0 ? Math.round(Number(item.fee_customer.flat)) : null,
+          percent: Number.isFinite(Number(item.fee_customer.percent)) && Number(item.fee_customer.percent) >= 0 ? Number(item.fee_customer.percent) : null
+        } : null,
         iconUrl: typeof item.icon_url === "string" && item.icon_url.trim().toLowerCase().startsWith("https://") ? item.icon_url.trim() : ""
       }));
     if (!normalized.length) return res.status(503).json({ success: false, channels: [], message: "TriPay tidak mengembalikan kanal pembayaran yang tersedia." });
