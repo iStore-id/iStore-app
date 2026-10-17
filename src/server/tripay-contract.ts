@@ -46,6 +46,27 @@ export function safeTripaySignatureEqual(actual: string, expected: string): bool
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/**
+ * TriPay's documented transaction-create response exposes amount and fee_customer.
+ * total_amount is not part of that documented response and can be inconsistent in
+ * sandbox responses, so calculate the customer-facing bill from the documented fields.
+ */
+export function resolveTripayCustomerTotal(amountValue: unknown, feeCustomerValue: unknown): number {
+  const amount = Number(amountValue);
+  const feeCustomer = Number(feeCustomerValue ?? 0);
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error("Nominal dasar transaksi TriPay tidak valid.");
+  }
+  if (!Number.isSafeInteger(feeCustomer) || feeCustomer < 0) {
+    throw new Error("Biaya pelanggan TriPay tidak valid.");
+  }
+  const total = amount + feeCustomer;
+  if (!Number.isSafeInteger(total) || total <= 0) {
+    throw new Error("Total tagihan pelanggan TriPay tidak valid.");
+  }
+  return total;
+}
+
 export function mapTripayStatus(status: unknown): "PENDING" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED" {
   const normalized = String(status || "").trim().toUpperCase();
   if (normalized === "PAID") return "PAID";

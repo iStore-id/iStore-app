@@ -8,7 +8,7 @@ import {
 } from "./payment-provider-interface.js";
 import {
   createTripayTransactionSignature, createTripayCallbackSignature,
-  safeTripaySignatureEqual, mapTripayMethod, mapTripayStatus
+  safeTripaySignatureEqual, mapTripayMethod, mapTripayStatus, resolveTripayCustomerTotal
 } from "../tripay-contract.js";
 
 type TripayConfig = {
@@ -134,7 +134,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
         vaNumber: payCode || undefined,
         vaBank: method.endsWith("VA") ? method.replace(/VA$/, "") : undefined,
         rail: method,
-        totalAmount: Number(data.total_amount ?? (Number(data.amount || input.grossAmount) + Number(data.fee_customer || 0))),
+        totalAmount: resolveTripayCustomerTotal(data.amount ?? input.grossAmount, data.fee_customer),
         feeAmount: Number(data.total_fee || data.fee_merchant || 0),
         expiresAt: data.expired_time ? new Date(Number(data.expired_time) * 1000).toISOString() : undefined,
         rawResponse: data
