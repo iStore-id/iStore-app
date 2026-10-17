@@ -181,7 +181,7 @@ export default function LoginPage() {
               {storeName.charAt(0).toUpperCase()}
             </div>
           )}
-          <h1 className="ui-page-title text-slate-900">Masuk ke {storeName}</h1>
+          <h1 className="ui-page-title text-slate-900">Masuk ke <span style={{ color: primaryColor }}>{storeName}</span></h1>
           <p className="text-slate-500 mt-2 text-sm">Silakan masuk menggunakan akun Anda</p>
         </div>
 
