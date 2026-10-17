@@ -43,7 +43,7 @@ export default function SupportPage() {
       .then((json) => {
         if (json.success && json.data) {
           setContactInfo({
-            name: json.data.name || "iStore.id",
+            name: json.data.name || "TEMAN GAMES",
             whatsapp: json.data.contactInformation?.whatsapp || "",
             email: json.data.contactInformation?.email || ""
           });
@@ -167,7 +167,7 @@ export default function SupportPage() {
           <div className="space-y-2">
             {contactInfo.whatsapp ? (
               <a
-                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "iStore.id")},%20saya%20butuh%20bantuan`}
+                href={`https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}?text=Halo%20Admin%20${encodeURIComponent(contactInfo.name || "TEMAN GAMES")},%20saya%20butuh%20bantuan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold transition"
