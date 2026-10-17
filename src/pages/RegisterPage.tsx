@@ -4,6 +4,31 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 import { useAuthStore } from "../store/auth-store";
 import { AlertCircle, UserPlus, Mail } from "lucide-react";
 
+function isHexDark(hex?: string): boolean {
+  if (!hex || !hex.startsWith("#") || hex.length < 7) return false;
+  const r = parseInt(hex.slice(1, 3), 16) || 0;
+  const g = parseInt(hex.slice(3, 5), 16) || 0;
+  const b = parseInt(hex.slice(5, 7), 16) || 0;
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
+function resolveBrandTextColor(config: any): string {
+  const primaryColor = config?.primaryColor || "#EE4D2D";
+  let preference = config?.themePreference || "light";
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("istore_customer_theme_preference");
+      if (saved === "light" || saved === "dark" || saved === "system") preference = saved;
+    } catch {}
+  }
+  const isDark = preference === "dark" ||
+    (preference === "system" && typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  return isDark
+    ? (config?.brandTextColor && !isHexDark(config.brandTextColor) ? config.brandTextColor : primaryColor)
+    : (config?.brandTextColor || primaryColor || "#0f172a");
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
@@ -167,6 +192,7 @@ export default function RegisterPage() {
   };
 
   const primaryColor = config?.primaryColor || "#ff4400";
+  const brandTextColor = resolveBrandTextColor(config);
   const storeName = config?.name || "TEMAN GAMES";
   const storeLogo = config?.logo;
 
@@ -190,7 +216,7 @@ export default function RegisterPage() {
             </div>
           )}
           <h1 className="ui-page-title text-slate-900">Buat Akun Baru</h1>
-          <p className="text-slate-500 mt-2 text-sm">Daftar untuk bertransaksi di <span style={{ color: primaryColor }}>{storeName}</span></p>
+          <p className="text-slate-500 mt-2 text-sm">Daftar untuk bertransaksi di <span style={{ color: brandTextColor }}>{storeName}</span></p>
         </div>
 
         {error && (
