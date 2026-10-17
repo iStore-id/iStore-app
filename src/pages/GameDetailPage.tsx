@@ -512,6 +512,20 @@ export default function GameDetailPage() {
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const hasEmbeddedRef = useRef(false);
+
+  // Restore an in-progress checkout after a page refresh without storing payment tokens.
+  useEffect(() => {
+    try {
+      const pendingReference = sessionStorage.getItem("istore_pending_checkout_reference");
+      if (!pendingReference) return;
+      sessionStorage.removeItem("istore_pending_checkout_reference");
+      if (pendingReference.length <= 128) {
+        navigate(`/transactions/${encodeURIComponent(pendingReference)}`, { replace: true });
+      }
+    } catch {
+      // Storage restrictions must not block the storefront.
+    }
+  }, [navigate]);
   const snapContainerRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef(true);
   const embedTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -559,8 +573,14 @@ export default function GameDetailPage() {
             hasEmbeddedRef.current = true;
             window.snap.embed(snapToken, {
               embedId: "snap-container",
-              onSuccess: () => navigate(`/transactions/${orderId}`),
-              onPending: () => navigate(`/transactions/${orderId}`),
+              onSuccess: () => {
+                try { sessionStorage.removeItem("istore_pending_checkout_reference"); } catch {}
+                navigate(`/transactions/${orderId}`);
+              },
+              onPending: () => {
+                try { sessionStorage.removeItem("istore_pending_checkout_reference"); } catch {}
+                navigate(`/transactions/${orderId}`);
+              },
               onError: () => {
                 setCheckoutError("Pembayaran gagal. Silakan coba lagi.");
                 hasEmbeddedRef.current = false;
@@ -826,6 +846,16 @@ export default function GameDetailPage() {
       if (data.gatewayCode === "doit" || data.gatewayCode === "omqris") {
         navigate(`/transactions/${data.orderId}`);
         return;
+      }
+
+      // Preserve only the transaction reference so refresh can reopen its detail page.
+      // Do not persist Snap tokens, QR payloads, or other payment data in browser storage.
+      if ((data.qrImage || data.snapToken) && data.orderId) {
+        try {
+          sessionStorage.setItem("istore_pending_checkout_reference", String(data.orderId));
+        } catch {
+          // The checkout remains usable if browser storage is unavailable.
+        }
       }
 
       // If we have a QR image, we show it in-page (step 3)
