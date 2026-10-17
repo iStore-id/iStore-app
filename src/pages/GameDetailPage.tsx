@@ -361,7 +361,7 @@ export default function GameDetailPage() {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
-  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string }>>([]);
+  const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string; feeCustomer?: { flat: number | null; percent: number | null } | null }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
   const [expandedPaymentGroups, setExpandedPaymentGroups] = useState<Record<string, boolean>>({});
@@ -406,6 +406,10 @@ export default function GameDetailPage() {
               name: String(channel.name || channel.code).trim(),
               group: String(channel.group || "").trim(),
               type: String(channel.type || "").trim(),
+              feeCustomer: channel.feeCustomer && typeof channel.feeCustomer === "object" ? {
+                flat: typeof channel.feeCustomer.flat === "number" && Number.isFinite(channel.feeCustomer.flat) ? Math.max(0, Math.round(channel.feeCustomer.flat)) : null,
+                percent: typeof channel.feeCustomer.percent === "number" && Number.isFinite(channel.feeCustomer.percent) ? Math.max(0, channel.feeCustomer.percent) : null
+              } : null,
               iconUrl: typeof channel.iconUrl === "string" && channel.iconUrl.trim().toLowerCase().startsWith("https://") ? channel.iconUrl.trim() : ""
             }));
           setTripayAvailableChannels(channels);
@@ -467,7 +471,16 @@ export default function GameDetailPage() {
     ? estimatedLoyaltyPointsCandidate
     : 0;
   const estimatedLoyaltyDiscount = estimatedLoyaltyPoints * loyaltyRedeemRate;
-  const estimatedCheckoutTotal = Math.max(0, selectedSellingPrice - estimatedLoyaltyDiscount) + selectedAdminFee;
+  const estimatedTripayBaseAmount = Math.max(0, selectedSellingPrice - estimatedLoyaltyDiscount);
+  const selectedTripayChannel = activeGateway === "tripay"
+    ? tripayAvailableChannels.find((channel) => channel.code === selectedPaymentMethod)
+    : undefined;
+  const estimatedTripayFee = selectedTripayChannel?.feeCustomer &&
+    selectedTripayChannel.feeCustomer.flat !== null &&
+    selectedTripayChannel.feeCustomer.percent !== null
+      ? Math.max(0, selectedTripayChannel.feeCustomer.flat + Math.ceil(estimatedTripayBaseAmount * selectedTripayChannel.feeCustomer.percent / 100))
+      : null;
+  const estimatedCheckoutTotal = estimatedTripayBaseAmount + selectedAdminFee + (estimatedTripayFee ?? 0);
 
   useEffect(() => {
     if (user) {
@@ -1292,6 +1305,14 @@ export default function GameDetailPage() {
                     ) : <span className="font-medium text-amber-700">Belum dipilih</span>}
                   </span>
                 </div>
+                {activeGateway === "tripay" && selectedPaymentMethod && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-xs">Biaya admin metode pembayaran</span>
+                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                      {estimatedTripayFee === null ? "Dikonfirmasi saat checkout" : formatRupiah(estimatedTripayFee)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500 text-xs">Estimasi Total</span>
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">{selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}</span>
@@ -1653,7 +1674,12 @@ export default function GameDetailPage() {
                   {selectedVariant ? formatRupiah(estimatedCheckoutTotal) : "-"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500">Total ini merupakan estimasi berdasarkan harga katalog, poin, dan biaya admin. Validasi promo/flash sale dan jumlah akhir dilakukan server saat checkout.</p>
+              <p className="text-[11px] text-slate-500">
+                Total ini merupakan estimasi berdasarkan harga katalog, poin, dan biaya admin metode terpilih.
+                {activeGateway === "tripay" && selectedPaymentMethod && estimatedTripayFee === null
+                  ? " Biaya kanal TriPay belum tersedia untuk estimasi ini dan akan dikonfirmasi server saat checkout."
+                  : " Validasi promo/flash sale dan jumlah akhir tetap dilakukan server saat checkout."}
+              </p>
             </div>
 
             {/* Bayar Sekarang */}
