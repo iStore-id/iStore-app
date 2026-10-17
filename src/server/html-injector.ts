@@ -206,7 +206,7 @@ export async function serveGameDetailHtml(req: Request, res: Response, next: Nex
 
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
-    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
+    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://www.tega.biz.id");
     const siteName = seoSettings.siteName || "TEMAN GAMES";
     const separator = seoSettings.titleSeparator || " | ";
 
@@ -312,7 +312,7 @@ export async function serveBlogDetailHtml(req: Request, res: Response, next: Nex
     const seoSettings = await seoService.getPublicSettings();
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
-    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
+    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://www.tega.biz.id");
     const siteName = seoSettings.siteName || "TEMAN GAMES";
     const separator = seoSettings.titleSeparator || " | ";
 
@@ -410,7 +410,7 @@ export async function serveHomepageHtml(req: Request, res: Response, next: NextF
     const seoSettings = await seoService.getPublicSettings();
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
-    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
+    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://www.tega.biz.id");
     const siteName = seoSettings.siteName || "TEMAN GAMES";
     const defaultTitle = seoSettings.defaultTitle || "Solusi Top Up Game & Voucher Digital Terpercaya";
     const title = defaultTitle.includes(siteName) ? defaultTitle : `${defaultTitle}${seoSettings.titleSeparator || " | "}${siteName}`;
@@ -480,7 +480,7 @@ export async function serveLegalHtml(req: Request, res: Response, next: NextFunc
     const seoSettings = await seoService.getPublicSettings();
     const hostHeader = req.get("host") || "";
     const protocol = req.protocol || "https";
-    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://ist.web.id");
+    const baseUrl = seoSettings.canonicalBaseUrl || (hostHeader ? `${protocol}://${hostHeader}` : "https://www.tega.biz.id");
     const siteName = seoSettings.siteName || "TEMAN GAMES";
 
     let title = "";
