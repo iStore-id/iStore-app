@@ -14,7 +14,7 @@ export const FALLBACK_SEO_SETTINGS: PublicSEOSettings = {
     "voucher ff",
     "teman games indonesia"
   ],
-  canonicalBaseUrl: "https://ist.web.id",
+  canonicalBaseUrl: "https://www.tega.biz.id",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
     altText: "TEMAN GAMES - Top Up Game & Voucher Digital Terpercaya",

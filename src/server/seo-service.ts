@@ -22,7 +22,7 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
     "beli diamond game",
     "teman games indonesia"
   ],
-  canonicalBaseUrl: "https://ist.web.id",
+  canonicalBaseUrl: "https://www.tega.biz.id",
   favicon: "",
   googleSiteVerification: "",
   ga4Enabled: false,
@@ -588,7 +588,7 @@ class SEOService {
 
   private sanitizeBaseUrl(urlStr: string): string {
     let clean = (urlStr || "").trim();
-    if (!clean) return "https://ist.web.id";
+    if (!clean) return "https://www.tega.biz.id";
     if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
       clean = `https://${clean}`;
     }
