@@ -332,10 +332,10 @@ export default function TransactionDetailPage() {
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
-          <p className="text-slate-600 font-medium">{formatRupiah(order.paymentGatewayCode === "omqris" ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
+          <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-2xl border border-brand-100 bg-white px-5 py-3 text-lg font-extrabold tabular-nums text-slate-900 shadow-sm sm:text-xl">{formatRupiah(order.paymentGatewayCode === "omqris" ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
-            <div className="mt-6 flex flex-col items-center gap-6">
+            <div className="mt-6 flex w-full flex-col items-center gap-5 sm:gap-6">
               {(() => {
                 const gwResp = order.gatewayResponse || {};
                 const isDoit = order.paymentGatewayCode === 'doit';
@@ -348,7 +348,7 @@ export default function TransactionDetailPage() {
 
                 if (order.paymentGatewayCode === "omqris") {
                   return (
-                    <div className="flex flex-col items-center space-y-4 w-full max-w-sm mx-auto">
+                    <div className="flex w-full max-w-sm flex-col items-center space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                       <div className="text-center space-y-1">
                         <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
