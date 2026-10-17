@@ -203,7 +203,56 @@ export default function AdminSeoPage() {
     if (!settings || !newSitemapPath.trim()) return;
     let path = newSitemapPath.trim();
     if (!path.startsWith("/")) path = `/${path}`;
-    if (!/^\/(?!\/)[A-Za-z0-9._~!  const copyToClipboard = (text: string, type: "robots" | "sitemap") => {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
+    if (!/^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
+      setMessage({ type: "error", text: "Path sitemap tidak valid. Masukkan jalur internal seperti /cek-transaksi." });
+      return;
+    }
+    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+    if (/^\/(?:admin|api)(?:\/|$)/i.test(normalized)) {
+      setMessage({ type: "error", text: "Path admin/API tidak dapat dimasukkan ke sitemap." });
+      return;
+    }
+    if ((settings.sitemapPolicy.customPaths || []).some(p => p.toLowerCase() === normalized.toLowerCase())) {
+      setMessage({ type: "error", text: "Path tersebut sudah ada di daftar sitemap." });
+      return;
+    }
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        customPaths: [...(settings.sitemapPolicy.customPaths || []), normalized],
+        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== normalized)
+      }
+    });
+    setNewSitemapPath("");
+    setMessage(null);
+  };
+
+  const handleToggleSitemapPath = (path: string, enabled: boolean) => {
+    if (!settings) return;
+    const disabled = settings.sitemapPolicy.disabledCustomPaths || [];
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        disabledCustomPaths: enabled ? disabled.filter(p => p !== path) : [...disabled.filter(p => p !== path), path]
+      }
+    });
+  };
+
+  const handleRemoveSitemapPath = (path: string) => {
+    if (!settings) return;
+    setSettings({
+      ...settings,
+      sitemapPolicy: {
+        ...settings.sitemapPolicy,
+        customPaths: (settings.sitemapPolicy.customPaths || []).filter(p => p !== path),
+        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== path)
+      }
+    });
+  };
+
+  const copyToClipboard = (text: string, type: "robots" | "sitemap") => {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
       setMessage({ type: "error", text: "Path sitemap tidak valid. Masukkan jalur internal seperti /cek-transaksi." });
       return;
     }
