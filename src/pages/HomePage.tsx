@@ -435,7 +435,7 @@ export default function HomePage() {
 
           {/* Catalog Grid State */}
           {catalogLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
               {[...Array(12)].map((_, i) => (
                 <div key={i} className="animate-pulse bg-slate-100 dark:bg-slate-800 rounded-2xl aspect-[1/1.38] overflow-hidden relative border" style={{ borderColor: 'var(--border-color)' }}>
                   <div className="absolute inset-0 bg-slate-200/50 dark:bg-slate-700/50"></div>
@@ -561,7 +561,7 @@ export default function HomePage() {
                         <div className="h-px bg-slate-200/60 flex-grow rounded-full hidden sm:block"></div>
                       </div>
                       
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                         {displayGames.map((game) => {
                           const fallbackImg = isUtility 
                             ? "https://placehold.co/400x400/f8fafc/64748b?text=Layanan" 
