@@ -990,7 +990,7 @@ export default function MainLayout() {
                 } ${branding.logoHoverEffect ? "group-hover/logo:shadow-md group-hover/logo:bg-black/10" : ""}`}>
                   <img 
                     src={branding.logo} 
-                    alt="Brand Logo" 
+                    alt="TEMAN GAMES logo" 
                     className="h-8 w-auto object-contain animate-fade-in" 
                     referrerPolicy="no-referrer" 
                   />
@@ -1328,7 +1328,7 @@ export default function MainLayout() {
                   <span className="font-bold text-2xl footer-heading tracking-tight block">{branding.name}</span>
                 ) : null}
                 <p className="text-xs sm:text-sm footer-text-secondary leading-relaxed">
-                  {branding?.description || "Platform Top Up Game Terpercaya"}
+                  {(branding?.description || "Platform Top Up Game Terpercaya").replace(/istore\.id/gi, "TEMAN GAMES").replace(/istore\.co\.id/gi, "TEMAN GAMES")}
                 </p>
 
                 {/* Official Contact Info */}
@@ -1339,7 +1339,7 @@ export default function MainLayout() {
                       <span>{branding.contactInformation.address}</span>
                     </div>
                   )}
-                  {branding?.contactInformation?.email && (
+                  {branding?.contactInformation?.email && !/@istore\.(?:id|co\.id)$/i.test(branding.contactInformation.email.trim()) && (
                     <div className="flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                       <a href={`mailto:${branding.contactInformation.email}`} className="footer-hover transition-colors">
