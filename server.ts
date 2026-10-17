@@ -307,6 +307,38 @@ export async function initServerLogic() {
   app.post("/api/admin/system-logs/export", requirePermission("system_logs", "export"), exportSystemLogsApi);
   app.post("/api/admin/system-logs/simulate", requirePermission("system_logs", "edit"), emitDiagnosticLogApi);
 
+  // Guest transaction history exposes only a minimal summary for locally stored invoice references.
+  app.get("/api/public/transactions/:invoice/summary", async (req, res) => {
+    try {
+      const reference = String(req.params.invoice || "");
+      if (!reference || reference.length > 128) {
+        return res.status(400).json({ success: false, message: "Referensi transaksi tidak valid." });
+      }
+
+      const orderRepo = OrderRepository.getInstance();
+      const order = await orderRepo.getOrderByInvoice(reference) || await orderRepo.getOrderById(reference);
+      if (!order) {
+        return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan." });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          id: order.id,
+          invoice: order.invoice,
+          productName: order.productName,
+          totalAmount: order.totalAmount,
+          paymentStatus: order.paymentStatus,
+          transactionStatus: order.transactionStatus,
+          createdAt: order.createdAt
+        }
+      });
+    } catch (error: any) {
+      console.error("Guest transaction summary error:", error);
+      return res.status(500).json({ success: false, message: "Gagal memuat ringkasan transaksi." });
+    }
+  });
+
   // Order & Webhooks
   app.get("/api/orders/:invoice", async (req, res) => {
     try {
