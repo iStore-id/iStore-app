@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { supabase, isSupabaseConfigured } from "./lib/supabase";
 import { useAuthStore } from "./store/auth-store";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { PUBLIC_ROUTE_PATHS } from "./lib/public-route-registry";
 
 // Layouts
 import MainLayout from "./layouts/MainLayout";
@@ -204,26 +205,26 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route element={<Suspense fallback={<PublicSuspenseFallback />}><MainLayout /></Suspense>}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/games/:slug" element={<GameDetailPage />} />
-            <Route path="/transactions" element={<TransactionCheckPage />} />
-            <Route path="/transactions/history" element={<TransactionHistoryPage />} />
-            <Route path="/transactions/:invoice" element={<TransactionDetailPage />} />
-            <Route path="/promo/:slug" element={<PublicLandingPage />} />
-            <Route path="/landing/:slug" element={<PublicLandingPage />} />
-            <Route path="/blog" element={<BlogListPage />} />
-            <Route path="/blog/:slug" element={<BlogDetailPage />} />
-            <Route path="/faq" element={<FaqPage />} />
-            <Route path="/privacy" element={<PrivacyPolicyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/syarat-ketentuan" element={<TermsPage />} />
-            <Route path="/refund" element={<RefundPolicyPage />} />
-            <Route path="/kebijakan-pengembalian" element={<RefundPolicyPage />} />
-            <Route path="/notifications" element={<NotificationPage />} />
-            <Route path="/membership" element={<MembershipStatusPage />} />
-            <Route path="/support" element={<SupportPage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/profile" element={<AccountPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.home} element={<HomePage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.gameDetail} element={<GameDetailPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.transactionCheck} element={<TransactionCheckPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.transactionHistory} element={<TransactionHistoryPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.transactionDetail} element={<TransactionDetailPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.promoLanding} element={<PublicLandingPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.landing} element={<PublicLandingPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.blogList} element={<BlogListPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.blogDetail} element={<BlogDetailPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.faq} element={<FaqPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.privacy} element={<PrivacyPolicyPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.terms} element={<TermsPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.termsAlias} element={<TermsPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.refund} element={<RefundPolicyPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.refundAlias} element={<RefundPolicyPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.notifications} element={<NotificationPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.membership} element={<MembershipStatusPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.support} element={<SupportPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.account} element={<AccountPage />} />
+            <Route path={PUBLIC_ROUTE_PATHS.profile} element={<AccountPage />} />
           </Route>
           <Route
             path="/admin"
