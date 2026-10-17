@@ -181,7 +181,7 @@ class SEOService {
     }
     const resolvedBrand = storeName || "TEMAN GAMES";
     const normalizeLegacyBrand = (value: string): string =>
-      value.replace(/\\b(?:iStore\\.co\\.id|iStore\\.id|iStore)\\b/gi, () => resolvedBrand);
+      value.replace(/\b(?:iStore\.co\.id|iStore\.id|iStore)\b/gi, () => resolvedBrand);
 
     return {
       siteName: resolvedBrand,
@@ -189,7 +189,7 @@ class SEOService {
       defaultTitle: normalizeLegacyBrand(s.defaultTitle),
       defaultDescription: s.defaultDescription,
       defaultKeywords: s.defaultKeywords.map((keyword) =>
-        /^(?:istore(?:\\.id|\\.co\\.id)?|istore indonesia)$/i.test(keyword.trim())
+        /^(?:istore(?:\.id|\.co\.id)?|istore indonesia)$/i.test(keyword.trim())
           ? resolvedBrand
           : keyword
       ),
