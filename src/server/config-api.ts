@@ -195,7 +195,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
       return res.status(200).json({
         success: true,
         data: {
-          name: "",
+          name: "TEMAN GAMES",
           logo: "",
           favicon: "",
           description: "Platform Top Up Game Terpercaya",
@@ -262,7 +262,7 @@ export async function getPublicStoreConfig(req: Request, res: Response) {
     return res.status(200).json({
       success: true,
       data: {
-        name: config.name ?? "",
+        name: typeof config.name === "string" && config.name.trim() && !/^(?:istore|istore\.id|istore\.co\.id)$/i.test(config.name.trim()) ? config.name.trim() : "TEMAN GAMES",
         logo: config.logo || "",
         favicon: config.favicon || "",
         description: config.description || "",
