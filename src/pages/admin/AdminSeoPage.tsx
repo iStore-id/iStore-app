@@ -24,6 +24,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { SEOSettings, DefaultOgImage, RobotsPolicy, SitemapPolicy, SocialMetadata } from "../../types/seo";
+import { ADDITIONAL_SITEMAP_PUBLIC_PAGES } from "../../lib/public-route-registry";
 
 export default function AdminSeoPage() {
   const { user } = useAuthStore();
@@ -984,12 +985,12 @@ export default function AdminSeoPage() {
                     className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
                   >
                     <option value="">Pilih halaman publik...</option>
-                    {[
-                      { path: "/transactions", label: "Cek Status Transaksi (/transactions)" }
-                    ]
-                      .filter(page => !(settings.sitemapPolicy.customPaths || []).some(path => path.toLowerCase() === page.path.toLowerCase()))
+                    {ADDITIONAL_SITEMAP_PUBLIC_PAGES
+                      .filter(page =>
+                        !(settings.sitemapPolicy.customPaths || []).some(path => path.toLowerCase() === page.path.toLowerCase())
+                      )
                       .map(page => (
-                        <option key={page.path} value={page.path}>{page.label}</option>
+                        <option key={page.path} value={page.path}>{page.label} — {page.path}</option>
                       ))}
                   </select>
                   <button
