@@ -35,8 +35,8 @@ export default function FaqPage() {
 
   useSEO({
     title: activeCategory !== "ALL" ? `FAQ ${activeCategory} - Pusat Bantuan` : "Pusat Bantuan & FAQ",
-    description: "Pertanyaan yang sering diajukan mengenai cara top up game, konfirmasi pembayaran otomatis, pengembalian dana, dan keamanan akun di Toko Kami.",
-    keywords: ["faq top up", "bantuan istore", "cara top up game", "pembayaran qris game", "istore id"],
+    description: "Pertanyaan yang sering diajukan mengenai cara top up game, konfirmasi pembayaran otomatis, pengembalian dana, dan keamanan akun di TEMAN GAMES.",
+    keywords: ["faq top up", "bantuan teman games", "cara top up game", "pembayaran qris game", "teman games"],
     canonicalPath: "/faq",
     ogType: "website",
     jsonLd: faqs.length > 0 ? {
