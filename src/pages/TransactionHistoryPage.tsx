@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/auth-store";
 import { supabaseGetSession } from "../lib/supabase-auth";
 import { formatRupiah } from "../lib/utils";
@@ -7,47 +7,77 @@ import { Receipt, ChevronRight, Clock, CheckCircle2, XCircle, AlertTriangle } fr
 
 export default function TransactionHistoryPage() {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
+    let cancelled = false;
 
     const fetchOrders = async () => {
       try {
-        const { session } = await supabaseGetSession();
-        if (!session?.access_token) {
-          setErrorState("service_error");
-          setLoading(false);
+        if (user) {
+          const { session } = await supabaseGetSession();
+          if (!session?.access_token) {
+            setErrorState("service_error");
+            return;
+          }
+
+          const response = await fetch("/api/customer/orders", {
+            headers: { "Authorization": "Bearer " + session.access_token }
+          });
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            setErrorState("service_error");
+            return;
+          }
+          if (!cancelled) setOrders(data.data || []);
           return;
         }
 
-        const response = await fetch("/api/customer/orders", {
-          headers: {
-            "Authorization": `Bearer ${session.access_token}`
+        let invoices: string[] = [];
+        try {
+          const stored = JSON.parse(localStorage.getItem("istore_guest_transaction_invoices") || "[]");
+          if (Array.isArray(stored)) {
+            invoices = [...new Set(stored.filter((value): value is string =>
+              typeof value === "string" && value.length > 0 && value.length <= 128
+            ))].slice(0, 100);
           }
-        });
-        const data = await response.json();
-        if (data.success) {
-          setOrders(data.data || []);
-        } else {
-          setErrorState("service_error");
+        } catch {
+          invoices = [];
+        }
+
+        const results = await Promise.all(invoices.map(async (reference) => {
+          try {
+            const response = await fetch("/api/public/transactions/" + encodeURIComponent(reference) + "/summary");
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data.success ? data.data : null;
+          } catch {
+            return null;
+          }
+        }));
+        if (!cancelled) {
+          const validOrders = results.filter((order): order is any => Boolean(order));
+          setOrders(validOrders);
+          const validInvoices = validOrders.map(order => order.invoice || order.id);
+          try {
+            localStorage.setItem("istore_guest_transaction_invoices", JSON.stringify(validInvoices));
+          } catch {
+            // Storage may be unavailable or full; history remains usable for this page view.
+          }
         }
       } catch (err) {
         console.warn("Notice: orders could not be fetched from API:", err);
-        setErrorState("service_error");
+        if (!cancelled) setErrorState("service_error");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchOrders();
-  }, [user, navigate]);
+    void fetchOrders();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -93,7 +123,7 @@ export default function TransactionHistoryPage() {
         >
           <Receipt className="w-16 h-16 text-slate-300 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-slate-700 mb-2">Belum ada transaksi</h2>
-          <p className="text-slate-500 mb-6">Anda belum pernah melakukan top up atau pembelian.</p>
+          <p className="text-slate-500 mb-6">{user ? "Anda belum pernah melakukan top up atau pembelian." : "Belum ada transaksi guest yang tersimpan di browser ini. Riwayat guest hanya tersedia di perangkat yang digunakan saat transaksi."}</p>
           <Link to="/" className="inline-block bg-brand-600 text-white font-medium px-6 py-2.5 rounded-full hover:bg-brand-700 transition-colors">
             Mulai Top Up
           </Link>

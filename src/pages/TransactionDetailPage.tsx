@@ -180,6 +180,25 @@ export default function TransactionDetailPage() {
         const orderData = json.data;
         setOrder(orderData);
 
+        // Keep guest transaction references on this browser only; never store order details or payment data.
+        if (!user && (!orderData.userId || orderData.userId === "guest")) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("istore_guest_transaction_invoices") || "[]");
+            const invoices = Array.isArray(stored)
+              ? stored.filter((value): value is string => typeof value === "string" && value.length > 0 && value.length <= 128)
+              : [];
+            const transactionReference = String(orderData.invoice || orderData.id || invoice);
+            if (transactionReference && transactionReference.length <= 128) {
+              localStorage.setItem(
+                "istore_guest_transaction_invoices",
+                JSON.stringify([transactionReference, ...invoices.filter(value => value !== transactionReference)].slice(0, 100))
+              );
+            }
+          } catch {
+            // Private browsing or disabled storage must not block transaction details.
+          }
+        }
+
         // Track purchase event in GA4 if paid / settled
         const txStatus = (orderData.transactionStatus || orderData.status || "").toUpperCase();
         if (txStatus === "PAID" || txStatus === "SUCCESS" || txStatus === "COMPLETED" || txStatus === "SETTLEMENT") {
