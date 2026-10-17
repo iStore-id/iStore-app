@@ -407,8 +407,8 @@ export default function GameDetailPage() {
               group: String(channel.group || "").trim(),
               type: String(channel.type || "").trim(),
               feeCustomer: channel.feeCustomer && typeof channel.feeCustomer === "object" ? {
-                flat: Number.isFinite(Number(channel.feeCustomer.flat)) ? Math.max(0, Math.round(Number(channel.feeCustomer.flat))) : null,
-                percent: Number.isFinite(Number(channel.feeCustomer.percent)) ? Math.max(0, Number(channel.feeCustomer.percent)) : null
+                flat: typeof channel.feeCustomer.flat === "number" && Number.isFinite(channel.feeCustomer.flat) ? Math.max(0, Math.round(channel.feeCustomer.flat)) : null,
+                percent: typeof channel.feeCustomer.percent === "number" && Number.isFinite(channel.feeCustomer.percent) ? Math.max(0, channel.feeCustomer.percent) : null
               } : null,
               iconUrl: typeof channel.iconUrl === "string" && channel.iconUrl.trim().toLowerCase().startsWith("https://") ? channel.iconUrl.trim() : ""
             }));
