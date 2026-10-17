@@ -24,6 +24,7 @@ export interface SitemapPolicy {
   includeFaq: boolean;
   changefreqDefault: "always" | "hourly" | "daily" | "weekly" | "monthly";
   customPaths?: string[];
+  disabledCustomPaths?: string[];
 }
 
 export interface SocialMetadata {

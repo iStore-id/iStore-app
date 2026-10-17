@@ -141,7 +141,8 @@ class SEOService {
           includeLandings: data.sitemapPolicy?.includeLandings ?? DEFAULT_SEO_SETTINGS.sitemapPolicy.includeLandings,
           includeFaq: data.sitemapPolicy?.includeFaq ?? DEFAULT_SEO_SETTINGS.sitemapPolicy.includeFaq,
           changefreqDefault: data.sitemapPolicy?.changefreqDefault || DEFAULT_SEO_SETTINGS.sitemapPolicy.changefreqDefault,
-          customPaths: Array.isArray(data.sitemapPolicy?.customPaths) ? data.sitemapPolicy.customPaths : []
+          customPaths: Array.isArray(data.sitemapPolicy?.customPaths) ? data.sitemapPolicy.customPaths : [],
+          disabledCustomPaths: Array.isArray(data.sitemapPolicy?.disabledCustomPaths) ? data.sitemapPolicy.disabledCustomPaths : []
         },
         socialMetadata: {
           twitterHandle: data.socialMetadata?.twitterHandle || DEFAULT_SEO_SETTINGS.socialMetadata.twitterHandle,
@@ -301,8 +302,11 @@ class SEOService {
         includeFaq: updates.sitemapPolicy?.includeFaq ?? current.sitemapPolicy.includeFaq,
         changefreqDefault: updates.sitemapPolicy?.changefreqDefault || current.sitemapPolicy.changefreqDefault,
         customPaths: Array.isArray(updates.sitemapPolicy?.customPaths)
-          ? updates.sitemapPolicy.customPaths.map(p => this.sanitizePath(p)).filter(Boolean)
-          : current.sitemapPolicy.customPaths
+          ? Array.from(new Set(updates.sitemapPolicy.customPaths.map(p => this.sanitizeSitemapPath(p)).filter((p): p is string => Boolean(p))))
+          : current.sitemapPolicy.customPaths,
+        disabledCustomPaths: Array.isArray(updates.sitemapPolicy?.disabledCustomPaths)
+          ? updates.sitemapPolicy.disabledCustomPaths.map(p => this.sanitizeSitemapPath(p)).filter((p): p is string => Boolean(p))
+          : current.sitemapPolicy.disabledCustomPaths || []
       },
       socialMetadata: {
         twitterHandle: (updates.socialMetadata?.twitterHandle || current.socialMetadata.twitterHandle || "").trim(),
@@ -541,9 +545,10 @@ class SEOService {
 
     // 6. Custom safe paths
     if (settings.sitemapPolicy.customPaths && settings.sitemapPolicy.customPaths.length > 0) {
+      const disabledPaths = new Set(settings.sitemapPolicy.disabledCustomPaths || []);
       for (const p of settings.sitemapPolicy.customPaths) {
-        const sanitized = this.sanitizePath(p);
-        if (sanitized && !sanitized.startsWith("/admin") && !sanitized.startsWith("/api")) {
+        const sanitized = this.sanitizeSitemapPath(p);
+        if (sanitized && !disabledPaths.has(sanitized)) {
           urls.push({
             loc: `${baseUrl}${sanitized}`,
             lastmod: todayIso,
@@ -598,6 +603,16 @@ class SEOService {
     }
     // Remove trailing slash
     return clean.replace(/\/+$/, "");
+  }
+
+  private sanitizeSitemapPath(pathStr: string): string | null {
+    const raw = (pathStr || "").trim();
+    if (!raw || raw.startsWith("//") || /[\\?#\s<>"'\\]/.test(raw) || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
+    const path = raw.startsWith("/") ? raw : `/${raw}`;
+    if (!/^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) return null;
+    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+    if (/^\/(?:admin|api)(?:\/|$)/i.test(normalized)) return null;
+    return normalized;
   }
 
   private sanitizePath(pathStr: string): string {
