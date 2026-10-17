@@ -4,6 +4,14 @@ import { Shield, ArrowLeft, RefreshCw, AlertCircle, Mail, Phone, MapPin, Calenda
 import { PublicPrivacySettings } from "../types/privacy";
 import { useSEO } from "../lib/seo";
 
+function renderBrandAwareText(text: string): React.ReactNode {
+  return text.split(/(TEMAN GAMES)/gi).map((part, index) =>
+    /^TEMAN GAMES$/i.test(part) ? (
+      <span key={index} style={{ color: "var(--brand-text-color, var(--primary-color))" }}>{part}</span>
+    ) : part
+  );
+}
+
 export default function PrivacyPolicyPage() {
   const [privacyData, setPrivacyData] = useState<PublicPrivacySettings | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -115,7 +123,7 @@ export default function PrivacyPolicyPage() {
             {/* Content Body */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xs space-y-6">
               <div className="text-slate-800 text-sm sm:text-base leading-relaxed space-y-4 whitespace-pre-wrap font-sans">
-                {privacyData.privacyPolicy.content}
+                {renderBrandAwareText(privacyData.privacyPolicy.content)}
               </div>
             </div>
 
