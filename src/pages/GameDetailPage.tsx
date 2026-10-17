@@ -1539,10 +1539,11 @@ export default function GameDetailPage() {
                             {!isPrimary && <ChevronRight className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${isExpanded ? "rotate-90" : ""}`} />}
                           </button>
                           {isExpanded && (
-                            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                            <div className={group === "QRIS" ? "grid grid-cols-1 gap-2.5" : "grid grid-cols-2 gap-2.5 sm:gap-3"}>
                               {channels.map((channel) => {
                                 const isSelected = selectedPaymentMethod === channel.code;
-                                const channelDisplayName = group === "QRIS" ? "QRIS" : channel.name;
+                                const isQris = group === "QRIS";
+                                const channelDisplayName = isQris ? "QRIS" : channel.name;
                                 const channelDisplayLogo = group === "QRIS" ? "/payment-logos/qris.svg" : (channel.iconUrl || getTripayChannelLogo(channel.code));
                                 return (
                                   <button
@@ -1551,7 +1552,7 @@ export default function GameDetailPage() {
                                     aria-pressed={isSelected}
                                     aria-label={`Pilih metode pembayaran ${channelDisplayName}`}
                                     onClick={() => { setSelectedPaymentMethod(channel.code); setCheckoutError(null); }}
-                                    className={`group flex min-h-[64px] w-full min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${
+                                    className={`group flex min-h-[64px] w-full min-w-0 items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 active:scale-[0.98] ${isQris ? "min-h-[92px] gap-4 rounded-2xl p-4" : ""} ${
                                       isSelected
                                         ? (isDarkMode ? "border-brand-500 bg-brand-500/10 shadow-[0_0_0_1px_rgba(255,68,0,0.18),0_6px_18px_rgba(255,68,0,0.10)]" : "border-brand-600 bg-brand-50/80 shadow-sm ring-1 ring-brand-500/20")
                                         : (isDarkMode ? "border-slate-700/80 bg-slate-900/90 hover:-translate-y-0.5 hover:border-brand-400/60 hover:bg-slate-800/95" : "border-slate-200/80 hover:-translate-y-0.5 hover:border-brand-300")
@@ -1561,11 +1562,12 @@ export default function GameDetailPage() {
                               borderColor: isDarkMode ? "rgba(148, 163, 184, 0.22)" : "var(--border-color)"
                             }}
                                   >
-                                    <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-white p-1.5 shadow-sm transition-transform duration-200 group-hover:scale-[1.03]">
+                                    <span className={`flex shrink-0 items-center justify-center border border-slate-200/80 bg-white shadow-sm transition-transform duration-200 group-hover:scale-[1.03] ${isQris ? "h-14 w-20 rounded-xl p-2.5" : "h-8 w-10 rounded-lg p-1.5"}`}>
                                       <img src={channelDisplayLogo} alt="" className="max-h-full max-w-full object-contain" loading="lazy" />
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                      <span className={`block line-clamp-2 break-words text-xs font-semibold leading-snug ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channelDisplayName}</span>
+                                      <span className={`block break-words font-semibold leading-snug ${isQris ? "text-base sm:text-lg" : "line-clamp-2 text-xs"} ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>{channelDisplayName}</span>
+                                      {isQris && <span className={`mt-1 block text-xs leading-relaxed ${isDarkMode ? "text-slate-300" : "text-slate-500"}`}>Scan dengan aplikasi pembayaran yang mendukung QRIS.</span>}
                                     </span>
                                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                                       isSelected ? (isDarkMode ? "border-brand-500 bg-brand-600 text-white" : "border-brand-600 bg-brand-600 text-white") : (isDarkMode ? "border-slate-600 bg-slate-800" : "border-slate-300 bg-white")
