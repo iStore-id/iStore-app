@@ -219,7 +219,8 @@ export function useSEO(metadata: PageMetadataInput) {
     const separator = globalSettings.titleSeparator || " | ";
 
     // 1. Resolve Title
-    let resolvedTitle = globalSettings.defaultTitle;
+    const defaultTitle = globalSettings.defaultTitle || "TEMAN GAMES";
+    let resolvedTitle = defaultTitle.includes(siteName) ? defaultTitle : `${defaultTitle}${separator}${siteName}`;
     if (metadata.title && metadata.title.trim()) {
       const cleanTitle = sanitizeMetaText(metadata.title);
       if (cleanTitle.includes(siteName)) {
