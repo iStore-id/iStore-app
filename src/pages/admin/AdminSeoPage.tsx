@@ -49,7 +49,7 @@ export default function AdminSeoPage() {
 
   // Robots disallow path new input
   const [newDisallowPath, setNewDisallowPath] = useState("");
-  const [newSitemapPath, setNewSitemapPath] = useState("");
+  const [selectedSitemapPath, setSelectedSitemapPath] = useState("");
   const [copiedRobots, setCopiedRobots] = useState(false);
   const [copiedSitemap, setCopiedSitemap] = useState(false);
 
@@ -200,8 +200,8 @@ export default function AdminSeoPage() {
 
   // Custom sitemap paths
   const handleAddSitemapPath = () => {
-    if (!settings || !newSitemapPath.trim()) return;
-    let path = newSitemapPath.trim();
+    if (!settings || !selectedSitemapPath) return;
+    let path = selectedSitemapPath;
     if (!path.startsWith("/")) path = `/${path}`;
     if (!/^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
       setMessage({ type: "error", text: "Path sitemap tidak valid. Masukkan jalur internal seperti /cek-transaksi." });
@@ -224,7 +224,7 @@ export default function AdminSeoPage() {
         disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== normalized)
       }
     });
-    setNewSitemapPath("");
+    setSelectedSitemapPath("");
     setMessage(null);
   };
 
@@ -974,22 +974,29 @@ export default function AdminSeoPage() {
               <div className="space-y-3">
                 <div>
                   <h4 className="text-sm font-semibold text-slate-900">Halaman Tambahan</h4>
-                  <p className="text-xs text-slate-500 mt-1">Tambahkan jalur halaman publik lain. Centang untuk memasukkannya ke sitemap, atau hapus jika tidak diperlukan.</p>
+                  <p className="text-xs text-slate-500 mt-1">Pilih halaman publik TEMAN GAMES yang tersedia. Halaman yang sudah diatur otomatis di atas tidak ditampilkan ulang.</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={newSitemapPath}
-                    onChange={e => setNewSitemapPath(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddSitemapPath(); } }}
-                    placeholder="/cek-transaksi"
-                    aria-label="Path halaman tambahan sitemap"
+                  <select
+                    value={selectedSitemapPath}
+                    onChange={e => setSelectedSitemapPath(e.target.value)}
+                    aria-label="Pilih halaman publik untuk sitemap"
                     className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-                  />
+                  >
+                    <option value="">Pilih halaman publik...</option>
+                    {[
+                      { path: "/transactions", label: "Cek Status Transaksi (/transactions)" }
+                    ]
+                      .filter(page => !(settings.sitemapPolicy.customPaths || []).some(path => path.toLowerCase() === page.path.toLowerCase()))
+                      .map(page => (
+                        <option key={page.path} value={page.path}>{page.label}</option>
+                      ))}
+                  </select>
                   <button
                     type="button"
                     onClick={handleAddSitemapPath}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition"
+                    disabled={!selectedSitemapPath}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4" /> Tambahkan
                   </button>
