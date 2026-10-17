@@ -252,51 +252,6 @@ export default function AdminSeoPage() {
     });
   };
 
-  const copyToClipboard = (text: string, type: "robots" | "sitemap") => {'()*+,;=:@%/-]+$/.test(path) || path.includes("..") || /%(?:2f|5c)/i.test(path)) {
-      setMessage({ type: "error", text: "Path sitemap tidak valid. Masukkan jalur internal seperti /cek-transaksi." });
-      return;
-    }
-    const normalized = path.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
-    if ((settings.sitemapPolicy.customPaths || []).some(p => p.toLowerCase() === normalized.toLowerCase())) {
-      setMessage({ type: "error", text: "Path tersebut sudah ada di daftar sitemap." });
-      return;
-    }
-    setSettings({
-      ...settings,
-      sitemapPolicy: {
-        ...settings.sitemapPolicy,
-        customPaths: [...(settings.sitemapPolicy.customPaths || []), normalized],
-        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== normalized)
-      }
-    });
-    setNewSitemapPath("");
-    setMessage(null);
-  };
-
-  const handleToggleSitemapPath = (path: string, enabled: boolean) => {
-    if (!settings) return;
-    const disabled = settings.sitemapPolicy.disabledCustomPaths || [];
-    setSettings({
-      ...settings,
-      sitemapPolicy: {
-        ...settings.sitemapPolicy,
-        disabledCustomPaths: enabled ? disabled.filter(p => p !== path) : [...disabled.filter(p => p !== path), path]
-      }
-    });
-  };
-
-  const handleRemoveSitemapPath = (path: string) => {
-    if (!settings) return;
-    setSettings({
-      ...settings,
-      sitemapPolicy: {
-        ...settings.sitemapPolicy,
-        customPaths: (settings.sitemapPolicy.customPaths || []).filter(p => p !== path),
-        disabledCustomPaths: (settings.sitemapPolicy.disabledCustomPaths || []).filter(p => p !== path)
-      }
-    });
-  };
-
   const copyToClipboard = (text: string, type: "robots" | "sitemap") => {
     navigator.clipboard.writeText(text);
     if (type === "robots") {
