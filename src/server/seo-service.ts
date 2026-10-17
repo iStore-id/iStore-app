@@ -10,7 +10,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export const DEFAULT_SEO_SETTINGS: SEOSettings = {
   id: "global",
-  siteName: "iStore.id",
+  siteName: "TEMAN GAMES",
   titleSeparator: " | ",
   defaultTitle: "Solusi Top Up Game & Voucher Digital Terpercaya",
   defaultDescription: "Platform top up game dan voucher digital terpercaya di Indonesia. Proses kilat instan 24 jam, harga termurah, dan metode pembayaran terlengkap.",
@@ -20,7 +20,7 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
     "top up mlbb",
     "voucher ff",
     "beli diamond game",
-    "istore indonesia"
+    "teman games indonesia"
   ],
   canonicalBaseUrl: "https://ist.web.id",
   favicon: "",
@@ -29,7 +29,7 @@ export const DEFAULT_SEO_SETTINGS: SEOSettings = {
   ga4MeasurementId: "",
   defaultOgImage: {
     url: "https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1200&auto=format&fit=crop",
-    altText: "iStore.id - Top Up Game & Voucher Digital Terpercaya",
+    altText: "TEMAN GAMES - Top Up Game & Voucher Digital Terpercaya",
     width: 1200,
     height: 630
   },
