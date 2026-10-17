@@ -134,7 +134,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
         vaNumber: payCode || undefined,
         vaBank: method.endsWith("VA") ? method.replace(/VA$/, "") : undefined,
         rail: method,
-        totalAmount: resolveTripayCustomerTotal(data.amount ?? input.grossAmount, data.fee_customer),
+        totalAmount: resolveTripayCustomerTotal(input.grossAmount, data.fee_customer),
         feeAmount: Number(data.total_fee || data.fee_merchant || 0),
         expiresAt: data.expired_time ? new Date(Number(data.expired_time) * 1000).toISOString() : undefined,
         rawResponse: data

@@ -40,9 +40,9 @@ test("TriPay callback signature validates exact raw body and event keys include 
 });
 
 
-test("TriPay customer total uses amount plus customer fee and ignores inconsistent total_amount", () => {
-  // Sandbox may expose an undocumented total_amount that already contains the fee
-  // twice. The documented amount + fee_customer fields match the checkout bill.
+test("TriPay customer total uses the merchant-requested amount plus customer fee", () => {
+  // The adapter must pass input.grossAmount here, not a provider response amount
+  // that may already include fees. The checkout total must add the customer fee once.
   assert.equal(resolveTripayCustomerTotal(10536, 4250), 14786);
   assert.equal(resolveTripayCustomerTotal(10536, 0), 10536);
 });
