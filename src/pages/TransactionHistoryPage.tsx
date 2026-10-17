@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../store/auth-store";
 import { supabaseGetSession } from "../lib/supabase-auth";
 import { formatRupiah } from "../lib/utils";
@@ -7,7 +7,6 @@ import { Receipt, ChevronRight, Clock, CheckCircle2, XCircle, AlertTriangle } fr
 
 export default function TransactionHistoryPage() {
   const { user } = useAuthStore();
-  const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
