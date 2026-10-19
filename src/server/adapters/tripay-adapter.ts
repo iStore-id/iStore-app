@@ -42,7 +42,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
       merchantCode: String(saved?.merchantCode || process.env.TRIPAY_MERCHANT_CODE || ""),
       isProduction: saved?.isProduction !== undefined ? saved.isProduction === true : process.env.TRIPAY_IS_PRODUCTION === "true",
       isActive: saved?.isActive === true,
-      callbackUrl: String(saved?.callbackUrl || "https://ist.web.id/api/webhooks/tripay")
+      callbackUrl: String(saved?.callbackUrl || "https://www.tega.biz.id/api/webhooks/tripay")
     };
   }
 
@@ -105,7 +105,7 @@ export class TripayProviderAdapter implements PaymentProviderAdapter {
     const customerPhone = String(input.customerDetails.phone || "").trim();
     if (customerPhone && customerPhone !== "08123456789") form.set("customer_phone", customerPhone);
     form.set("callback_url", input.callbackUrl || config.callbackUrl);
-    form.set("return_url", input.returnUrl || `https://ist.web.id/transactions/${encodeURIComponent(merchantRef)}`);
+    form.set("return_url", input.returnUrl || `https://www.tega.biz.id/transactions/${encodeURIComponent(merchantRef)}`);
     form.set("expired_time", String(Math.floor(Date.now() / 1000) + 24 * 60 * 60));
     form.set("signature", signature);
     input.itemDetails.slice(0, 20).forEach((item, index) => {
