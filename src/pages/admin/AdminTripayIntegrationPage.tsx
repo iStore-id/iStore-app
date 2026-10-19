@@ -122,7 +122,7 @@ export default function AdminTripayIntegrationPage() {
         </div>
         <div className="rounded-xl bg-slate-50 p-3 text-sm">
           <div className="font-semibold">Webhook URL</div>
-          <code className="break-all">https://ist.web.id/api/webhooks/tripay</code>
+          <code className="break-all">https://www.tega.biz.id/api/webhooks/tripay</code>
           <p className="text-xs text-slate-500 mt-2">Daftarkan URL ini pada pengaturan callback TriPay. Signature callback wajib diverifikasi.</p>
         </div>
         <label className="flex items-start gap-3 rounded-xl border p-3">

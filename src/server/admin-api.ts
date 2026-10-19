@@ -2434,7 +2434,7 @@ export async function getTripayIntegration(req: AuthenticatedRequest, res: Respo
         isProduction: config.isProduction === true,
         isActive: config.isActive === true,
         configured: !!apiKey && !!privateKey && !!config.merchantCode,
-        callbackUrl: config.callbackUrl || "https://ist.web.id/api/webhooks/tripay",
+        callbackUrl: config.callbackUrl || "https://www.tega.biz.id/api/webhooks/tripay",
         lastTestedAt: config.lastTestedAt || null,
         lastTestResult: config.lastTestResult || null,
         availableChannels: Array.isArray(config.availableChannels) ? config.availableChannels : []
@@ -2478,7 +2478,7 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
       encryptedPrivateKey,
       merchantCode: nextMerchantCode,
       isProduction: nextIsProduction,
-      callbackUrl: "https://ist.web.id/api/webhooks/tripay",
+      callbackUrl: "https://www.tega.biz.id/api/webhooks/tripay",
       availableChannels: connectionSettingsChanged ? [] : (existing.availableChannels || []),
       lastTestedAt: connectionSettingsChanged ? null : (existing.lastTestedAt || null),
       lastTestResult: connectionSettingsChanged ? null : (existing.lastTestResult || null),
