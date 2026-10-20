@@ -2644,32 +2644,37 @@ export async function testNasionalPayIntegration(req: AuthenticatedRequest, res:
   const config = await repo.getConfig("nasionalpay_integration") || {};
   const storeKey = config.encryptedStoreKey ? decryptSecret(config.encryptedStoreKey) : "";
   if (!storeKey) return res.status(400).json({ success: false, message: "Simpan Store Key NasionalPay terlebih dahulu." });
-  const transactionId = typeof req.body?.transactionId === "string" ? req.body.transactionId.trim() : "";
-  if (!transactionId) {
-    return res.status(400).json({
-      success: false,
-      message: "Masukkan transaction_id dari transaksi NasionalPay yang sudah ada. Endpoint status tidak dapat menguji kredensial tanpa ID transaksi nyata."
-    });
-  }
+
+  // The official API documents /merchantbalance as a credential/store check
+  // requiring only the Store Key; /status requires a real generated transaction.
   const now = new Date().toISOString();
   try {
-    const response = await fetch("https://merchant.nasionalpay.com/api/payment/status", {
+    const response = await fetch("https://merchant.nasionalpay.com/api/payment/merchantbalance", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ key: storeKey, transaction_id: transactionId }),
+      body: JSON.stringify({ key: storeKey }),
       signal: AbortSignal.timeout(10000)
     });
     const result: any = await response.json().catch(() => ({}));
-    if (!response.ok || result?.success !== true) {
+    if (!response.ok || result?.success !== true || !result?.data || typeof result.data !== "object") {
       const message = String(result?.message || `NasionalPay test failed (HTTP ${response.status})`);
       await repo.upsertConfig("nasionalpay_integration", { ...config, lastTestedAt: now, lastTestResult: "failed", lastTestMessage: message });
-      return res.status(502).json({ success: false, message: "NasionalPay belum mengonfirmasi kredensial melalui endpoint status. " + message });
+      return res.status(502).json({ success: false, message: "NasionalPay belum mengonfirmasi Store Key melalui endpoint merchant balance. " + message });
     }
+
+    const storeStatus = String(result.data.status || "unknown");
+    const accountLevel = String(result.data.level || "unknown");
     await repo.upsertConfig("nasionalpay_integration", {
-      ...config, lastTestedAt: now, lastTestResult: "success",
-      lastTestMessage: "Kredensial diterima endpoint status NasionalPay."
+      ...config,
+      lastTestedAt: now,
+      lastTestResult: "success",
+      lastTestMessage: `Store Key diterima; status toko: ${storeStatus}; level akun: ${accountLevel}.`
     });
-    return res.status(200).json({ success: true, message: "Kredensial NasionalPay berhasil diverifikasi melalui API status." });
+    return res.status(200).json({
+      success: true,
+      message: "Store Key berhasil diverifikasi melalui API Merchant Balance NasionalPay.",
+      data: { storeName: String(result.data.store_name || ""), status: storeStatus, level: accountLevel, testedAt: now }
+    });
   } catch (err: any) {
     await repo.upsertConfig("nasionalpay_integration", {
       ...config, lastTestedAt: now, lastTestResult: "failed",
