@@ -102,9 +102,9 @@ export default function AdminNasionalPayIntegrationPage() {
           <p className="text-slate-600 mt-1">QRIS (menampilkan QRIS image/data) dan DANA (payment URL). Metode lain tidak diaktifkan karena tidak tercakup dalam kontrak API yang diberikan.</p>
         </div>
         <div>
-          <label className="block text-sm font-semibold mb-2">ID transaksi untuk tes koneksi (opsional)</label>
-          <input value={testTransactionId} onChange={e => setTestTransactionId(e.target.value)} autoComplete="off" placeholder="Masukkan transaction_id dari transaksi NasionalPay yang sudah ada" className="w-full rounded-xl border px-3 py-2.5 text-sm" />
-          <p className="mt-1 text-xs text-slate-500">API tidak mendokumentasikan endpoint ping. Jika ID uji palsu ditolak, masukkan transaction_id yang sudah ada agar kredensial dapat diverifikasi tanpa membuat pembayaran baru.</p>
+          <label className="block text-sm font-semibold mb-2">ID transaksi nyata untuk tes koneksi (wajib)</label>
+          <input value={testTransactionId} onChange={e => setTestTransactionId(e.target.value)} autoComplete="off" required placeholder="Masukkan transaction_id dari transaksi NasionalPay yang sudah ada" className="w-full rounded-xl border px-3 py-2.5 text-sm" />
+          <p className="mt-1 text-xs text-slate-500">Endpoint status memerlukan transaction_id yang benar-benar ada. Tes ini tidak membuat pembayaran baru; respons “Store Key tidak valid” dari provider tetap harus dikonfirmasi menggunakan Store Key yang benar pada dashboard NasionalPay.</p>
         </div>
         <label className="flex items-start gap-3 rounded-xl border p-3">
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="mt-1" />
@@ -114,7 +114,7 @@ export default function AdminNasionalPayIntegrationPage() {
           <button onClick={save} disabled={saving || (isActive && !configured && !storeKey.trim())} className="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Simpan Konfigurasi
           </button>
-          <button onClick={testConnection} disabled={saving || testing || !configured || !!storeKey.trim()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
+          <button onClick={testConnection} disabled={saving || testing || !configured || !!storeKey.trim() || !testTransactionId.trim()} className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">
             {testing ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />} {testing ? "Menguji Koneksi…" : "Tes Koneksi"}
           </button>
         </div>
