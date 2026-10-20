@@ -389,7 +389,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
     // Save token & native presentation to order for future retries if needed
     const rawRes = paymentResult.rawResponse?.data || paymentResult.rawResponse || {};
-    const resQrContent = rawRes.qr_content || rawRes.qr_string || rawRes.qrContent;
+    const resQrContent = rawRes.qr_content || rawRes.qr_string || rawRes.qrContent || rawRes.qris_data;
     const resVaNumber = paymentResult.vaNumber || rawRes.va_number || rawRes.vaNumber;
     const resVaBank = paymentResult.vaBank || rawRes.va_bank || rawRes.vaBank;
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
