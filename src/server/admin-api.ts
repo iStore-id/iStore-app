@@ -2644,12 +2644,19 @@ export async function testNasionalPayIntegration(req: AuthenticatedRequest, res:
   const config = await repo.getConfig("nasionalpay_integration") || {};
   const storeKey = config.encryptedStoreKey ? decryptSecret(config.encryptedStoreKey) : "";
   if (!storeKey) return res.status(400).json({ success: false, message: "Simpan Store Key NasionalPay terlebih dahulu." });
+  const transactionId = typeof req.body?.transactionId === "string" ? req.body.transactionId.trim() : "";
+  if (!transactionId) {
+    return res.status(400).json({
+      success: false,
+      message: "Masukkan transaction_id dari transaksi NasionalPay yang sudah ada. Endpoint status tidak dapat menguji kredensial tanpa ID transaksi nyata."
+    });
+  }
   const now = new Date().toISOString();
   try {
     const response = await fetch("https://merchant.nasionalpay.com/api/payment/status", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ key: storeKey, transaction_id: String(req.body?.transactionId || "ISTORE_CONNECTION_TEST").trim() }),
+      body: JSON.stringify({ key: storeKey, transaction_id: transactionId }),
       signal: AbortSignal.timeout(10000)
     });
     const result: any = await response.json().catch(() => ({}));
