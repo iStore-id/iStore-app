@@ -872,7 +872,7 @@ export async function nasionalpayWebhook(req: any, res: any) {
     if (!(targetState === "PAID" && currentStatus === "paid")) {
       await transitionOrderState(orderData.id, targetState as any, {
         gatewayTransactionId: event.transactionId,
-        gatewayPaymentType: String(event.rawPayload?.data?.type || "").toLowerCase(),
+        gatewayPaymentType: String(event.rawPayload?.data?.type || event.rawPayload?.type || "").toLowerCase(),
         gatewayResponse: event.rawPayload
       }, `NasionalPay webhook: ${verified.transactionStatus}`);
     }
