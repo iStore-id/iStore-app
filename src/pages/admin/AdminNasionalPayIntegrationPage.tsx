@@ -9,6 +9,7 @@ export default function AdminNasionalPayIntegrationPage() {
   const [configured, setConfigured] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [lastTestResult, setLastTestResult] = useState("");
+  const [testTransactionId, setTestTransactionId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -60,7 +61,7 @@ export default function AdminNasionalPayIntegrationPage() {
   const testConnection = async () => {
     setTesting(true); setMessage("");
     try {
-      const response = await fetch("/api/admin/integrations/nasionalpay/test", { method: "POST", headers: await authHeaders() });
+      const response = await fetch("/api/admin/integrations/nasionalpay/test", { method: "POST", headers: await authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ transactionId: testTransactionId.trim() }) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || "Tes koneksi NasionalPay gagal.");
       setLastTestResult("success");
