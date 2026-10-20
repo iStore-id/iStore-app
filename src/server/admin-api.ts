@@ -2632,7 +2632,7 @@ export async function updateNasionalPayIntegration(req: AuthenticatedRequest, re
   }
 }
 
-export async function testNasionalPayIntegration(_req: AuthenticatedRequest, res: Response) {
+export async function testNasionalPayIntegration(req: AuthenticatedRequest, res: Response) {
   const repo = SystemConfigRepository.getInstance();
   const config = await repo.getConfig("nasionalpay_integration") || {};
   const storeKey = config.encryptedStoreKey ? decryptSecret(config.encryptedStoreKey) : "";
@@ -2642,7 +2642,7 @@ export async function testNasionalPayIntegration(_req: AuthenticatedRequest, res
     const response = await fetch("https://merchant.nasionalpay.com/api/payment/status", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ key: storeKey, transaction_id: "ISTORE_CONNECTION_TEST" }),
+      body: JSON.stringify({ key: storeKey, transaction_id: String(req.body?.transactionId || "ISTORE_CONNECTION_TEST").trim() }),
       signal: AbortSignal.timeout(10000)
     });
     const result: any = await response.json().catch(() => ({}));
