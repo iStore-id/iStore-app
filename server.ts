@@ -3,7 +3,7 @@ import path from "path";
 import cors from "cors";
 import dotenv from "dotenv";
 import { processCheckout } from "./src/server/order-engine.js";
-import { midtransWebhook, tokovoucherWebhook, doitWebhook, omqrisWebhook, tripayWebhook } from "./src/server/webhooks.js";
+import { midtransWebhook, tokovoucherWebhook, doitWebhook, omqrisWebhook, tripayWebhook, nasionalpayWebhook } from "./src/server/webhooks.js";
 import { getPaymentStatusHandler } from "./src/server/payment-status-api.js";
 import { optionalAuth, requireAuth, requireAdmin, requirePermission, AuthenticatedRequest } from "./src/server/middleware.js";
 import { ApiGamesProvider } from "./src/server/providers.js";
@@ -370,6 +370,7 @@ export async function initServerLogic() {
   app.post("/api/webhooks/doit", doitWebhook);
   app.post("/api/webhooks/omqris", omqrisWebhook);
   app.post("/api/webhooks/tripay", tripayWebhook);
+  app.post("/api/webhooks/nasionalpay", nasionalpayWebhook);
 
   // Admin Routes (Using Permissions instead of just requireAdmin)
   app.post("/api/admin/games", requirePermission("games", "create"), createGame);
