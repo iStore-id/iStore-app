@@ -1055,8 +1055,11 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
+      const existingNasionalPay = await SystemConfigRepository.getInstance().getConfig("nasionalpay_integration");
+      if (existingNasionalPay?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig("nasionalpay_integration", { ...existingNasionalPay, isActive: false, updatedAt: now });
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
     }
 
     if (serverKey && !serverKey.includes("****")) {
@@ -2295,7 +2298,7 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
     // Cross-gateway coordination is restricted to explicit OmQris activation.
     // Doit and Midtrans handlers/adapters are not modified; only their active flags are cleared.
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "tripay_integration", "nasionalpay_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
@@ -2490,13 +2493,14 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
     await repo.upsertConfig("tripay_integration", newConfig);
 
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration", "nasionalpay_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.TRIPAY_IS_ACTIVE = "false";
@@ -2799,8 +2803,14 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
           updatedAt: now
         });
       }
+      for (const key of ["tripay_integration", "nasionalpay_integration"] as const) {
+        const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
+        if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.DOIT_IS_ACTIVE = "false";
