@@ -395,7 +395,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
-      ...((gatewayCode === "omqris" || gatewayCode === "tripay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
+      ...((gatewayCode === "omqris" || gatewayCode === "tripay" || gatewayCode === "nasionalpay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,
