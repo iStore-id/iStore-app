@@ -8,6 +8,7 @@ import { logSystem } from "./system-log-service.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
 import { TripayProviderAdapter } from "./adapters/tripay-adapter.js";
+import { NasionalPayProviderAdapter } from "./adapters/nasionalpay-adapter.js";
 import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
 import { buildTripayWebhookEventKey } from "./tripay-contract.js";
 import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
@@ -793,3 +794,103 @@ export async function doitWebhook(req: any, res: any) {
   }
 }
 
+
+
+/** NacionalPay callback: verify HMAC, re-query official status, then validate order and amount before transition. */
+export async function nasionalpayWebhook(req: any, res: any) {
+  let eventId = "";
+  try {
+    const adapter = NasionalPayProviderAdapter.getInstance();
+    const event = await adapter.verifyWebhook({ body: req.rawBody || req.body, headers: req.headers, ip: req.ip });
+    eventId = "nasionalpay:" + event.transactionId + ":" + event.status;
+    const previous = getWebhookEventStatus(eventId);
+    if (previous === "COMPLETED" || previous === "PROCESSING") {
+      return res.status(200).json({ success: true, message: "Event already received" });
+    }
+    setWebhookEventStatus(eventId, "PROCESSING");
+
+    const orderRepo = OrderRepository.getInstance();
+    const orderData = event.orderId
+      ? (await orderRepo.getOrderByInvoice(event.orderId) || await orderRepo.getOrderById(event.orderId))
+      : await orderRepo.getOrderByGatewayTransactionId(event.transactionId);
+    if (!orderData) {
+      clearWebhookEventStatus(eventId);
+      return res.status(404).json({ success: false, message: "Order not found for NacionalPay transaction" });
+    }
+    if (String(orderData.paymentGatewayCode || "").toLowerCase() !== "nasionalpay") {
+      clearWebhookEventStatus(eventId);
+      return res.status(409).json({ success: false, message: "Order gateway does not match NacionalPay" });
+    }
+    if (String(orderData.gatewayTransactionId || "") !== event.transactionId) {
+      clearWebhookEventStatus(eventId);
+      return res.status(409).json({ success: false, message: "NacionalPay transaction ID mismatch" });
+    }
+    if (Number(event.amount) !== Number(orderData.totalAmount)) {
+      clearWebhookEventStatus(eventId);
+      logSystem("CRITICAL", "PAYMENT", "NASIONALPAY_AMOUNT_MISMATCH", "Nominal callback NacionalPay tidak cocok dengan order.", "nasionalpay-webhook", {
+        orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
+        metadata: { expectedAmount: orderData.totalAmount, callbackAmount: event.amount }
+      });
+      return res.status(400).json({ success: false, message: "Amount mismatch" });
+    }
+
+    // Official docs require status re-check before accepting a callback as authoritative.
+    const verified = await adapter.getPaymentStatus({ orderId: orderData.id, transactionId: event.transactionId });
+    if (verified.transactionStatus.toLowerCase() !== "success" && verified.status !== "PAID") {
+      if (verified.status === "PENDING") {
+        markWebhookEventProcessed(eventId);
+        return res.status(200).json({ success: true, message: "Payment remains pending" });
+      }
+      if (verified.status !== event.status) {
+        clearWebhookEventStatus(eventId);
+        return res.status(409).json({ success: false, message: "Callback status does not match official NacionalPay status" });
+      }
+    }
+    if (Number(verified.grossAmount) !== Number(orderData.totalAmount)) {
+      clearWebhookEventStatus(eventId);
+      logSystem("CRITICAL", "PAYMENT", "NASIONALPAY_STATUS_AMOUNT_MISMATCH", "Nominal status NacionalPay tidak cocok dengan order.", "nasionalpay-webhook", {
+        orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
+        metadata: { expectedAmount: orderData.totalAmount, verifiedAmount: verified.grossAmount }
+      });
+      return res.status(400).json({ success: false, message: "Verified amount mismatch" });
+    }
+
+    if (verified.status === "PENDING") {
+      markWebhookEventProcessed(eventId);
+      return res.status(200).json({ success: true, message: "Payment remains pending" });
+    }
+    const targetState = verified.status === "PAID" ? "PAID" : verified.status === "EXPIRED" ? "EXPIRED" : "FAILED";
+    const currentStatus = String(orderData.paymentStatus || "").toLowerCase();
+    if (!(targetState === "PAID" && currentStatus === "paid")) {
+      await transitionOrderState(orderData.id, targetState as any, {
+        gatewayTransactionId: event.transactionId,
+        gatewayPaymentType: String(event.rawPayload?.data?.type || "").toLowerCase(),
+        gatewayResponse: event.rawPayload
+      }, `NasionalPay webhook: ${verified.transactionStatus}`);
+    }
+    if (targetState === "PAID") {
+      const refreshedOrder = await orderRepo.getOrderById(orderData.id);
+      if (refreshedOrder && String(refreshedOrder.paymentStatus || "").toLowerCase() === "paid") {
+        await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "NasionalPay Webhook" });
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: "FULFILLMENT", payload: { orderId: orderData.id }, priority: "HIGH",
+          referenceId: orderData.id, idempotencyKey: `fulfillment_${orderData.id}`
+        });
+      }
+    }
+    markWebhookEventProcessed(eventId);
+    return res.status(200).json({ success: true });
+  } catch (error: any) {
+    if (eventId) clearWebhookEventStatus(eventId);
+    const signatureError = /signature/i.test(String(error?.message || ""));
+    logSystem(signatureError ? "WARN" : "ERROR", "WEBHOOK",
+      signatureError ? "NASIONALPAY_INVALID_SIGNATURE" : "NASIONALPAY_WEBHOOK_FAILED",
+      String(error?.message || "NasionalPay webhook failed"), "nasionalpay-webhook", {
+        httpStatus: signatureError ? 401 : 500, outcome: signatureError ? "BLOCKED" : "FAILURE"
+      });
+    return res.status(signatureError ? 401 : 500).json({
+      success: false, message: signatureError ? "Invalid callback signature" : "NasionalPay webhook processing failed"
+    });
+  }
+}
