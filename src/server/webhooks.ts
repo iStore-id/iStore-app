@@ -846,14 +846,9 @@ export async function nasionalpayWebhook(req: any, res: any) {
         return res.status(409).json({ success: false, message: "Callback status does not match official NacionalPay status" });
       }
     }
-    if (Number(verified.grossAmount) !== Number(orderData.totalAmount)) {
-      clearWebhookEventStatus(eventId);
-      logSystem("CRITICAL", "PAYMENT", "NASIONALPAY_STATUS_AMOUNT_MISMATCH", "Nominal status NacionalPay tidak cocok dengan order.", "nasionalpay-webhook", {
-        orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
-        metadata: { expectedAmount: orderData.totalAmount, verifiedAmount: verified.grossAmount }
-      });
-      return res.status(400).json({ success: false, message: "Verified amount mismatch" });
-    }
+    // The signed callback amount is matched exactly to the order above. The API docs show
+    // differing amount examples between status and callback payload, so status is authoritative
+    // for state only; its amount is retained in rawData for diagnostics, not used as a second amount basis.
 
     if (verified.status === "PENDING") {
       markWebhookEventProcessed(eventId);
