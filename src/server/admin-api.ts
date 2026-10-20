@@ -1055,8 +1055,14 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
+      for (const key of ["tripay_integration", "nasionalpay_integration"] as const) {
+        const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
+        if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
     }
 
     if (serverKey && !serverKey.includes("****")) {
@@ -2295,7 +2301,7 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
     // Cross-gateway coordination is restricted to explicit OmQris activation.
     // Doit and Midtrans handlers/adapters are not modified; only their active flags are cleared.
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "tripay_integration", "nasionalpay_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
@@ -2490,13 +2496,14 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
     await repo.upsertConfig("tripay_integration", newConfig);
 
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration", "nasionalpay_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.TRIPAY_IS_ACTIVE = "false";
@@ -2553,6 +2560,115 @@ export async function testTripayIntegration(req: AuthenticatedRequest, res: Resp
     });
   } catch (err: any) {
     return res.status(502).json({ success: false, message: err.message || "Tes koneksi TriPay gagal." });
+  }
+}
+
+export async function getNasionalPayIntegration(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("nasionalpay_integration") || {};
+    const storeKey = config.encryptedStoreKey ? decryptSecret(config.encryptedStoreKey) : "";
+    return res.status(200).json({
+      success: true,
+      data: {
+        storeKeyMasked: storeKey ? "••••••••••••••••" : "",
+        configured: !!storeKey,
+        isActive: config.isActive === true,
+        callbackUrl: "https://www.tega.biz.id/api/webhooks/nasionalpay",
+        lastTestedAt: config.lastTestedAt || null,
+        lastTestResult: config.lastTestResult || null,
+        lastTestMessage: config.lastTestMessage || null
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal mengambil konfigurasi NasionalPay." });
+  }
+}
+
+export async function updateNasionalPayIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const repo = SystemConfigRepository.getInstance();
+    const existing = await repo.getConfig("nasionalpay_integration") || {};
+    const rawKey = typeof req.body?.storeKey === "string" ? req.body.storeKey.trim() : "";
+    const encryptedStoreKey = rawKey && !rawKey.includes("••••") && !rawKey.includes("****")
+      ? encryptSecret(rawKey) : String(existing.encryptedStoreKey || "");
+    const keyChanged = !!rawKey && !rawKey.includes("••••") && !rawKey.includes("****");
+    const requestedActive = req.body?.isActive === true || req.body?.isActive === "true";
+    if (requestedActive && !encryptedStoreKey) {
+      return res.status(400).json({ success: false, message: "Store Key NasionalPay wajib disimpan sebelum aktivasi." });
+    }
+    if (requestedActive && (keyChanged || existing.lastTestResult !== "success")) {
+      return res.status(409).json({ success: false, message: "Uji koneksi Store Key terbaru harus berhasil sebelum NasionalPay dapat diaktifkan." });
+    }
+    const now = new Date().toISOString();
+    const next = {
+      ...existing, key: "nasionalpay_integration", encryptedStoreKey,
+      callbackUrl: "https://www.tega.biz.id/api/webhooks/nasionalpay",
+      isActive: keyChanged ? false : (req.body?.isActive !== undefined ? requestedActive : existing.isActive === true),
+      lastTestedAt: keyChanged ? null : (existing.lastTestedAt || null),
+      lastTestResult: keyChanged ? null : (existing.lastTestResult || null),
+      lastTestMessage: keyChanged ? null : (existing.lastTestMessage || null),
+      updatedBy: req.user.uid, updatedAt: now, createdAt: existing.createdAt || now
+    };
+    await repo.upsertConfig("nasionalpay_integration", next);
+    if (requestedActive) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration", "tripay_integration"] as const) {
+        const current = await repo.getConfig(key).catch(() => null);
+        if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
+      process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "true";
+    } else if (req.body?.isActive !== undefined || keyChanged) {
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
+    }
+    await logCoreAudit(
+      { uid: req.user.uid, email: req.user.email || req.user.uid }, req.user.role || "pemilik",
+      "UPDATE_NASIONALPAY_INTEGRATION", "systemConfigs/nasionalpay_integration",
+      { isActive: existing.isActive === true, configured: !!existing.encryptedStoreKey },
+      { isActive: next.isActive, configured: !!encryptedStoreKey },
+      "Updated NasionalPay configuration"
+    );
+    return res.status(200).json({
+      success: true, message: "Konfigurasi NasionalPay berhasil disimpan.",
+      data: { isActive: next.isActive, configured: !!encryptedStoreKey, callbackUrl: next.callbackUrl }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi NasionalPay." });
+  }
+}
+
+export async function testNasionalPayIntegration(req: AuthenticatedRequest, res: Response) {
+  const repo = SystemConfigRepository.getInstance();
+  const config = await repo.getConfig("nasionalpay_integration") || {};
+  const storeKey = config.encryptedStoreKey ? decryptSecret(config.encryptedStoreKey) : "";
+  if (!storeKey) return res.status(400).json({ success: false, message: "Simpan Store Key NasionalPay terlebih dahulu." });
+  const now = new Date().toISOString();
+  try {
+    const response = await fetch("https://merchant.nasionalpay.com/api/payment/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ key: storeKey, transaction_id: String(req.body?.transactionId || "ISTORE_CONNECTION_TEST").trim() }),
+      signal: AbortSignal.timeout(10000)
+    });
+    const result: any = await response.json().catch(() => ({}));
+    if (!response.ok || result?.success !== true) {
+      const message = String(result?.message || `NasionalPay test failed (HTTP ${response.status})`);
+      await repo.upsertConfig("nasionalpay_integration", { ...config, lastTestedAt: now, lastTestResult: "failed", lastTestMessage: message });
+      return res.status(502).json({ success: false, message: "NasionalPay belum mengonfirmasi kredensial melalui endpoint status. " + message });
+    }
+    await repo.upsertConfig("nasionalpay_integration", {
+      ...config, lastTestedAt: now, lastTestResult: "success",
+      lastTestMessage: "Kredensial diterima endpoint status NasionalPay."
+    });
+    return res.status(200).json({ success: true, message: "Kredensial NasionalPay berhasil diverifikasi melalui API status." });
+  } catch (err: any) {
+    await repo.upsertConfig("nasionalpay_integration", {
+      ...config, lastTestedAt: now, lastTestResult: "failed",
+      lastTestMessage: err.message || "Connection test failed"
+    }).catch(() => undefined);
+    return res.status(502).json({ success: false, message: err.message || "Tes koneksi NasionalPay gagal." });
   }
 }
 
@@ -2690,8 +2806,14 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
           updatedAt: now
         });
       }
+      for (const key of ["tripay_integration", "nasionalpay_integration"] as const) {
+        const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
+        if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.DOIT_IS_ACTIVE = "false";

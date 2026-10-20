@@ -360,7 +360,7 @@ export default function GameDetailPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
-  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
+  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | "nasionalpay" | null>(null);
   const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string; feeCustomer?: { flat: number | null; percent: number | null } | null }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
@@ -1547,6 +1547,33 @@ export default function GameDetailPage() {
                       })}
                     </div>
                   </div>
+                </div>
+              ) : activeGateway === "nasionalpay" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {([
+                    { id: "qris", name: "QRIS", desc: "Scan QRIS untuk membayar", logo: "/payment-logos/qris.svg" },
+                    { id: "dana", name: "DANA", desc: "Lanjutkan ke pembayaran DANA", logo: "/payment-logos/payment-generic.svg" }
+                  ]).map((method) => {
+                    const isSelected = selectedPaymentMethod === method.id;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedPaymentMethod(method.id)}
+                        aria-pressed={isSelected}
+                        className={`group relative flex min-h-[112px] flex-col justify-between rounded-2xl border p-3.5 text-left shadow-sm transition-all ${isSelected ? "border-brand-600 bg-brand-50/70 ring-2 ring-brand-500/20" : "border-slate-200 hover:border-brand-300"}`}
+                      >
+                        <div className="flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <img src={method.logo} alt={method.name} className="max-h-full max-w-full object-contain" />
+                        </div>
+                        <div className="mt-2">
+                          <div className="text-sm font-bold">{method.name}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">{method.desc}</div>
+                        </div>
+                        {isSelected && <div className="absolute right-0 top-0 rounded-bl-xl bg-brand-600 p-1.5 text-white"><ShieldCheck className="h-3.5 w-3.5" /></div>}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : activeGateway === "tripay" ? (
                 <div className="space-y-3">

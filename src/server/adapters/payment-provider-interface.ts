@@ -13,6 +13,7 @@ export interface CreatePaymentInput {
     name: string;
   }>;
   paymentMethod?: string;
+  playerUsername?: string;
   callbackUrl?: string;
   returnUrl?: string;
 }

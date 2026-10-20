@@ -85,6 +85,7 @@ const AdminMidtransIntegrationPage = lazy(() => import("./pages/admin/AdminMidtr
 const AdminDoitIntegrationPage = lazy(() => import("./pages/admin/AdminDoitIntegrationPage"));
 const AdminOmqrisIntegrationPage = lazy(() => import("./pages/admin/AdminOmqrisIntegrationPage"));
 const AdminTripayIntegrationPage = lazy(() => import("./pages/admin/AdminTripayIntegrationPage"));
+const AdminNasionalPayIntegrationPage = lazy(() => import("./pages/admin/AdminNasionalPayIntegrationPage"));
 const AdminApiGamesIntegrationPage = lazy(() => import("./pages/admin/AdminApiGamesIntegrationPage"));
 const AdminTokoVoucherIntegrationPage = lazy(() => import("./pages/admin/AdminTokoVoucherIntegrationPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
@@ -290,6 +291,7 @@ export default function App() {
             <Route path="integrations/doit" element={<AdminDoitIntegrationPage />} />
             <Route path="integrations/omqris" element={<AdminOmqrisIntegrationPage />} />
             <Route path="integrations/tripay" element={<AdminTripayIntegrationPage />} />
+            <Route path="integrations/nasionalpay" element={<AdminNasionalPayIntegrationPage />} />
             <Route path="integrations/apigames" element={<AdminApiGamesIntegrationPage />} />
             <Route path="integrations/tokovoucher" element={<AdminTokoVoucherIntegrationPage />} />
             <Route path="settings" element={<AdminSettingsPage />} />

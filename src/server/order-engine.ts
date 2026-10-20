@@ -134,6 +134,10 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         });
       }
       validatedPaymentMethod = "qris";
+    } else if (gatewayCode === "nasionalpay") {
+      const method = typeof paymentMethod === "string" ? paymentMethod.trim().toLowerCase() : "";
+      if (!["qris", "dana"].includes(method)) return res.status(400).json({ success: false, message: "NasionalPay hanya mendukung QRIS dan DANA." });
+      validatedPaymentMethod = method;
     } else if (gatewayCode === "doit") {
       const doitAllowedMethods = [
         "qris",
@@ -367,6 +371,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         email: customerInput?.email || "customer@istore.id",
         phone: customerInput?.whatsapp || customerInput?.phone || "08123456789"
       },
+      playerUsername: String(customerInput?.player_username || customerInput?.playerUsername || customerInput?.username || customerInput?.userId || customerInput?.user_id || customerInput?.buyerName || customerInput?.buyer_name || orderId),
       itemDetails: [{
         id: (variant.id || variantId).substring(0, 50),
         price: totalToPay,
@@ -384,13 +389,13 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
 
     // Save token & native presentation to order for future retries if needed
     const rawRes = paymentResult.rawResponse?.data || paymentResult.rawResponse || {};
-    const resQrContent = rawRes.qr_content || rawRes.qr_string || rawRes.qrContent;
+    const resQrContent = rawRes.qr_content || rawRes.qr_string || rawRes.qrContent || rawRes.qris_data;
     const resVaNumber = paymentResult.vaNumber || rawRes.va_number || rawRes.vaNumber;
     const resVaBank = paymentResult.vaBank || rawRes.va_bank || rawRes.vaBank;
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
-      ...((gatewayCode === "omqris" || gatewayCode === "tripay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
+      ...((gatewayCode === "omqris" || gatewayCode === "tripay" || gatewayCode === "nasionalpay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,
