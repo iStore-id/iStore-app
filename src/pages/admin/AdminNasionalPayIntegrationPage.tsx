@@ -82,6 +82,9 @@ export default function AdminNasionalPayIntegrationPage() {
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <strong>Nonaktif secara default.</strong> Simpan Store Key saat gateway nonaktif, uji koneksi, lalu aktifkan setelah pengujian checkout dan callback. Aktivasi akan menonaktifkan gateway lain untuk transaksi baru.
       </div>
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <strong>Penting — Fee Merchant NasionalPay harus 0%.</strong> iStore sudah menghitung harga jual dan margin. Markup tambahan di dashboard NasionalPay dapat membuat nominal yang dibayar pelanggan berbeda dari nominal order; callback akan ditolak bila nominal status tidak cocok. Jangan aktifkan gateway sebelum pengaturan ini dikonfirmasi.
+      </div>
       {message && <div className="rounded-xl border p-3 text-sm flex gap-2 items-start"><AlertCircle size={18} className="shrink-0 mt-0.5" /><span>{message}</span></div>}
       <div className="rounded-2xl border bg-white p-5 space-y-5">
         <div>
