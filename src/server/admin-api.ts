@@ -1055,10 +1055,13 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
-      const existingNasionalPay = await SystemConfigRepository.getInstance().getConfig("nasionalpay_integration");
-      if (existingNasionalPay?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig("nasionalpay_integration", { ...existingNasionalPay, isActive: false, updatedAt: now });
+      for (const key of ["tripay_integration", "nasionalpay_integration"] as const) {
+        const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
+        if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
       process.env.NASIONALPAY_IS_ACTIVE = "false";
     }
 
