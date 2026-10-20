@@ -846,9 +846,22 @@ export async function nasionalpayWebhook(req: any, res: any) {
         return res.status(409).json({ success: false, message: "Callback status does not match official NacionalPay status" });
       }
     }
-    // The signed callback amount is matched exactly to the order above. The API docs show
-    // differing amount examples between status and callback payload, so status is authoritative
-    // for state only; its amount is retained in rawData for diagnostics, not used as a second amount basis.
+    // The merchant dashboard can add a separate markup to the amount requested by iStore.
+    // iStore already calculates its selling price, so the integration expects NacionalPay merchant
+    // markup to be 0%; require the official status amount to match the order before marking it paid.
+    if (verified.grossAmount !== Number(orderData.totalAmount)) {
+      clearWebhookEventStatus(eventId);
+      logSystem("CRITICAL", "PAYMENT", "NASIONALPAY_STATUS_AMOUNT_MISMATCH",
+        "Nominal status NasionalPay berbeda dari nominal order. Periksa Fee Merchant (Markup %) di dashboard NasionalPay; integrasi iStore mensyaratkan 0%.",
+        "nasionalpay-webhook", {
+          orderId: orderData.id, httpStatus: 409, outcome: "BLOCKED",
+          metadata: { expectedAmount: orderData.totalAmount, statusAmount: verified.grossAmount }
+        });
+      return res.status(409).json({
+        success: false,
+        message: "Nominal status NasionalPay tidak cocok. Pastikan Fee Merchant (Markup %) NasionalPay disetel 0% atau rekonsiliasi nominal dilakukan sebelum aktivasi."
+      });
+    }
 
     if (verified.status === "PENDING") {
       markWebhookEventProcessed(eventId);
