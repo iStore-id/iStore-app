@@ -2596,7 +2596,7 @@ export async function updateNasionalPayIntegration(req: AuthenticatedRequest, re
     const next = {
       ...existing, key: "nasionalpay_integration", encryptedStoreKey,
       callbackUrl: "https://www.tega.biz.id/api/webhooks/nasionalpay",
-      isActive: req.body?.isActive !== undefined ? requestedActive : existing.isActive === true,
+      isActive: keyChanged ? false : (req.body?.isActive !== undefined ? requestedActive : existing.isActive === true),
       lastTestedAt: keyChanged ? null : (existing.lastTestedAt || null),
       lastTestResult: keyChanged ? null : (existing.lastTestResult || null),
       lastTestMessage: keyChanged ? null : (existing.lastTestMessage || null),
@@ -2613,7 +2613,7 @@ export async function updateNasionalPayIntegration(req: AuthenticatedRequest, re
       process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "false";
       process.env.NASIONALPAY_IS_ACTIVE = "true";
-    } else if (req.body?.isActive !== undefined) {
+    } else if (req.body?.isActive !== undefined || keyChanged) {
       process.env.NASIONALPAY_IS_ACTIVE = "false";
     }
     await logCoreAudit(
