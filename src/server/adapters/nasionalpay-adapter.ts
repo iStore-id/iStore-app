@@ -60,7 +60,7 @@ export class NasionalPayProviderAdapter implements PaymentProviderAdapter {
     if (channel !== "QRIS" && channel !== "DANA") {
       return { success: false, message: "NasionalPay saat ini hanya mendokumentasikan metode QRIS dan DANA." };
     }
-    const username = String((input as any).playerUsername || "").trim();
+    const username = String(input.playerUsername || "").trim();
     if (!username) return { success: false, message: "Identitas pemain/pelanggan wajib tersedia untuk NasionalPay." };
 
     try {
