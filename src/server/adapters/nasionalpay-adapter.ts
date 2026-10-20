@@ -120,8 +120,8 @@ export class NasionalPayProviderAdapter implements PaymentProviderAdapter {
     const data = payload?.data;
     const transactionId = String(data?.transaction_id || "").trim();
     const orderId = String(data?.order_id || data?.merchant_ref || "").trim();
-    if (payload?.success !== true || !data || !transactionId || !orderId) {
-      throw new Error("NasionalPay callback missing required transaction/order identity.");
+    if (payload?.success !== true || !data || !transactionId) {
+      throw new Error("NasionalPay callback missing required transaction identity.");
     }
     return {
       provider: "nasionalpay",
