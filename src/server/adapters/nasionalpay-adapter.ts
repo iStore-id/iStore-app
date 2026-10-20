@@ -117,11 +117,14 @@ export class NasionalPayProviderAdapter implements PaymentProviderAdapter {
     if (!safeNasionalPaySignatureEqual(supplied, expected)) throw new Error("Invalid NasionalPay callback signature.");
 
     const payload: any = JSON.parse(rawBody.toString("utf8"));
-    const data = payload?.data;
+    // The supplied NacionalPay documentation shows a flat callback payload
+    // (transaction_id, amount, status, type, username). Also accept an enveloped
+    // { success: true, data: {...} } payload if the provider uses that format.
+    const data = payload?.data && typeof payload.data === "object" ? payload.data : payload;
     const transactionId = String(data?.transaction_id || "").trim();
     const orderId = String(data?.order_id || data?.merchant_ref || "").trim();
-    if (payload?.success !== true || !data || !transactionId) {
-      throw new Error("NasionalPay callback missing required transaction identity.");
+    if (payload?.success === false || !data || !transactionId || data?.amount == null || data?.status == null) {
+      throw new Error("NasionalPay callback missing required transaction identity, amount, or status.");
     }
     return {
       provider: "nasionalpay",
