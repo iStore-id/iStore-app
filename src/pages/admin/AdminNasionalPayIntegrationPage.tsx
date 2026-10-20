@@ -98,6 +98,11 @@ export default function AdminNasionalPayIntegrationPage() {
           <div className="font-semibold">Metode terdokumentasi</div>
           <p className="text-slate-600 mt-1">QRIS (menampilkan QRIS image/data) dan DANA (payment URL). Metode lain tidak diaktifkan karena tidak tercakup dalam kontrak API yang diberikan.</p>
         </div>
+        <div>
+          <label className="block text-sm font-semibold mb-2">ID transaksi untuk tes koneksi (opsional)</label>
+          <input value={testTransactionId} onChange={e => setTestTransactionId(e.target.value)} autoComplete="off" placeholder="Masukkan transaction_id dari transaksi NasionalPay yang sudah ada" className="w-full rounded-xl border px-3 py-2.5 text-sm" />
+          <p className="mt-1 text-xs text-slate-500">API tidak mendokumentasikan endpoint ping. Jika ID uji palsu ditolak, masukkan transaction_id yang sudah ada agar kredensial dapat diverifikasi tanpa membuat pembayaran baru.</p>
+        </div>
         <label className="flex items-start gap-3 rounded-xl border p-3">
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="mt-1" />
           <span><span className="font-semibold block">Aktifkan NasionalPay untuk transaksi baru</span><span className="text-xs text-slate-500">Perlu Store Key tersimpan dan tes kredensial berhasil. Biarkan nonaktif sampai checkout end-to-end terverifikasi.</span></span>
