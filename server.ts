@@ -23,7 +23,7 @@ import {
   getAdminGames, getAdminCategories, getAdminProducts, getAdminVariants,
   importFromCatalogDiscovery, bulkImportProviderSkus
 } from "./src/server/admin-api.js";
-import { getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration, getTripayIntegration, updateTripayIntegration, testTripayIntegration } from "./src/server/admin-api.js";
+import { getDoitIntegration, updateDoitIntegration, testDoitIntegration, removeDoitIntegration, getOmqrisIntegration, updateOmqrisIntegration, testOmqrisIntegration, removeOmqrisIntegration, getTripayIntegration, updateTripayIntegration, testTripayIntegration, getNasionalPayIntegration, updateNasionalPayIntegration, testNasionalPayIntegration } from "./src/server/admin-api.js";
 import { validateBulkImport, commitBulkImport, getAllProviderSkus } from "./src/server/provider-import.js";
 import { getStoreConfig, updateStoreConfig, getSystemConfigs, updateSystemConfig, getPublicStoreConfig, getSystemConfigOverview, getPublicMidtransConfig, getPublicPaymentGateway, getPublicTripayChannels, getPublicPwaManifest } from "./src/server/config-api.js";
 import { getAdminFeatureFlags, updateAdminFeatureFlags } from "./src/server/feature-flag-api.js";
@@ -545,6 +545,10 @@ export async function initServerLogic() {
   app.get("/api/admin/integrations/tripay", requirePermission("system", "view"), getTripayIntegration);
   app.put("/api/admin/integrations/tripay", requirePermission("system", "edit"), updateTripayIntegration);
   app.post("/api/admin/integrations/tripay/test", requirePermission("system", "edit"), testTripayIntegration);
+
+  app.get("/api/admin/integrations/nasionalpay", requirePermission("system", "view"), getNasionalPayIntegration);
+  app.put("/api/admin/integrations/nasionalpay", requirePermission("system", "edit"), updateNasionalPayIntegration);
+  app.post("/api/admin/integrations/nasionalpay/test", requirePermission("system", "edit"), testNasionalPayIntegration);
 
   // Doit.id Integration Management
   app.get("/api/admin/integrations/doit", requirePermission("system", "view"), getDoitIntegration);
