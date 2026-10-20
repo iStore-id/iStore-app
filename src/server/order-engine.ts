@@ -371,6 +371,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         email: customerInput?.email || "customer@istore.id",
         phone: customerInput?.whatsapp || customerInput?.phone || "08123456789"
       },
+      playerUsername: String(customerInput?.player_username || customerInput?.playerUsername || customerInput?.username || customerInput?.userId || customerInput?.user_id || customerInput?.buyerName || customerInput?.buyer_name || orderId),
       itemDetails: [{
         id: (variant.id || variantId).substring(0, 50),
         price: totalToPay,
