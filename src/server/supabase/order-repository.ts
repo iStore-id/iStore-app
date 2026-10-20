@@ -141,6 +141,12 @@ export class OrderRepository {
     return data ? this.mapRowToOrder(data) : null;
   }
 
+  async getOrderByGatewayTransactionId(transactionId: string): Promise<Order | null> {
+    const { data, error } = await this.client.from("orders").select("*").eq("gateway_transaction_id", transactionId).maybeSingle();
+    if (error) throw new Error(`Supabase getOrderByGatewayTransactionId error: ${error.message}`);
+    return data ? this.mapRowToOrder(data) : null;
+  }
+
   async getOrderByProviderReferenceId(providerReferenceId: string): Promise<Order | null> {
     const { data, error } = await this.client.from("orders").select("*").eq("provider_reference_id", providerReferenceId).maybeSingle();
     if (error) throw new Error(`Supabase getOrderByProviderReferenceId error: ${error.message}`);
