@@ -35,15 +35,6 @@ export default function AdminIntegrationsHubPage() {
       badge: "Sandbox first / Inactive by default"
     },
     {
-      id: "nasionalpay",
-      title: "NasionalPay Integration",
-      description: "Gateway pembayaran API NasionalPay dengan QRIS dan DANA, callback signature, serta verifikasi status server-side.",
-      icon: QrCode,
-      status: "INACTIVE",
-      href: "/admin/integrations/nasionalpay",
-      badge: "Inactive by default / QRIS + DANA"
-    },
-    {
       id: "doit",
       title: "Doit.id Integration",
       description: "Payment gateway QRIS dinamis berizin Bank Indonesia dengan settlement instan.",

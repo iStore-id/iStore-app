@@ -9,9 +9,6 @@ on:
       - main
     paths:
       - "src/server/adapters/omqris-adapter.ts"
-      - "src/server/adapters/nasionalpay-adapter.ts"
-      - "src/server/nasionalpay-contract.ts"
-      - "src/server/nasionalpay-contract.test.ts"
       - "src/server/omqris-contract.ts"
       - "src/server/omqris-contract.test.ts"
       - "src/server/webhooks.ts"
@@ -42,6 +39,5 @@ jobs:
       - run: npm run test:checkout
       - run: npm run test:omqris
       - run: npm run test:tripay
-      - run: npm run test:nasionalpay
       - run: npm run lint
       - run: npm run build

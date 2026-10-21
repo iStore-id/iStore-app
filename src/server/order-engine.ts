@@ -134,10 +134,6 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         });
       }
       validatedPaymentMethod = "qris";
-    } else if (gatewayCode === "nasionalpay") {
-      const method = typeof paymentMethod === "string" ? paymentMethod.trim().toLowerCase() : "";
-      if (!["qris", "dana"].includes(method)) return res.status(400).json({ success: false, message: "NasionalPay hanya mendukung QRIS dan DANA." });
-      validatedPaymentMethod = method;
     } else if (gatewayCode === "doit") {
       const doitAllowedMethods = [
         "qris",
@@ -395,7 +391,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
-      ...((gatewayCode === "omqris" || gatewayCode === "tripay" || gatewayCode === "nasionalpay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
+      ...((gatewayCode === "omqris" || gatewayCode === "tripay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,

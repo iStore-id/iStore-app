@@ -22,7 +22,7 @@ export async function getPaymentStatusHandler(req: any, res: any) {
     }
 
     const gatewayCode = (order.paymentGatewayCode || "").toLowerCase().trim();
-    if (gatewayCode !== 'doit' && gatewayCode !== 'omqris' && gatewayCode !== 'tripay' && gatewayCode !== 'nasionalpay') {
+    if (gatewayCode !== 'doit' && gatewayCode !== 'omqris' && gatewayCode !== 'tripay') {
       return res.status(400).json({ success: false, message: "Gateway not supported for status inquiry" });
     }
 
@@ -105,52 +105,6 @@ export async function getPaymentStatusHandler(req: any, res: any) {
           ...statusResult,
           status: String(refreshedOrder?.paymentStatus || "").toUpperCase() === "PAID" ? "PAID" : statusResult.status,
           orderPaymentStatus: refreshedOrder?.paymentStatus || order.paymentStatus
-        }
-      });
-    }
-
-    if (gatewayCode === "nasionalpay" && String(statusResult.status || "").toUpperCase() === "PAID") {
-      const providerAmount = Number(statusResult.grossAmount || 0);
-      const expectedAmount = Number(order.totalAmount || 0);
-      // Fail closed for status-only recovery: supplied documentation examples show different
-      // amounts between status and callback. Only an exact amount match may resolve the order.
-      if (!Number.isSafeInteger(providerAmount) || providerAmount <= 0 || providerAmount !== expectedAmount) {
-        logSystem("CRITICAL", "PAYMENT", "NASIONALPAY_STATUS_AMOUNT_MISMATCH",
-          "Nominal status NasionalPay tidak cocok dengan order.", "nasionalpay-status-inquiry", {
-            orderId: order.id, httpStatus: 409, outcome: "BLOCKED",
-            metadata: { expectedAmount, providerAmount }
-          });
-        return res.status(409).json({ success: false, message: "NasionalPay reports paid but status amount requires reconciliation; signed callback amount must be verified." });
-      }
-      if (String(order.paymentStatus || "").toLowerCase() !== "paid") {
-        try {
-          await transitionOrderState(order.id, "PAID" as any, {
-            gatewayTransactionId: order.gatewayTransactionId || statusResult.rawData?.transaction_id,
-            gatewayPaymentType: String(statusResult.rawData?.type || order.gatewayPaymentType || "").toLowerCase(),
-            gatewayResponse: statusResult.rawData || statusResult
-          }, "NasionalPay status inquiry confirmed payment");
-        } catch (transitionError: any) {
-          const refreshed = await orderRepo.getOrderById(order.id);
-          if (String(refreshed?.paymentStatus || "").toLowerCase() !== "paid") {
-            return res.status(409).json({ success: false, message: "NasionalPay reports PAID, but the order state requires reconciliation." });
-          }
-        }
-      }
-      const refreshed = await orderRepo.getOrderById(order.id);
-      if (refreshed && String(refreshed.paymentStatus || "").toLowerCase() === "paid") {
-        await safeRecordPaymentReceived(order.id, refreshed, "SYSTEM", { source: "NasionalPay Status Inquiry" });
-        const { JobService } = await import("./job-service.js");
-        await JobService.getInstance().enqueue({
-          type: "FULFILLMENT", payload: { orderId: order.id }, priority: "HIGH",
-          referenceId: order.id, idempotencyKey: `fulfillment_${order.id}`
-        });
-      }
-      return res.status(200).json({
-        success: true,
-        data: {
-          ...statusResult,
-          status: String(refreshed?.paymentStatus || "").toLowerCase() === "paid" ? "PAID" : statusResult.status,
-          orderPaymentStatus: refreshed?.paymentStatus || order.paymentStatus
         }
       });
     }
