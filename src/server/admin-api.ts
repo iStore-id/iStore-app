@@ -2502,7 +2502,6 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
-      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.TRIPAY_IS_ACTIVE = "false";
@@ -2696,7 +2695,7 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
           updatedAt: now
         });
       }
-      for (const key of ["tripay_integration", "nasionalpay_integration"] as const) {
+      for (const key of ["tripay_integration"] as const) {
         const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
         if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
