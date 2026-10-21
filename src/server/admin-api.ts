@@ -2702,7 +2702,6 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "false";
-      process.env.NASIONALPAY_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.DOIT_IS_ACTIVE = "false";
