@@ -255,3 +255,133 @@ select, textarea):focus {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* TEMAN GAMES — homepage visual pass (presentation-only, theme-aware). */
+@layer components {
+  .tg-home-refresh {
+    --tg-home-content-width: 80rem;
+    isolation: isolate;
+  }
+
+  .tg-home-refresh .max-w-7xl {
+    max-width: min(100% - 2rem, var(--tg-home-content-width));
+  }
+
+  .tg-home-refresh > section:first-of-type {
+    border-color: color-mix(in srgb, var(--border-main) 82%, transparent);
+  }
+
+  .tg-home-refresh section.sticky {
+    background: color-mix(in srgb, var(--bg-surface) 92%, transparent) !important;
+    border-color: color-mix(in srgb, var(--border-main) 86%, transparent) !important;
+    box-shadow: 0 10px 28px rgb(15 23 42 / 0.055);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .tg-home-refresh section.sticky > div > div {
+    scrollbar-width: none;
+  }
+
+  .tg-home-refresh #katalog {
+    padding-top: clamp(1.75rem, 4vw, 3.5rem);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-page) 96%, var(--primary-color, #ff4400) 4%), var(--bg-page) 22rem);
+  }
+
+  .tg-home-refresh #katalog > div > div:first-child {
+    margin-bottom: clamp(1.1rem, 2.5vw, 1.75rem);
+  }
+
+  .tg-home-refresh #katalog h2,
+  .tg-home-refresh #katalog h3 {
+    text-wrap: balance;
+  }
+
+  .tg-home-refresh #katalog a.group {
+    border-radius: 1rem;
+    border-color: color-mix(in srgb, var(--border-main) 88%, transparent) !important;
+    box-shadow: 0 2px 7px rgb(15 23 42 / 0.035);
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .tg-home-refresh #katalog a.group > div:first-child {
+    border-color: color-mix(in srgb, var(--border-main) 75%, transparent) !important;
+  }
+
+  .tg-home-refresh #katalog a.group > div:last-child {
+    border-top-width: 1px !important;
+    border-top-color: color-mix(in srgb, var(--border-main) 88%, transparent) !important;
+  }
+
+  .tg-home-refresh #katalog a.group h3 {
+    font-size: clamp(0.7rem, 1vw, 0.825rem);
+    line-height: 1.35;
+  }
+
+  .tg-home-refresh #katalog a.group:focus-visible {
+    outline-offset: 4px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary-color, #ff4400) 16%, transparent);
+  }
+
+  .tg-home-refresh #katalog .snap-x > a.group {
+    border-radius: 0.9rem;
+    box-shadow: 0 2px 8px rgb(15 23 42 / 0.045);
+  }
+
+  .tg-home-refresh #katalog .grid {
+    column-gap: clamp(0.55rem, 1.3vw, 1rem);
+    row-gap: clamp(0.75rem, 1.6vw, 1.15rem);
+  }
+
+  .tg-home-refresh #katalog .text-center.py-16 {
+    border-color: var(--border-main);
+    background: var(--bg-surface);
+    color: var(--text-main);
+  }
+
+  .tg-home-refresh section.border-t {
+    border-color: color-mix(in srgb, var(--border-main) 82%, transparent);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .tg-home-refresh #katalog a.group:hover {
+      transform: translateY(-3px);
+      border-color: color-mix(in srgb, var(--primary-color, #ff4400) 52%, var(--border-main)) !important;
+      box-shadow: 0 12px 28px rgb(15 23 42 / 0.09);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .tg-home-refresh .max-w-7xl {
+      max-width: 100%;
+    }
+
+    .tg-home-refresh #katalog {
+      padding-left: 0.875rem;
+      padding-right: 0.875rem;
+    }
+
+    .tg-home-refresh #katalog a.group {
+      border-radius: 0.8rem;
+    }
+
+    .tg-home-refresh #katalog a.group h3 {
+      font-size: 0.68rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tg-home-refresh #katalog a.group {
+      transition: none;
+    }
+
+    .tg-home-refresh #katalog a.group:hover {
+      transform: none;
+    }
+  }
+}
