@@ -703,7 +703,7 @@ export default function HomePage() {
     .map(item => homepageSections[item.id as keyof typeof homepageSections]);
 
   return (
-    <div className="tg-home-refresh flex flex-col w-full min-h-screen">
+    <div className="flex flex-col w-full min-h-screen">
       {!loading && <CustomerPopupModal placement="homepage" allowedIds={popupIdsFilter} />}
 
       {orderedHomepageSections}
