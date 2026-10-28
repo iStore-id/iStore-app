@@ -69,14 +69,17 @@ export async function getProviderCatalogDiscovery(req: AuthenticatedRequest, res
         
       // Deduplicate SKUs before lookup
       const uniqueSkus = Array.from(new Set(targetSkusToLookup));
-        
-      const dbSkuMap = new Map();
-      
+      const existingSkuEntries = await Promise.all(uniqueSkus.map(async (sku) => {
+        const existing = await providerRepo.getProviderSku(provider, sku);
+        return [sku.toLowerCase(), Boolean(existing)] as const;
+      }));
+      const dbSkuMap = new Map<string, boolean>(existingSkuEntries);
+
       enhancedResults = results.map(r => {
         const normSku = r.providerSku ? String(r.providerSku).trim().toLowerCase() : "";
         return {
           ...r,
-          isExisting: dbSkuMap.has(normSku)
+          isExisting: normSku ? (dbSkuMap.get(normSku) ?? false) : false
         };
       });
     }
@@ -91,9 +94,12 @@ export async function getProviderCatalogDiscovery(req: AuthenticatedRequest, res
 export async function importFromCatalogDiscovery(req: AuthenticatedRequest, res: Response) {
   try {
     const { providerId, items, mode } = req.body;
-    
-    if (!providerId || !items || !Array.isArray(items)) {
+
+    if (typeof providerId !== "string" || !providerId.trim() || !Array.isArray(items)) {
       return res.status(400).json({ success: false, message: "providerId and items array are required" });
+    }
+    if (mode !== "SKIP_DUPLICATES" && mode !== "UPDATE_EXISTING") {
+      return res.status(400).json({ success: false, message: "Mode impor tidak valid." });
     }
 
     const results = {
@@ -104,58 +110,83 @@ export async function importFromCatalogDiscovery(req: AuthenticatedRequest, res:
       errors: [] as string[]
     };
 
-    // Use Promise.all with a small concurrency limit or just loop for safety
-    // For simplicity and since it's typically < 100 items, we can loop
     for (const item of items) {
+      const providerSku = typeof item?.providerSku === "string" ? item.providerSku.trim() : "";
       try {
-        const skuData: Partial<ProviderSku> = {
-          providerId,
-          providerSku: item.providerSku,
-          name: item.name,
-          type: item.type || 'other',
-          status: 'active',
-          metadata: {
-            category: item.category,
-            brand: item.brand,
-            importedFrom: 'discovery',
-            importMode: mode,
-            originalData: item,
-            price: item.price
-          }
-        };
-
-        // Check if exists if mode is SKIP_DUPLICATES
-        if (mode === 'SKIP_DUPLICATES') {
-          const existing = await providerRepo.getProviderSku(providerId, item.providerSku);
-          if (existing) {
-            results.skipped++;
-            continue;
-          }
+        if (!providerSku) {
+          throw new Error("Provider SKU kosong");
         }
 
-        await providerService.createProviderSku(skuData);
+        const rawBaseCost = item.baseCost ?? item.price ?? item.metadata?.baseCost ?? item.metadata?.price;
+        const baseCost = typeof rawBaseCost === "number" ? rawBaseCost : Number(rawBaseCost);
+        if (!Number.isFinite(baseCost) || baseCost < 0) {
+          throw new Error("Harga provider tidak valid; item tidak diimpor");
+        }
+
+        const existing = await providerRepo.getProviderSku(providerId, providerSku);
+        if (existing && mode === "SKIP_DUPLICATES") {
+          results.skipped++;
+          continue;
+        }
+
+        const sourceMetadata = item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
+          ? item.metadata
+          : {};
+        const category = sourceMetadata.category ?? item.category ?? null;
+        const type = sourceMetadata.type ?? item.type ?? "other";
+        const status = item.isActive === true ? "active" : "inactive";
+        const metadata = {
+          ...(existing?.metadata || {}),
+          ...sourceMetadata,
+          category,
+          brand: sourceMetadata.brand ?? item.brand ?? null,
+          type,
+          baseCost,
+          price: baseCost,
+          isActive: item.isActive === true,
+          targetFields: Array.isArray(item.targetFields) ? item.targetFields : [],
+          importedFrom: "discovery",
+          importMode: mode,
+          originalData: item
+        };
+        const skuData: Partial<ProviderSku> = {
+          providerId,
+          providerSku,
+          name: typeof item.name === "string" && item.name.trim() ? item.name.trim() : providerSku,
+          type,
+          status,
+          metadata
+        };
+
+        if (existing) {
+          await providerService.updateProviderSku(existing.id, skuData);
+        } else {
+          await providerService.createProviderSku(skuData);
+        }
         results.success++;
       } catch (err: any) {
         results.failed++;
-        results.errors.push(`${item.providerSku}: ${err.message}`);
+        results.errors.push(`${providerSku || "(SKU kosong)"}: ${err.message || "Gagal mengimpor item"}`);
       }
     }
 
-    await logAudit(req, "IMPORT_FROM_DISCOVERY", "providers", providerId, { 
-      count: items.length, 
+    await logAudit(req, "IMPORT_FROM_DISCOVERY", "providers", providerId, {
+      count: items.length,
       success: results.success,
-      mode 
+      skipped: results.skipped,
+      failed: results.failed,
+      mode
     });
 
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       data: {
         processed: results.processed,
         successCount: results.success,
         failedCount: results.failed,
         skippedCount: results.skipped,
         errors: results.errors
-      } 
+      }
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
