@@ -13,6 +13,7 @@ test('denies missing profile role or missing role record', () => {
 
 test('denies inactive profile and inactive role', () => {
   assert.equal(isAdminRoleAllowed('admin', 'SUSPENDED', 'active'), false);
+  assert.equal(isAdminRoleAllowed('admin', null, 'active'), false);
   assert.equal(isAdminRoleAllowed('admin', 'ACTIVE', 'inactive'), false);
 });
 
