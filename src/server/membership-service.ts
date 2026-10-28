@@ -183,6 +183,15 @@ export class MembershipService {
       .from("customer_memberships").select(MEMBERSHIP_FIELDS).eq("id", userId).maybeSingle();
     if (error) throw new Error(`Gagal membaca status membership: ${error.message}`);
     if (!data) return null;
+    if (data.status === "ACTIVE" && data.expiry_date && new Date(data.expiry_date).getTime() <= Date.now()) {
+      const now = new Date().toISOString();
+      const { error: expiryError } = await supabaseAdmin!
+        .from("customer_memberships").update({ status: "EXPIRED", updated_at: now })
+        .eq("id", userId).eq("status", "ACTIVE");
+      if (expiryError) throw new Error(`Gagal memperbarui membership kedaluwarsa: ${expiryError.message}`);
+      data.status = "EXPIRED";
+      data.updated_at = now;
+    }
     const plan = await this.getMembershipPlan(String(data.plan_id));
     return mapMembership(data, plan || undefined);
   }
@@ -259,7 +268,7 @@ export class MembershipService {
       return null;
     }
     const plan = await this.getMembershipPlan(membership.planId);
-    if (!plan || plan.status !== "ACTIVE") return null;
+    if (!plan) return null;
     return {
       planId: plan.id,
       planName: plan.name,
