@@ -175,7 +175,7 @@ export default function MembershipStatusPage() {
 
               <div className="mb-8">
                 <span className="text-3xl font-black text-gray-900">Rp {plan.price.toLocaleString()}</span>
-                <span className="text-gray-400 text-sm"> / {plan.durationDays} Hari</span>
+                <span className="text-gray-400 text-sm">{plan.durationDays > 0 ? ` / ${plan.durationDays} Hari` : " / Tanpa batas waktu"}</span>
               </div>
 
               <ul className="space-y-4 mb-8 flex-grow">
