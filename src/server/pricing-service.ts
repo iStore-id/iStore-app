@@ -84,7 +84,7 @@ export class PricingService {
       const { MembershipService } = await import("./membership-service.js");
       const membership = await MembershipService.getInstance().getCustomerMembership(context.userId);
       if (membership && membership.status === 'ACTIVE') {
-        memberPlanId = membership.plan_id;
+        memberPlanId = membership.planId;
       }
     }
 
@@ -327,9 +327,25 @@ export class PricingService {
       method,
       value
     );
-    
+
+    // Apply the active membership's configured benefit to the resolved catalog price.
+    // This keeps the discount server-side so the client cannot change the amount.
+    let finalPrice = sellingPrice;
+    if (context.userId) {
+      try {
+        const { MembershipService } = await import("./membership-service.js");
+        const benefit = await MembershipService.getInstance().getEffectiveBenefit(context.userId);
+        const discountRate = Number(benefit?.discountRate || 0);
+        if (benefit && discountRate > 0) {
+          finalPrice = Math.max(0, Math.round(sellingPrice * (1 - Math.min(100, discountRate) / 100)));
+        }
+      } catch (error) {
+        console.error("[PricingService] Could not apply membership discount:", error);
+      }
+    }
+
     return {
-      finalPrice: sellingPrice,
+      finalPrice,
       ruleId: rule?.id
     };
   }
