@@ -10,7 +10,6 @@ import {
   ArrowRight,
   User,
   Tag,
-  Sparkles,
   Flame,
   Gamepad2
 } from "lucide-react";
@@ -124,44 +123,45 @@ export default function BlogListPage() {
 
   return (
     <div className="min-h-screen pb-20">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white py-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
-        <div className="max-w-6xl mx-auto text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold tracking-wide">
-            <Sparkles className="w-3.5 h-3.5" />
-            Toko Editorial & Gaming News
+      {/* Compact editorial header */}
+      <section className="bg-slate-950 text-white px-4 sm:px-6 lg:px-8 py-8 sm:py-10 border-b border-slate-800">
+        <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="max-w-2xl">
+            <p className="text-brand-400 text-xs font-semibold uppercase tracking-[0.16em] mb-2">
+              Artikel & Panduan
+            </p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-white">
+              Blog, Tips & Wawasan Gaming
+            </h1>
+            <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed">
+              Berita game, panduan bermain, tips hero, dan informasi promo top up terbaru.
+            </p>
           </div>
-          <h1 className="ui-page-title text-white">
-            Blog, Tips & Wawasan Gaming
-          </h1>
-          <p className="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            Dapatkan berita update game terkini, panduan taktik, rekomendasi hero, serta informasi promo top up voucher termurah di Toko Kami.
-          </p>
 
-          {/* Search Box */}
-          <div className="max-w-xl mx-auto pt-4">
+          {/* Search */}
+          <div className="w-full lg:max-w-md lg:flex-shrink-0">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-              <Search className="w-5 h-5 text-slate-400 absolute left-4" />
+              <Search className="w-5 h-5 text-slate-400 absolute left-4 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Cari artikel, hero, game, atau promo..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full pl-12 pr-28 py-3.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white/15 transition-all"
+                className="w-full pl-12 pr-24 py-3 bg-white/5 border border-white/15 rounded-xl text-white placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
               />
               <button
                 type="submit"
-                className="absolute right-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-sm"
+                className="absolute right-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
               >
                 Cari
               </button>
             </form>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Main Content Area */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Category Pills Bar */}
         <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-2 overflow-x-auto scrollbar-none mb-10">
           <button
