@@ -90,6 +90,7 @@ export class RewardService {
   }
 
   async createReward(data: Omit<RewardItem, 'id' | 'createdAt' | 'updatedAt' | 'remainingQuota'>): Promise<RewardItem> {
+    this.validateRewardInput(data);
     const id = crypto.randomUUID();
     const remainingQuota = data.quota !== undefined && data.quota !== null ? data.quota : null;
     const createdAt = new Date().toISOString();
@@ -131,6 +132,7 @@ export class RewardService {
   }
 
   async updateReward(rewardId: string, data: Partial<RewardItem>): Promise<RewardItem> {
+    this.validateRewardInput(data, true);
     const updateObj: any = {
       updated_at: new Date().toISOString()
     };
@@ -171,6 +173,47 @@ export class RewardService {
     };
   }
 
+  private validateRewardInput(data: Partial<RewardItem>, partial = false): void {
+    if (!partial || data.name !== undefined) {
+      if (typeof data.name !== "string" || !data.name.trim() || data.name.trim().length > 255) {
+        throw new Error("Nama reward wajib diisi dan maksimal 255 karakter.");
+      }
+    }
+    if (!partial || data.pointsCost !== undefined) {
+      if (!Number.isSafeInteger(data.pointsCost) || Number(data.pointsCost) < 0) {
+        throw new Error("Biaya poin reward harus bilangan bulat dan tidak boleh negatif.");
+      }
+    }
+    if (!partial || data.rewardType !== undefined) {
+      if (!["voucher", "item", "benefit"].includes(String(data.rewardType))) {
+        throw new Error("Tipe reward tidak valid.");
+      }
+    }
+    if (!partial || data.status !== undefined) {
+      if (!["active", "inactive"].includes(String(data.status))) {
+        throw new Error("Status reward tidak valid.");
+      }
+    }
+    if (data.quota !== undefined && data.quota !== null &&
+        (!Number.isSafeInteger(data.quota) || data.quota < 0)) {
+      throw new Error("Kuota reward harus bilangan bulat nol atau lebih.");
+    }
+    if (data.perCustomerLimit !== undefined && data.perCustomerLimit !== null &&
+        (!Number.isSafeInteger(data.perCustomerLimit) || data.perCustomerLimit < 1)) {
+      throw new Error("Batas penukaran per pelanggan harus bilangan bulat minimal 1.");
+    }
+    if (data.name !== undefined && data.name.trim().length > 255) {
+      throw new Error("Nama reward maksimal 255 karakter.");
+    }
+    if (data.description !== undefined && data.description.length > 5000) {
+      throw new Error("Deskripsi reward maksimal 5.000 karakter.");
+    }
+    if (data.rewardType === "voucher" && data.voucherCode !== undefined &&
+        (!data.voucherCode.trim() || data.voucherCode.length > 255)) {
+      throw new Error("Kode voucher wajib diisi dan maksimal 255 karakter.");
+    }
+  }
+
   async deleteReward(rewardId: string): Promise<void> {
     const { error } = await supabaseAdmin.from("rewards")
       .update({ status: 'inactive', updated_at: new Date().toISOString() })
@@ -181,6 +224,10 @@ export class RewardService {
   async redeemReward(customerId: string, rewardId: string): Promise<RewardRedemption> {
     if (!customerId || customerId === 'guest') {
       throw new Error("Silakan login untuk menukar reward.");
+    }
+    const config = await loyaltyService.getConfig();
+    if (!config.enabled) {
+      throw new Error("Program Poin & Loyalty sedang nonaktif.");
     }
 
     const redemptionId = crypto.randomUUID();
