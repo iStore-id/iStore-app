@@ -51,24 +51,58 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
   }
 };
 
+/**
+ * Fail-closed authorization decision for routes that require a staff/admin role.
+ * The canonical profile column is role_id (not role). Custom roles are allowed
+ * only when their role record is present and active.
+ */
+export function isAdminRoleAllowed(roleId: unknown, profileStatus: unknown, roleStatus: unknown): boolean {
+  const normalizedRoleId = typeof roleId === 'string' ? roleId.trim().toLowerCase() : '';
+  const normalizedProfileStatus = typeof profileStatus === 'string' ? profileStatus.trim().toLowerCase() : '';
+  const normalizedRoleStatus = typeof roleStatus === 'string' ? roleStatus.trim().toLowerCase() : '';
+
+  if (!normalizedRoleId || normalizedRoleId === 'customer') return false;
+  if (normalizedProfileStatus && normalizedProfileStatus !== 'active') return false;
+  return normalizedRoleStatus === 'active';
+}
+
 export const requireAdmin = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   await requireAuth(req, res, async () => {
     try {
-      // Check role strictly from trusted server-side DB profile source (fail closed)
-      const { data: userDoc, error } = await supabaseAdmin!.from('profiles').select('role').eq('id', req.user.uid).maybeSingle();
-      if (error || !userDoc) {
+      if (!supabaseAdmin) {
+        return res.status(503).json({ success: false, message: 'Authorization service unavailable' });
+      }
+
+      // Read the canonical role_id and account status from the trusted server-side profile.
+      const { data: userDoc, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('role_id,status')
+        .eq('id', req.user.uid)
+        .maybeSingle();
+
+      if (profileError || !userDoc) {
         return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
       }
-      const role = userDoc?.role;
-      
-      if (role && role !== 'customer') {
-        return next();
-      } else {
+
+      const roleId = typeof userDoc.role_id === 'string' ? userDoc.role_id.trim() : '';
+      if (!roleId || roleId.toLowerCase() === 'customer') {
         return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
       }
+
+      const { data: roleDoc, error: roleError } = await supabaseAdmin
+        .from('roles')
+        .select('status')
+        .eq('id', roleId)
+        .maybeSingle();
+
+      if (roleError || !roleDoc || !isAdminRoleAllowed(roleId, userDoc.status, roleDoc.status)) {
+        return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
+      }
+
+      return next();
     } catch (error) {
-      console.error("[Auth Error]", error);
-      return res.status(500).json({ success: false, message: 'Server error during authorization' });
+      console.error('[Auth Error] Admin authorization failed:', error);
+      return res.status(503).json({ success: false, message: 'Authorization service unavailable' });
     }
   });
 };
