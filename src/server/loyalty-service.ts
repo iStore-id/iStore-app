@@ -61,7 +61,8 @@ export class LoyaltyService {
 
     if (error) {
       console.error("[LoyaltyService] Error getting loyalty config:", error.message);
-      return DEFAULT_CONFIG;
+      // Fail closed: never award or redeem points using defaults when the source of truth is unavailable.
+      throw new Error("Konfigurasi loyalty tidak dapat dibaca. Silakan coba lagi.");
     }
 
     if (!data) {
@@ -88,6 +89,19 @@ export class LoyaltyService {
         : ((newConfig as any).maxRedemptionPercent !== undefined ? Number((newConfig as any).maxRedemptionPercent) : current.maxRedeemPercent),
       enabled: newConfig.enabled !== undefined ? Boolean(newConfig.enabled) : current.enabled,
     };
+
+    if (!Number.isSafeInteger(updated.earnRateRp) || updated.earnRateRp < 1) {
+      throw new Error("Rasio belanja per poin harus bilangan bulat minimal Rp 1.");
+    }
+    if (!Number.isSafeInteger(updated.redeemRateIdr) || updated.redeemRateIdr < 1) {
+      throw new Error("Nilai tukar poin harus bilangan bulat minimal Rp 1.");
+    }
+    if (!Number.isSafeInteger(updated.minRedeemPoints) || updated.minRedeemPoints < 1) {
+      throw new Error("Minimum penukaran harus bilangan bulat minimal 1 poin.");
+    }
+    if (!Number.isSafeInteger(updated.maxRedeemPercent) || updated.maxRedeemPercent < 1 || updated.maxRedeemPercent > 100) {
+      throw new Error("Maksimum diskon poin harus berupa bilangan bulat antara 1 sampai 100 persen.");
+    }
 
     const row = {
       id: "main",
@@ -120,7 +134,7 @@ export class LoyaltyService {
 
     if (error) {
       console.error(`[LoyaltyService] Error getting customer balance for ${customerId}:`, error.message);
-      return 0;
+      throw new Error("Saldo poin tidak dapat dibaca. Silakan coba lagi.");
     }
 
     let balance = 0;
@@ -169,8 +183,14 @@ export class LoyaltyService {
 
   async awardOrderPoints(orderId: string, customerId: string, totalAmount: number): Promise<PointTransaction | null> {
     if (!customerId || customerId === 'guest') return null;
+    if (!orderId || !Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw new Error("Pesanan atau nominal transaksi tidak valid untuk pemberian poin.");
+    }
     const config = await this.getConfig();
     if (!config.enabled) return null;
+    if (!Number.isSafeInteger(config.earnRateRp) || config.earnRateRp < 1) {
+      throw new Error("Rasio perolehan poin tidak valid.");
+    }
 
     let pointsEarned = Math.floor(totalAmount / config.earnRateRp);
     
@@ -235,7 +255,7 @@ export class LoyaltyService {
     type: PointTransaction['type'] = 'EARN',
     orderId?: string
   ): Promise<PointTransaction | null> {
-    if (!customerId || customerId === 'guest' || points <= 0) return null;
+    if (!customerId || customerId === 'guest' || !Number.isSafeInteger(points) || points <= 0 || !reference.trim()) return null;
 
     // Check idempotency
     const { data: existing, error: checkError } = await supabaseAdmin
@@ -444,9 +464,16 @@ export class LoyaltyService {
   }
 
   async adminAdjustPoints(customerId: string, points: number, reason: string, actorUid: string): Promise<PointTransaction> {
-    if (!customerId) throw new Error("Customer ID wajib diisi.");
-    if (points === 0) throw new Error("Jumlah poin adjustment tidak boleh 0.");
-    if (!reason) throw new Error("Alasan adjustment wajib diisi.");
+    if (!customerId || customerId === 'guest') throw new Error("Customer ID wajib diisi.");
+    if (!Number.isSafeInteger(points) || points === 0) throw new Error("Jumlah poin adjustment harus bilangan bulat dan tidak boleh 0.");
+    if (!reason || !reason.trim()) throw new Error("Alasan adjustment wajib diisi.");
+    if (reason.trim().length > 500) throw new Error("Alasan adjustment maksimal 500 karakter.");
+    if (points < 0) {
+      const balance = await this.getCustomerBalance(customerId);
+      if (balance < Math.abs(points)) {
+        throw new Error(`Saldo tidak cukup untuk mengurangi ${Math.abs(points)} poin. Saldo saat ini: ${balance} poin.`);
+      }
+    }
 
     const reference = `admin_adjust_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const row = {
