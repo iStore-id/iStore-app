@@ -2,6 +2,26 @@ import { DiscoveryResult, ProviderCatalogDiscoveryAdapter } from "../../types/di
 import { getTokoVoucherServerConfig } from "../providers.js";
 import * as crypto from "crypto";
 
+function parseTargetFields(formatForm: unknown): string[] {
+  if (!formatForm) return [];
+  let parsed: unknown = formatForm;
+  if (typeof formatForm === "string") {
+    try {
+      parsed = JSON.parse(formatForm);
+    } catch {
+      console.warn("[TokoVoucher] Invalid format_form JSON; skipping target fields for one product.");
+      return [];
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  return Object.keys(parsed as Record<string, unknown>);
+}
+
+function parseBaseCost(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? ""));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
 export class TokoVoucherDiscoveryAdapter implements ProviderCatalogDiscoveryAdapter {
   code = "tokovoucher";
 
@@ -63,7 +83,7 @@ export class TokoVoucherDiscoveryAdapter implements ProviderCatalogDiscoveryAdap
 
     const products = Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []);
     
-    return products.map((p: any) => {
+    return products.filter((p: any) => p && typeof p === "object").map((p: any) => {
       const operatorName = (p.operator_produk || "").toString().trim();
       const opKey = operatorName.toLowerCase();
       let logoUrl = operatorLogoMap.get(opKey) || undefined;
@@ -76,9 +96,9 @@ export class TokoVoucherDiscoveryAdapter implements ProviderCatalogDiscoveryAdap
         providerProductId: p.id || "",
         providerSku: p.code || "",
         name: p.nama_produk || "Unknown",
-        baseCost: parseFloat(p.price || 0),
+        baseCost: parseBaseCost(p.price),
         isActive: p.status === 1 || p.status === "1",
-        targetFields: p.format_form ? Object.keys(JSON.parse(p.format_form)) : [],
+        targetFields: parseTargetFields(p.format_form),
         metadata: {
           category: p.category_name,
           operator: p.operator_produk,

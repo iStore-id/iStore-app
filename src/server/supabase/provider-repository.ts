@@ -405,14 +405,21 @@ export class SupabaseProviderRepository {
     const skuUuid = mapping.providerSkuId || generateDeterministicProviderSkuUuid(mapping.providerId, mapping.providerSku);
 
     // 2. Insert or update mapping adhering to composite foreign key (provider_sku_id, provider_id)
+    const status = mapping.status || "NEEDS_REVIEW";
+    // TokoVoucher mappings must never be routing-eligible until explicitly approved.
+    // This prevents bulk-created NEEDS_REVIEW records from appearing eligible in admin views.
+    const routingEligibility = mapping.providerId === "tokovoucher"
+      ? status === "APPROVED" && (mapping.routingEligibility ?? true)
+      : (mapping.routingEligibility ?? true);
+
     const payload: any = {
       variant_id: mapping.variantId,
       provider_id: mapping.providerId,
       provider_sku_id: skuUuid,
       provider_sku: mapping.providerSku,
-      status: mapping.status || "NEEDS_REVIEW",
+      status,
       priority: mapping.priority ?? 1,
-      routing_eligibility: mapping.routingEligibility ?? true,
+      routing_eligibility: routingEligibility,
       notes: mapping.notes || null,
       metadata: mapping.metadata || {},
       updated_at: new Date().toISOString(),
