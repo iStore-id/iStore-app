@@ -22,30 +22,30 @@ export default function MembershipStatusPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      fetchData();
-    } else if (!authLoading && !user) {
-      setLoading(false);
-    }
+    if (!authLoading) fetchData();
   }, [user, authLoading]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = await user?.getIdToken();
-      const headers = { 'Authorization': `Bearer ${token}` };
-
-      // Fetch current status
-      const statusRes = await fetch('/api/membership/status', { headers });
-      const statusData = await statusRes.json();
-      if (statusData.status !== 'NONE') {
-        setMembership(statusData);
-      }
-
-      // Fetch available plans
-      const plansRes = await fetch('/api/membership/plans');
+      // Plans are public and should remain visible before login.
+      const plansRes = await fetch('/api/membership/plans', { cache: 'no-store' });
+      if (!plansRes.ok) throw new Error('Gagal memuat paket membership.');
       const plansData = await plansRes.json();
-      setPlans(plansData);
+      setPlans(Array.isArray(plansData) ? plansData : []);
+
+      if (user) {
+        const token = await user.getIdToken();
+        const statusRes = await fetch('/api/membership/status', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
+        });
+        if (!statusRes.ok) throw new Error('Gagal memuat status membership.');
+        const statusData = await statusRes.json();
+        setMembership(statusData?.status && statusData.status !== 'NONE' ? statusData : null);
+      } else {
+        setMembership(null);
+      }
     } catch (error) {
       console.error("Failed to fetch membership info", error);
     } finally {
@@ -63,13 +63,35 @@ export default function MembershipStatusPage() {
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <Crown className="w-16 h-16 text-gray-200 mx-auto mb-6" />
-        <h1 className="ui-page-title text-gray-900 mb-2">Membership VIP Toko</h1>
-        <p className="text-gray-500 mb-8 max-w-md mx-auto">Masuk untuk melihat status keanggotaan Anda dan menikmati berbagai keuntungan eksklusif.</p>
-        <Link to="/login" className="bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-200">
-          Login Sekarang
-        </Link>
+      <div className="max-w-5xl mx-auto px-4 py-12 space-y-10">
+        <div className="text-center space-y-4">
+          <Crown className="w-14 h-14 text-primary mx-auto" />
+          <h1 className="ui-page-title text-gray-900 mb-2">VIP Membership</h1>
+          <p className="text-gray-500 max-w-2xl mx-auto">Lihat paket, diskon member, dan pengali poin sebelum masuk ke akun Anda.</p>
+          <Link to="/login?redirect=/membership" className="inline-flex bg-primary text-white px-8 py-3 rounded-full font-bold hover:bg-brand-700 transition-all">
+            Login Sekarang
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {plans.map(plan => (
+            <div key={plan.id} className="bg-white border border-gray-100 rounded-3xl p-7 flex flex-col shadow-sm">
+              <p className="text-primary font-bold text-sm uppercase tracking-widest">LEVEL {plan.tierLevel}</p>
+              <h2 className="text-2xl font-bold text-gray-900 mt-2">{plan.name}</h2>
+              {plan.description && <p className="text-sm text-gray-500 mt-2">{plan.description}</p>}
+              <p className="text-3xl font-black text-gray-900 mt-6">Rp {Number(plan.price).toLocaleString('id-ID')}</p>
+              <p className="text-sm text-gray-400 mb-6">{plan.durationDays > 0 ? `/ ${plan.durationDays} hari` : 'Tanpa batas waktu'}</p>
+              <ul className="space-y-3 mb-6">
+                <BenefitItem icon={Zap} text={`${plan.pointMultiplier}x poin setiap transaksi`} />
+                <BenefitItem icon={Tag} text={`Diskon member ${plan.discountRate}%`} />
+                {plan.accessTags.map(tag => <BenefitItem key={tag} icon={Package} text={`Benefit: ${tag}`} />)}
+              </ul>
+              <Link to="/login?redirect=/membership" className="mt-auto w-full py-3 rounded-xl font-bold text-center bg-primary text-white hover:bg-brand-700">
+                Login untuk melanjutkan
+              </Link>
+            </div>
+          ))}
+          {plans.length === 0 && <p className="md:col-span-3 text-center text-gray-500 py-10">Belum ada paket VIP aktif. Silakan periksa kembali nanti.</p>}
+        </div>
       </div>
     );
   }
@@ -165,17 +187,16 @@ export default function MembershipStatusPage() {
                 ))}
               </ul>
 
-              <Link 
-                to={`/games/membership?plan=${plan.id}`} 
-                className={`w-full py-4 rounded-2xl font-bold text-center transition-all flex items-center justify-center gap-2 ${
-                  membership?.planId === plan.id 
-                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                    : 'bg-primary text-white hover:bg-brand-700 group-hover:scale-[1.02]'
+              <button
+                type="button"
+                disabled
+                title="Checkout membership belum tersedia karena gateway pembayaran aktif belum terkonfigurasi."
+                className={`w-full py-4 rounded-2xl font-bold text-center flex items-center justify-center gap-2 ${
+                  membership?.planId === plan.id ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {membership?.planId === plan.id ? 'Plan Aktif' : 'Pilih Plan'}
-                {membership?.planId !== plan.id && <ArrowRight className="w-4 h-4" />}
-              </Link>
+                {membership?.planId === plan.id ? 'Plan Aktif' : 'Pembelian belum tersedia'}
+              </button>
             </motion.div>
           ))}
         </div>
