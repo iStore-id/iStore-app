@@ -62,7 +62,7 @@ export function isAdminRoleAllowed(roleId: unknown, profileStatus: unknown, role
   const normalizedRoleStatus = typeof roleStatus === 'string' ? roleStatus.trim().toLowerCase() : '';
 
   if (!normalizedRoleId || normalizedRoleId === 'customer') return false;
-  if (normalizedProfileStatus && normalizedProfileStatus !== 'active') return false;
+  if (normalizedProfileStatus !== 'active') return false;
   return normalizedRoleStatus === 'active';
 }
 
