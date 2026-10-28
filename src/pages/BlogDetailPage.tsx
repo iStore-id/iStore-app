@@ -310,10 +310,10 @@ export default function BlogDetailPage() {
       {/* ========================================================================= */}
       {/* ARTIKEL AKTIF (FULL CONTENT ARTIKEL) */}
       {/* ========================================================================= */}
-      <article className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
+      <article className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
         {/* Article Meta & Header */}
-        <header className="space-y-5 text-left">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+        <header className="mx-auto max-w-3xl space-y-5 text-center sm:text-left">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-2">
             <span className="px-3.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
               {blog.category || "Berita"}
             </span>
@@ -333,18 +333,18 @@ export default function BlogDetailPage() {
             </span>
           </div>
 
-          <h1 className="ui-page-title text-slate-900 mb-2 break-words leading-tight">
+          <h1 className="ui-page-title text-slate-900 mb-2 break-words leading-tight text-balance">
             {blog.title}
           </h1>
 
           {blog.excerpt && (
-            <p className="ui-subheading text-slate-500 pt-1">
+            <p className="ui-subheading text-slate-500 pt-1 max-w-2xl mx-auto sm:mx-0">
               {blog.excerpt}
             </p>
           )}
 
           {/* Author Info & Share */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="pt-5 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                 {blog.author ? blog.author.charAt(0).toUpperCase() : "I"}
@@ -387,17 +387,17 @@ export default function BlogDetailPage() {
 
         {/* Cover Image from Media Library */}
         {blog.coverMediaUrl && (
-          <figure className="my-8 rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 shadow-sm">
+          <figure className="mx-auto my-8 sm:my-10 max-w-5xl aspect-[16/9] rounded-2xl sm:rounded-3xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-md">
             <img
               src={blog.coverMediaUrl}
               alt={blog.title}
-              className="w-full h-auto max-h-[520px] object-cover"
+              className="w-full h-full object-cover"
             />
           </figure>
         )}
 
         {/* Article Body Content */}
-        <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-10 border border-slate-200/80 shadow-xs my-8">
+        <div className="mx-auto max-w-3xl bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-sm my-8 sm:my-10">
           <BlogContentRenderer content={blog.content} />
 
           {/* Tags */}
