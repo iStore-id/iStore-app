@@ -19,8 +19,8 @@
     "path": "./android.keystore",
     "alias": "android"
   },
-  "appVersionCode": 1,
-  "appVersion": "1.0.0",
+  "appVersionCode": 2,
+  "appVersion": "1.0.1",
   "shortcuts": [],
   "webManifestUrl": "https://ist.web.id/api/public/pwa-manifest",
   "fallbackType": "customtabs",
@@ -31,7 +31,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "minSdkVersion": 23,
+  "minSdkVersion": 24,
   "orientation": "default",
   "additionalTrustedOrigins": [],
   "retainedBundles": []
