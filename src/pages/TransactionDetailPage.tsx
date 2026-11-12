@@ -45,6 +45,28 @@ function hexToRgba(hex: string, opacity: number) {
   return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
 }
 
+function getQrisMerchantName(payload: string): string {
+  const value = String(payload || "").trim();
+  if (!value) return "";
+
+  // EMVCo/QRIS TLV: each field is Tag (2 digits), Length (2 digits), Value.
+  let offset = 0;
+  while (offset + 4 <= value.length) {
+    const tag = value.slice(offset, offset + 2);
+    const lengthText = value.slice(offset + 2, offset + 4);
+    if (!/^\d{2}$/.test(tag) || !/^\d{2}$/.test(lengthText)) return "";
+
+    const fieldLength = Number(lengthText);
+    const valueStart = offset + 4;
+    const valueEnd = valueStart + fieldLength;
+    if (!Number.isSafeInteger(fieldLength) || valueEnd > value.length) return "";
+
+    if (tag === "59") return value.slice(valueStart, valueEnd).trim();
+    offset = valueEnd;
+  }
+  return "";
+}
+
 const getBankInfo = (bankCode?: string) => {
   const code = (bankCode || "").toLowerCase();
   if (code === "bmri" || code === "mandiri" || code === "mandiri_va") {
@@ -417,6 +439,7 @@ export default function TransactionDetailPage() {
                       <div className="text-center space-y-1">
                         <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
+                        {hooseMerchantName && <p className="text-xs font-semibold text-slate-700">{hooseMerchantName}</p>}
                       </div>
                       {omqrisQrImage ? (
                         <>
@@ -458,6 +481,8 @@ export default function TransactionDetailPage() {
 
                 if (order.paymentGatewayCode === "hoose") {
                   const hooseQrImage = gwResp.qrImage || order.qrImage;
+                  const hooseQrPayload = String(gwResp.qrContent || gwResp.qris_string || gwResp.qrisString || "");
+                  const hooseMerchantName = getQrisMerchantName(hooseQrPayload);
                   return (
                     <div className="flex w-full max-w-sm flex-col items-center space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                       <div className="text-center space-y-1">
