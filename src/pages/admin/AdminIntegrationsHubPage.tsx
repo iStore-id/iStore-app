@@ -35,6 +35,15 @@ export default function AdminIntegrationsHubPage() {
       badge: "Sandbox first / Inactive by default"
     },
     {
+      id: "hoose",
+      title: "Hoose.id QRIS Integration",
+      description: "Gateway QRIS dinamis dengan kode unik otomatis, QR langsung, dan callback bertanda tangan.",
+      icon: QrCode,
+      status: "INACTIVE",
+      href: "/admin/integrations/hoose",
+      badge: "Inactive by default / Test first"
+    },
+    {
       id: "doit",
       title: "Doit.id Integration",
       description: "Payment gateway QRIS dinamis berizin Bank Indonesia dengan settlement instan.",
