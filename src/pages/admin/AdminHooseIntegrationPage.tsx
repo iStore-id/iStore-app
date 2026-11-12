@@ -87,9 +87,13 @@ export default function AdminHooseIntegrationPage() {
           <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600"><QrCode className="w-6 h-6" /></div>
           <div>
             <h1 className="text-2xl font-bold">Hoose.id QRIS Integration</h1>
-            <p className="text-sm text-slate-500 mt-1">QRIS dinamis dengan kode unik otomatis dari Hoose.id.</p>
+            <p className="text-sm text-slate-500 mt-1">QRIS dinamis menggunakan QRIS utama milik toko yang dikonfigurasi di dashboard Hoose.id, dengan kode unik otomatis.</p>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+        <strong>Mode QRIS sendiri.</strong> API pembuatan QRIS menggunakan QRIS toko berstatus Utama di dashboard Hoose.id secara bawaan. QRIS lain tidak dipilih oleh integrasi ini. Pastikan QRIS KABAY.iD milik toko Anda tetap ditandai sebagai Utama di Hoose.id.
       </div>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
