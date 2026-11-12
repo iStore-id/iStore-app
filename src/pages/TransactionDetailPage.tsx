@@ -461,13 +461,13 @@ export default function TransactionDetailPage() {
                   return (
                     <div className="flex w-full max-w-sm flex-col items-center space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                       <div className="text-center space-y-1">
-                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS Hoose.id Untuk Membayar</h3>
+                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
                       </div>
                       {hooseQrImage ? (
                         <>
                           <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
-                            <img src={hooseQrImage} alt="QRIS Hoose.id" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                            <img src={hooseQrImage} alt="QRIS" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
                           </div>
                           <a
                             href={hooseQrImage}
@@ -481,7 +481,7 @@ export default function TransactionDetailPage() {
                         <p className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">QRIS belum tersedia. Silakan muat ulang atau hubungi bantuan.</p>
                       )}
                       <div className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</div>
-                      <p className="text-center text-[11px] text-slate-500">Nominal sudah termasuk kode unik otomatis dari Hoose.id. Bayar sesuai nominal yang tertera.</p>
+                      <p className="text-center text-[11px] text-slate-500">Nominal sudah termasuk kode unik otomatis. Bayar sesuai nominal yang tertera.</p>
                       {gwResp.expiresAt && <p className="text-[11px] text-slate-500">Batas pembayaran: {new Date(gwResp.expiresAt).toLocaleString("id-ID")}</p>}
                     </div>
                   );
