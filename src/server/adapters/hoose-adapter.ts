@@ -208,11 +208,14 @@ export class HooseProviderAdapter implements PaymentProviderAdapter {
       !Number.isSafeInteger(finalAmount) || finalAmount !== amount + uniqueCode
     ) throw new Error("Hoose.id webhook amount or unique code is invalid.");
 
+    const normalizedStatus = normalizeHooseStatus(payload?.status);
+    if (normalizedStatus !== "PAID") throw new Error("Hoose.id transaction.paid event does not contain a paid status.");
+
     return {
       provider: "hoose",
       orderId,
       transactionId,
-      status: normalizeHooseStatus(payload?.status),
+      status: normalizedStatus,
       amount,
       rawPayload: payload
     };
