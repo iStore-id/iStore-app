@@ -356,7 +356,8 @@ export async function initServerLogic() {
       if (!order) {
         return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan." });
       }
-      const isOwner = Boolean(req.user?.uid && order.userId === req.user.uid);
+      const requestUser = (req as AuthenticatedRequest).user;
+      const isOwner = Boolean(requestUser?.uid && order.userId === requestUser.uid);
       return res.status(200).json({ success: true, data: toCustomerOrderView(order, isOwner) });
     } catch (error: any) {
       console.error("Get order by invoice error:", error);
