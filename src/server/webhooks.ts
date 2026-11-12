@@ -585,14 +585,30 @@ export async function hooseWebhook(req: any, res: any) {
         return res.status(200).json({ success: true, message: "Order already paid" });
       }
 
-      if (!Number.isSafeInteger(event.amount) || event.amount <= 0 || event.amount !== Number(orderData.totalAmount)) {
+      const expectedBaseAmount = Number(orderData.totalAmount);
+      const expectedFinalAmount = Number(orderData.gatewayResponse?.totalAmount);
+      const expectedUniqueCode = Number(orderData.gatewayResponse?.feeAmount);
+      const receivedFinalAmount = Number(event.rawPayload?.amount);
+      const receivedUniqueCode = Number(event.rawPayload?.unique_code);
+      const expectedTransactionId = String(orderData.gatewayTransactionId || "");
+      if (
+        !Number.isSafeInteger(event.amount) || event.amount <= 0 || event.amount !== expectedBaseAmount ||
+        !expectedTransactionId || event.transactionId !== expectedTransactionId ||
+        !Number.isSafeInteger(expectedFinalAmount) || expectedFinalAmount <= 0 || receivedFinalAmount !== expectedFinalAmount ||
+        !Number.isSafeInteger(expectedUniqueCode) || receivedUniqueCode !== expectedUniqueCode
+      ) {
         clearWebhookEventStatus(dedupeKey);
-        logSystem("CRITICAL", "PAYMENT", "HOOSE_AMOUNT_MISMATCH",
-          `Nominal dasar Hoose.id tidak cocok untuk order ${orderData.id}`, "hoose-webhook", {
+        logSystem("CRITICAL", "PAYMENT", "HOOSE_AMOUNT_OR_TRANSACTION_MISMATCH",
+          `Nominal atau referensi transaksi Hoose.id tidak cocok untuk order ${orderData.id}`, "hoose-webhook", {
             orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
-            metadata: { expectedBaseAmount: orderData.totalAmount, receivedBaseAmount: event.amount, uniqueCode: event.rawPayload?.unique_code, finalAmount: event.rawPayload?.amount }
+            metadata: {
+              expectedBaseAmount, receivedBaseAmount: event.amount,
+              expectedFinalAmount, receivedFinalAmount,
+              expectedUniqueCode, receivedUniqueCode,
+              expectedTransactionId, receivedTransactionId: event.transactionId
+            }
           });
-        return res.status(400).json({ success: false, message: "Amount mismatch" });
+        return res.status(400).json({ success: false, message: "Transaction details mismatch" });
       }
 
       if (event.status !== "PAID") {
