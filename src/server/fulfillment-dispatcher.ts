@@ -200,7 +200,13 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       outcome: "FAILURE",
       stackTrace: err.stack
     });
-    // Keep order status as PROCESSING for safety on unexpected crashes
+    // A callback may have completed the order while the submit path was failing.
+    // Preserve the authoritative terminal result rather than replacing its diagnostics.
+    const latestAfterError = await orderRepo.getOrderById(orderId);
+    const terminalAfterError = String(latestAfterError?.transactionStatus || "").toLowerCase();
+    if (terminalAfterError === "success" || terminalAfterError === "failed") return;
+
+    // Keep order status as PROCESSING for safety on unexpected crashes.
     await orderRepo.updateOrder(orderId, {
       fulfillmentResponse: { message: `Error: ${err.message || "Unknown execution crash"}` },
       updatedAt: new Date().toISOString()
