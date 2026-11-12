@@ -256,6 +256,81 @@ export async function safeRecordPaymentReceived(
     }
 
     const result = await recordPaymentReceived(orderId, grossAmount, createdBy, metadata);
+
+    // Hoose's unique code is an additional amount collected by the gateway,
+    // not product revenue. Keep the original base-payment journal immutable
+    // and post the unique-code delta in its own deterministic journal.
+    if (String(orderData.paymentGatewayCode || "").toLowerCase() === "hoose") {
+      const gatewayResponse = orderData.gatewayResponse || {};
+      const finalAmount = Number(gatewayResponse.totalAmount);
+      const uniqueCode = Number(gatewayResponse.feeAmount);
+      if (
+        !Number.isSafeInteger(finalAmount) ||
+        !Number.isSafeInteger(uniqueCode) ||
+        uniqueCode < 0 ||
+        uniqueCode > 999 ||
+        finalAmount !== grossAmount + uniqueCode
+      ) {
+        throw new Error("HOOSE_LEDGER_VALIDATION_ERROR: stored finalAmount/uniqueCode does not reconcile to order base amount.");
+      }
+
+      if (uniqueCode > 0) {
+        const baseJournal = await getJournalEntryByIdempotencyKey(`ledger_pay_${orderId}`);
+        if (!baseJournal || baseJournal.eventType !== "PAYMENT_RECEIVED" || baseJournal.totalAmount !== grossAmount) {
+          throw new Error("HOOSE_LEDGER_RECONCILIATION_BLOCKED: base payment journal is missing or has an unexpected amount.");
+        }
+        const baseLines = baseJournal.lineItems;
+        const debitBase = baseLines.filter(line => line.accountId === LedgerAccount.GATEWAY_RECEIVABLE)
+          .reduce((sum, line) => sum + line.debit, 0);
+        const creditBase = baseLines.filter(line => line.accountId === LedgerAccount.CUSTOMER_UNEARNED_REVENUE)
+          .reduce((sum, line) => sum + line.credit, 0);
+        if (
+          baseLines.length !== 2 ||
+          debitBase !== grossAmount ||
+          creditBase !== grossAmount ||
+          baseLines.some(line =>
+            (line.accountId !== LedgerAccount.GATEWAY_RECEIVABLE && line.accountId !== LedgerAccount.CUSTOMER_UNEARNED_REVENUE) ||
+            (line.accountId === LedgerAccount.GATEWAY_RECEIVABLE && line.credit !== 0) ||
+            (line.accountId === LedgerAccount.CUSTOMER_UNEARNED_REVENUE && line.debit !== 0)
+          )
+        ) {
+          throw new Error("HOOSE_LEDGER_RECONCILIATION_BLOCKED: existing base journal lines do not match the expected payment posting.");
+        }
+
+        await createJournalEntry({
+          idempotencyKey: `ledger_hoose_unique_code_${orderId}`,
+          eventType: "HOOSE_UNIQUE_CODE_RECEIVED",
+          source: {
+            collection: "orders",
+            documentId: orderId,
+            eventId: orderId
+          },
+          lineItems: [
+            {
+              accountId: LedgerAccount.GATEWAY_RECEIVABLE,
+              accountName: LEDGER_ACCOUNT_NAMES[LedgerAccount.GATEWAY_RECEIVABLE],
+              debit: uniqueCode,
+              credit: 0
+            },
+            {
+              accountId: LedgerAccount.HOOSE_UNIQUE_CODE_CLEARING,
+              accountName: LEDGER_ACCOUNT_NAMES[LedgerAccount.HOOSE_UNIQUE_CODE_CLEARING],
+              debit: 0,
+              credit: uniqueCode
+            }
+          ],
+          createdBy,
+          metadata: {
+            ...(metadata || {}),
+            source: "Hoose.id unique code reconciliation",
+            baseAmount: grossAmount,
+            uniqueCode,
+            finalAmount
+          }
+        });
+      }
+    }
+
     if (result.duplicate) {
       console.log(`[Ledger Idempotency] PAYMENT_RECEIVED already recorded for order ${orderId}`);
     } else {
