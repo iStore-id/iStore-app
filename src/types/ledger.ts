@@ -4,6 +4,7 @@ export enum LedgerAccount {
   BANK_PRIMARY = "1200_BANK_PRIMARY",
   CUSTOMER_UNEARNED_REVENUE = "2000_CUSTOMER_UNEARNED_REVENUE",
   COMMISSION_PAYABLE = "2100_COMMISSION_PAYABLE",
+  HOOSE_UNIQUE_CODE_CLEARING = "2200_HOOSE_UNIQUE_CODE_CLEARING",
   SALES_REVENUE = "4000_SALES_REVENUE",
   SALES_REFUND_CONTRA = "4100_SALES_REFUND_CONTRA",
   GATEWAY_MDR_FEE = "5000_GATEWAY_MDR_FEE",
@@ -17,6 +18,7 @@ export const LEDGER_ACCOUNT_NAMES: Record<LedgerAccount, string> = {
   [LedgerAccount.BANK_PRIMARY]: "Corporate Bank Account",
   [LedgerAccount.CUSTOMER_UNEARNED_REVENUE]: "Unearned Revenue / Customer Liability",
   [LedgerAccount.COMMISSION_PAYABLE]: "Affiliate Commission Payable",
+  [LedgerAccount.HOOSE_UNIQUE_CODE_CLEARING]: "Hoose Unique Code Clearing",
   [LedgerAccount.SALES_REVENUE]: "Gross Sales Revenue",
   [LedgerAccount.SALES_REFUND_CONTRA]: "Sales Refund Contra",
   [LedgerAccount.GATEWAY_MDR_FEE]: "Gateway Processing Fee",
@@ -26,6 +28,7 @@ export const LEDGER_ACCOUNT_NAMES: Record<LedgerAccount, string> = {
 
 export type LedgerEventType = 
   | 'PAYMENT_RECEIVED'
+  | 'HOOSE_UNIQUE_CODE_RECEIVED'
   | 'FULFILLMENT_SUCCESS'
   | 'REFUND_EXECUTED'
   | 'SETTLEMENT_CLOSED'
