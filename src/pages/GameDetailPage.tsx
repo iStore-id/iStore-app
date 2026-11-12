@@ -360,7 +360,7 @@ export default function GameDetailPage() {
   const [buyerEmail, setBuyerEmail] = useState("");
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
-  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | null>(null);
+  const [activeGateway, setActiveGateway] = useState<"doit" | "midtrans" | "omqris" | "tripay" | "hoose" | null>(null);
   const [tripayAvailableChannels, setTripayAvailableChannels] = useState<Array<{ code: string; name: string; group?: string; type?: string; iconUrl?: string; feeCustomer?: { flat: number | null; percent: number | null } | null }>>([]);
   const [tripayChannelsError, setTripayChannelsError] = useState("");
   const [tripayChannelsLoading, setTripayChannelsLoading] = useState(false);
@@ -863,7 +863,7 @@ export default function GameDetailPage() {
       }
 
       // For Doit: navigate directly to transaction page for native presentation
-      if (data.gatewayCode === "doit" || data.gatewayCode === "omqris") {
+      if (data.gatewayCode === "doit" || data.gatewayCode === "omqris" || data.gatewayCode === "hoose") {
         navigate(`/transactions/${data.orderId}`);
         return;
       }
@@ -1433,7 +1433,27 @@ export default function GameDetailPage() {
                 <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isDarkMode ? "bg-brand-600/15 text-brand-300 ring-1 ring-brand-400/30" : "bg-brand-100 text-brand-600"}`}>3</span>
                 Pilih Metode Pembayaran
               </h2>
-              {activeGateway === "doit" || activeGateway === "omqris" ? (
+              {activeGateway === "hoose" ? (
+                <div className="space-y-3">
+                  <h3 className={`text-xs font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-brand-300" : "text-slate-500"}`}>QRIS Hoose.id</h3>
+                  <button
+                    type="button"
+                    aria-pressed={selectedPaymentMethod === "qris"}
+                    onClick={() => { setSelectedPaymentMethod("qris"); setCheckoutError(null); }}
+                    className={`flex min-h-[100px] w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all ${selectedPaymentMethod === "qris" ? (isDarkMode ? "border-brand-500 bg-brand-500/10 ring-2 ring-brand-500/20" : "border-brand-600 bg-brand-50/70 ring-2 ring-brand-500/20") : (isDarkMode ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-white")}`}
+                  >
+                    <span className="flex h-14 w-20 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-2.5">
+                      <img src="/payment-logos/qris.svg" alt="QRIS" className="max-h-full max-w-full object-contain" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block font-bold ${isDarkMode ? "text-slate-100" : "text-slate-900"}`}>QRIS</span>
+                      <span className={`mt-1 block text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Scan dan bayar dengan aplikasi bank atau e-wallet yang mendukung QRIS.</span>
+                    </span>
+                    {selectedPaymentMethod === "qris" && <ShieldCheck className="h-5 w-5 shrink-0 text-brand-600" />}
+                  </button>
+                  <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Hoose.id menambahkan kode unik 3 digit secara otomatis pada nominal pembayaran.</p>
+                </div>
+              ) : 
                 <div className="space-y-4">
                   {/* Kelompok QRIS */}
                   <div>
