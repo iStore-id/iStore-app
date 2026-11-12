@@ -32,6 +32,7 @@ export function mapCanonicalToLegacyAccount(canonicalId: string): string {
     case '1200': return LedgerAccount.BANK_PRIMARY;
     case '2000': return LedgerAccount.CUSTOMER_UNEARNED_REVENUE;
     case '2100': return LedgerAccount.COMMISSION_PAYABLE;
+    case '2200': return LedgerAccount.HOOSE_UNIQUE_CODE_CLEARING;
     case '4000': return LedgerAccount.SALES_REVENUE;
     case '4100': return LedgerAccount.SALES_REFUND_CONTRA;
     case '5000': return LedgerAccount.GATEWAY_MDR_FEE;

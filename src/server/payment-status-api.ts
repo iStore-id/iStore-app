@@ -174,14 +174,18 @@ export async function getPaymentStatusHandler(req: any, res: any) {
       const returnedTransactionId = String(statusResult.rawData?.transaction_id || "").trim();
       const returnedFinalAmount = statusResult.rawData?.final_amount !== undefined ? Number(statusResult.rawData.final_amount) : null;
       const returnedUniqueCode = statusResult.rawData?.unique_code !== undefined ? Number(statusResult.rawData.unique_code) : null;
-      const expectedFinalAmount = Number(order.gatewayResponse?.totalAmount || 0);
+      const expectedFinalAmount = Number(order.gatewayResponse?.totalAmount ?? 0);
       const expectedUniqueCode = Number(order.gatewayResponse?.feeAmount ?? 0);
+      const ledgerFinalAmount = returnedFinalAmount ?? expectedFinalAmount;
+      const ledgerUniqueCode = returnedUniqueCode ?? expectedUniqueCode;
       if (
         !Number.isSafeInteger(providerAmount) || providerAmount <= 0 || providerAmount !== expectedAmount ||
         (returnedOrderId && returnedOrderId !== String(order.invoice || order.id)) ||
         (returnedTransactionId && order.gatewayTransactionId && returnedTransactionId !== order.gatewayTransactionId) ||
-        (returnedFinalAmount !== null && (!Number.isSafeInteger(returnedFinalAmount) || returnedFinalAmount !== expectedFinalAmount)) ||
-        (returnedUniqueCode !== null && (!Number.isSafeInteger(returnedUniqueCode) || returnedUniqueCode !== expectedUniqueCode))
+        (returnedFinalAmount !== null && (!Number.isSafeInteger(returnedFinalAmount) || (expectedFinalAmount > 0 && returnedFinalAmount !== expectedFinalAmount))) ||
+        (returnedUniqueCode !== null && (!Number.isSafeInteger(returnedUniqueCode) || (Number.isSafeInteger(expectedUniqueCode) && returnedUniqueCode !== expectedUniqueCode))) ||
+        !Number.isSafeInteger(ledgerFinalAmount) || ledgerFinalAmount !== expectedAmount + ledgerUniqueCode ||
+        !Number.isSafeInteger(ledgerUniqueCode) || ledgerUniqueCode < 0 || ledgerUniqueCode > 999
       ) {
         logSystem("CRITICAL", "PAYMENT", "HOOSE_STATUS_AMOUNT_OR_ID_MISMATCH",
           `Nominal atau identitas transaksi Hoose.id tidak cocok untuk order ${order.id}`, "hoose-status-inquiry", {
@@ -198,7 +202,12 @@ export async function getPaymentStatusHandler(req: any, res: any) {
           await transitionOrderState(order.id, "PAID" as any, {
             gatewayTransactionId: order.gatewayTransactionId || returnedTransactionId || undefined,
             gatewayPaymentType: "qris",
-            gatewayResponse: statusResult.rawData || statusResult
+            gatewayResponse: {
+              ...(order.gatewayResponse || {}),
+              ...(statusResult.rawData || {}),
+              totalAmount: ledgerFinalAmount,
+              feeAmount: ledgerUniqueCode
+            }
           }, "Hoose.id status inquiry confirmed payment");
         } catch (transitionError: any) {
           const refreshed = await orderRepo.getOrderById(order.id);
@@ -216,7 +225,15 @@ export async function getPaymentStatusHandler(req: any, res: any) {
 
       const refreshed = await orderRepo.getOrderById(order.id);
       if (refreshed && String(refreshed.paymentStatus || "").toLowerCase() === "paid") {
-        await safeRecordPaymentReceived(order.id, refreshed, "SYSTEM", { source: "Hoose.id Status Inquiry" });
+        const ledgerOrderData = {
+          ...refreshed,
+          gatewayResponse: {
+            ...(refreshed.gatewayResponse || {}),
+            totalAmount: ledgerFinalAmount,
+            feeAmount: ledgerUniqueCode
+          }
+        };
+        await safeRecordPaymentReceived(order.id, ledgerOrderData, "SYSTEM", { source: "Hoose.id Status Inquiry" });
         const { JobService } = await import("./job-service.js");
         await JobService.getInstance().enqueue({
           type: "FULFILLMENT",
