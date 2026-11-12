@@ -553,8 +553,14 @@ export async function hooseWebhook(req: any, res: any) {
 
     const dedupeKey = `hoose:${eventId}`;
     const currentStatus = getWebhookEventStatus(dedupeKey);
-    if (currentStatus === "COMPLETED" || currentStatus === "PROCESSING") {
-      return res.status(200).json({ success: true, message: "Event already received" });
+    if (currentStatus === "COMPLETED") {
+      return res.status(200).json({ success: true, message: "Event already processed" });
+    }
+    if (currentStatus === "PROCESSING") {
+      // Do not acknowledge an in-flight event as completed. Hoose retries non-2xx
+      // responses; the durable ledger/job idempotency keys make a retry safe.
+      res.setHeader("Retry-After", "10");
+      return res.status(503).json({ success: false, message: "Payment event is still processing; retry later" });
     }
     setWebhookEventStatus(dedupeKey, "PROCESSING");
 
@@ -607,34 +613,36 @@ export async function hooseWebhook(req: any, res: any) {
         return res.status(400).json({ success: false, message: "Transaction details mismatch" });
       }
 
-      if (String(orderData.paymentStatus || "").toLowerCase() === "paid") {
-        markWebhookEventProcessed(dedupeKey);
-        return res.status(200).json({ success: true, message: "Order already paid" });
-      }
-
+      const alreadyPaid = String(orderData.paymentStatus || "").toLowerCase() === "paid";
       if (event.status !== "PAID") {
         markWebhookEventProcessed(dedupeKey);
         return res.status(200).json({ success: true, message: "Status acknowledged; no payment transition required" });
       }
 
-      await transitionOrderState(orderData.id, "PAID" as any, {
-        gatewayTransactionId: event.transactionId,
-        gatewayPaymentType: "qris",
-        gatewayResponse: event.rawPayload
-      }, "Hoose.id webhook: transaction.paid");
-
-      const refreshedOrder = await orderRepo.getOrderById(orderData.id);
-      if (refreshedOrder && String(refreshedOrder.paymentStatus || "").toLowerCase() === "paid") {
-        await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "Hoose.id Webhook" });
-        const { JobService } = await import("./job-service.js");
-        await JobService.getInstance().enqueue({
-          type: "FULFILLMENT",
-          payload: { orderId: orderData.id },
-          priority: "HIGH",
-          referenceId: orderData.id,
-          idempotencyKey: `fulfillment_${orderData.id}`
-        });
+      if (!alreadyPaid) {
+        await transitionOrderState(orderData.id, "PAID" as any, {
+          gatewayTransactionId: event.transactionId,
+          gatewayPaymentType: "qris",
+          gatewayResponse: event.rawPayload
+        }, "Hoose.id webhook: transaction.paid");
       }
+
+      // Retry idempotent side effects even when the order state was already PAID.
+      // This recovers cases where the state transition succeeded but ledger/job
+      // persistence failed before Hoose received a successful acknowledgement.
+      const refreshedOrder = await orderRepo.getOrderById(orderData.id);
+      if (!refreshedOrder || String(refreshedOrder.paymentStatus || "").toLowerCase() !== "paid") {
+        throw new Error("Hoose.id payment transition did not persist as PAID.");
+      }
+      await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "Hoose.id Webhook Retry" });
+      const { JobService } = await import("./job-service.js");
+      await JobService.getInstance().enqueue({
+        type: "FULFILLMENT",
+        payload: { orderId: orderData.id },
+        priority: "HIGH",
+        referenceId: orderData.id,
+        idempotencyKey: `fulfillment_${orderData.id}`
+      });
 
       markWebhookEventProcessed(dedupeKey);
       return res.status(200).json({ success: true });
