@@ -116,7 +116,7 @@ export default function TransactionDetailPage() {
 
   useEffect(() => {
     const qrContent = String(order?.gatewayResponse?.qrContent || "");
-    if (order?.paymentGatewayCode !== "omqris" || !qrContent) {
+    if ((order?.paymentGatewayCode !== "omqris" && order?.paymentGatewayCode !== "hoose") || !qrContent) {
       setOmqrisQrImage("");
       return;
     }
@@ -257,7 +257,7 @@ export default function TransactionDetailPage() {
     let stopped = false;
     let inFlight = false;
 
-    const checkOmqrisStatus = async () => {
+    const checkGatewayStatus = async () => {
       if (stopped || inFlight) return;
       inFlight = true;
       try {
@@ -277,14 +277,14 @@ export default function TransactionDetailPage() {
         }
       } catch (statusError) {
         // A temporary inquiry failure must not alter the displayed payment state.
-        console.warn("OmQris status inquiry temporarily unavailable:", statusError);
+        console.warn("QRIS gateway status inquiry temporarily unavailable:", statusError);
       } finally {
         inFlight = false;
       }
     };
 
-    void checkOmqrisStatus();
-    const timer = window.setInterval(() => { void checkOmqrisStatus(); }, 15000);
+    void checkGatewayStatus();
+    const timer = window.setInterval(() => { void checkGatewayStatus(); }, 15000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
