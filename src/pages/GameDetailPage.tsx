@@ -1453,7 +1453,7 @@ export default function GameDetailPage() {
                   </button>
                   <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Hoose.id menambahkan kode unik 3 digit secara otomatis pada nominal pembayaran.</p>
                 </div>
-              ) : 
+              ) : activeGateway === "doit" || activeGateway === "omqris" ? (
                 <div className="space-y-4">
                   {/* Kelompok QRIS */}
                   <div>
