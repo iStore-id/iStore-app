@@ -341,11 +341,23 @@ export async function tokovoucherWebhook(req: any, res: any) {
       const failureReason = targetState === "FAILED"
         ? normalizeTokoVoucherFailureReason(providerMessage)
         : null;
-      await transitionOrderState(orderId, targetState as any, {
-        trxId: trx_id || "",
-        providerReferenceId: ref_id,
-        failureReason: failureReason || undefined
-      }, `TokoVoucher Webhook: ${status}`);
+      const currentFulfillmentStatus = String(orderData.transactionStatus || "").toLowerCase();
+      const targetFulfillmentStatus = targetState.toLowerCase();
+
+      if (
+        (currentFulfillmentStatus === "success" || currentFulfillmentStatus === "failed") &&
+        currentFulfillmentStatus !== targetFulfillmentStatus
+      ) {
+        return res.status(409).json({ success: false, message: "Conflicting terminal fulfillment status" });
+      }
+
+      if (currentFulfillmentStatus !== targetFulfillmentStatus) {
+        await transitionOrderState(orderId, targetState as any, {
+          trxId: trx_id || "",
+          providerReferenceId: ref_id,
+          failureReason: failureReason || undefined
+        }, `TokoVoucher Webhook: ${status}`);
+      }
 
       await orderRepo.updateOrder(orderId, {
         providerReferenceId: ref_id,
