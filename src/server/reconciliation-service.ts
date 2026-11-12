@@ -7,6 +7,7 @@ import { IncidentService } from "./incident-service.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
 import { PaymentRouter } from "./payment-router.js";
 import * as crypto from "crypto";
+import { normalizeTokoVoucherFailureReason } from "./tokovoucher-utils.js";
 
 export interface ReconcileResult {
   orderId: string;
@@ -317,37 +318,58 @@ export async function reconcileOrder(
     }
   }
 
-  // Crash Recovery & TokoVoucher Reconciliation Check:
-  // If order is PAID and in PROCESSING state, check TokoVoucher provider status if applicable
+  // TokoVoucher reconciliation uses the same adapter and canonical ref_id as submission.
   const providerCode = order.providerId || "";
   if (localState === 'PROCESSING' && (providerCode === 'tokovoucher' || providerCode.toLowerCase().includes('tokovoucher'))) {
     try {
-       const { getProvider } = await import("./providers.js");
-       const tokoVoucherProvider = getProvider('tokovoucher');
-       // Check status at TokoVoucher using orderId (ref_id)
-       const checkResult = await tokoVoucherProvider.checkTransaction(orderId);
-       
-       if (checkResult.status === 'success') {
-         console.log(`[Reconciliation TokoVoucher] Order ${orderId} confirmed SUCCESS at TokoVoucher. Transitioning...`);
-         const payload: Record<string, any> = {};
-         if (checkResult.serialNumber && checkResult.serialNumber !== "SN-FOUND" && checkResult.serialNumber !== "SN-RESOLVED") {
-            payload.serialNumber = checkResult.serialNumber;
-            payload.providerReference = checkResult.serialNumber;
-         }
-         await transitionOrderState(orderId, 'SUCCESS', payload, "Reconciliation: Confirmed success at TokoVoucher");
-         resolution = 'AUTO_RESOLVED';
-         message = "Transaksi TokoVoucher dikonfirmasi sukses oleh provider.";
-       } else if (checkResult.status === 'failed') {
-         console.log(`[Reconciliation TokoVoucher] Order ${orderId} confirmed FAILED at TokoVoucher. Transitioning...`);
-         const reason = checkResult.message || "Provider reported failure";
-         await transitionOrderState(orderId, 'FAILED', { reason }, "Reconciliation: Confirmed failure at TokoVoucher");
-         resolution = 'AUTO_RESOLVED';
-         message = "Transaksi TokoVoucher dikonfirmasi gagal oleh provider.";
-       } else {
-         console.log(`[Reconciliation TokoVoucher] Order ${orderId} remains PROCESSING at TokoVoucher.`);
-       }
+      const registry = (await import("./provider-adapters.js")).ProviderAdapterRegistry.getInstance();
+      const tokoVoucherAdapter = registry.getAdapter("tokovoucher");
+      if (tokoVoucherAdapter) {
+        const checkResult = await tokoVoucherAdapter.queryStatus(order.providerReferenceId || "", orderId);
+        const fulfillmentResponse = {
+          status: checkResult.status,
+          providerReference: checkResult.providerReference || order.providerReferenceId || null,
+          message: checkResult.message || null,
+          rawResponse: checkResult.rawResponse || null
+        };
+
+        if (checkResult.status === 'success') {
+          const serialNumber = checkResult.rawResponse?.sn || checkResult.rawResponse?.data?.sn || undefined;
+          await transitionOrderState(orderId, 'SUCCESS', {
+            providerReferenceId: checkResult.providerReference || order.providerReferenceId,
+            serialNumber,
+            fulfillmentResponse
+          }, "Reconciliation: Confirmed success at TokoVoucher");
+          await orderRepo.updateOrder(orderId, {
+            providerReferenceId: checkResult.providerReference || order.providerReferenceId || undefined,
+            serialNumber,
+            fulfillmentResponse,
+            updatedAt: new Date().toISOString()
+          });
+          resolution = 'AUTO_RESOLVED';
+          message = "Transaksi TokoVoucher dikonfirmasi sukses oleh provider.";
+        } else if (checkResult.status === 'failed') {
+          const failureReason = normalizeTokoVoucherFailureReason(checkResult.message);
+          fulfillmentResponse.message = failureReason;
+          await transitionOrderState(orderId, 'FAILED', {
+            providerReferenceId: checkResult.providerReference || order.providerReferenceId,
+            failureReason,
+            fulfillmentResponse
+          }, "Reconciliation: Confirmed failure at TokoVoucher");
+          await orderRepo.updateOrder(orderId, {
+            providerReferenceId: checkResult.providerReference || order.providerReferenceId || undefined,
+            failureReason,
+            fulfillmentResponse,
+            updatedAt: new Date().toISOString()
+          });
+          resolution = 'AUTO_RESOLVED';
+          message = "Transaksi TokoVoucher dikonfirmasi gagal oleh provider.";
+        } else {
+          console.log(`[Reconciliation TokoVoucher] Order ${orderId} remains PROCESSING at TokoVoucher (${checkResult.status}).`);
+        }
+      }
     } catch (tvErr: any) {
-       console.error(`[Reconciliation TokoVoucher Error] Error checking status for ${orderId}:`, tvErr?.message || tvErr);
+      console.error(`[Reconciliation TokoVoucher Error] Error checking status for ${orderId}:`, tvErr?.message || tvErr);
     }
   }
 
