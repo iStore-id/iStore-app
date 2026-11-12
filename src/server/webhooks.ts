@@ -294,7 +294,7 @@ export async function tokovoucherWebhook(req: any, res: any) {
     const expectedSignature = crypto.createHash('md5').update(`${config.memberCode}:${config.secret}:${ref_id}`).digest('hex');
     const expectedSignatureAlt = crypto.createHash('md5').update(`${config.memberCode}${config.secret}${ref_id}`).digest('hex');
 
-    if (authHeader && authHeader !== expectedSignature && authHeader !== expectedSignatureAlt) {
+    if (!authHeader || (authHeader !== expectedSignature && authHeader !== expectedSignatureAlt)) {
       logSystem("ERROR", "SECURITY", "TOKOVOUCHER_INVALID_SIGNATURE", `Tanda tangan TokoVoucher tidak valid untuk ref_id ${ref_id}`, "tokovoucher-webhook", {
         httpStatus: 403,
         outcome: "BLOCKED"
