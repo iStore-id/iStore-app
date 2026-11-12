@@ -172,10 +172,16 @@ export async function getPaymentStatusHandler(req: any, res: any) {
       const expectedAmount = Number(order.totalAmount || 0);
       const returnedOrderId = String(statusResult.rawData?.order_id || "").trim();
       const returnedTransactionId = String(statusResult.rawData?.transaction_id || "").trim();
+      const returnedFinalAmount = statusResult.rawData?.final_amount !== undefined ? Number(statusResult.rawData.final_amount) : null;
+      const returnedUniqueCode = statusResult.rawData?.unique_code !== undefined ? Number(statusResult.rawData.unique_code) : null;
+      const expectedFinalAmount = Number(order.gatewayResponse?.totalAmount || 0);
+      const expectedUniqueCode = Number(order.gatewayResponse?.feeAmount ?? 0);
       if (
         !Number.isSafeInteger(providerAmount) || providerAmount <= 0 || providerAmount !== expectedAmount ||
         (returnedOrderId && returnedOrderId !== String(order.invoice || order.id)) ||
-        (returnedTransactionId && order.gatewayTransactionId && returnedTransactionId !== order.gatewayTransactionId)
+        (returnedTransactionId && order.gatewayTransactionId && returnedTransactionId !== order.gatewayTransactionId) ||
+        (returnedFinalAmount !== null && (!Number.isSafeInteger(returnedFinalAmount) || returnedFinalAmount !== expectedFinalAmount)) ||
+        (returnedUniqueCode !== null && (!Number.isSafeInteger(returnedUniqueCode) || returnedUniqueCode !== expectedUniqueCode))
       ) {
         logSystem("CRITICAL", "PAYMENT", "HOOSE_STATUS_AMOUNT_OR_ID_MISMATCH",
           `Nominal atau identitas transaksi Hoose.id tidak cocok untuk order ${order.id}`, "hoose-status-inquiry", {
