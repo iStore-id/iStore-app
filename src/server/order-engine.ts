@@ -126,6 +126,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       } catch (error: any) {
         return res.status(400).json({ success: false, message: error.message || "Kanal pembayaran TriPay tidak tersedia." });
       }
+    } else if (gatewayCode === "hoose") {
+      if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
+        return res.status(400).json({ success: false, message: "Hoose.id hanya mendukung metode QRIS." });
+      }
+      validatedPaymentMethod = "qris";
     } else if (gatewayCode === "omqris") {
       if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
         return res.status(400).json({
@@ -391,7 +396,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
     const resRail = paymentResult.rail || rawRes.rail || validatedPaymentMethod;
 
     await orderRepo.updateOrder(orderId, {
-      ...((gatewayCode === "omqris" || gatewayCode === "tripay") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
+      ...((gatewayCode === "omqris" || gatewayCode === "tripay" || gatewayCode === "hoose") && paymentResult.token ? { gatewayTransactionId: paymentResult.token } : {}),
       snapToken: isMidtrans ? paymentResult.token : (paymentResult.token || null),
       paymentUrl: paymentResult.redirectUrl || null,
       gatewayPaymentType: resRail || null,

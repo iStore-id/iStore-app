@@ -3,6 +3,7 @@ import { MidtransProviderAdapter } from "./adapters/midtrans-adapter.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
 import { TripayProviderAdapter } from "./adapters/tripay-adapter.js";
+import { HooseProviderAdapter } from "./adapters/hoose-adapter.js";
 import { SystemConfigRepository } from "./supabase/system-config-repository.js";
 
 export class PaymentRouter {
@@ -17,11 +18,12 @@ export class PaymentRouter {
 
   public async getActiveGateway(): Promise<string> {
     const repo = SystemConfigRepository.getInstance();
-    const [midtransConfig, doitConfig, omqrisConfig, tripayConfig] = await Promise.all([
+    const [midtransConfig, doitConfig, omqrisConfig, tripayConfig, hooseConfig] = await Promise.all([
       repo.getConfig("midtrans_integration").catch(() => null),
       repo.getConfig("doit_integration").catch(() => null),
       repo.getConfig("omqris_integration").catch(() => null),
-      repo.getConfig("tripay_integration").catch(() => null)
+      repo.getConfig("tripay_integration").catch(() => null),
+      repo.getConfig("hoose_integration").catch(() => null)
     ]);
 
     const isMidtransActive = midtransConfig
@@ -36,8 +38,11 @@ export class PaymentRouter {
     const isTripayActive = tripayConfig
       ? tripayConfig.isActive === true
       : process.env.TRIPAY_IS_ACTIVE === "true";
+    const isHooseActive = hooseConfig
+      ? hooseConfig.isActive === true
+      : process.env.HOOSE_IS_ACTIVE === "true";
 
-    const activeCount = [isMidtransActive, isDoitActive, isOmqrisActive, isTripayActive].filter(Boolean).length;
+    const activeCount = [isMidtransActive, isDoitActive, isOmqrisActive, isTripayActive, isHooseActive].filter(Boolean).length;
     if (activeCount > 1) {
       throw new Error("Konfigurasi payment gateway tidak valid: lebih dari satu gateway aktif");
     }
@@ -46,6 +51,7 @@ export class PaymentRouter {
     if (isMidtransActive) return "midtrans";
     if (isOmqrisActive) return "omqris";
     if (isTripayActive) return "tripay";
+    if (isHooseActive) return "hoose";
     throw new Error("Tidak ada gateway pembayaran yang aktif");
   }
 
@@ -54,6 +60,7 @@ export class PaymentRouter {
     if (code === "doit") return DoitProviderAdapter.getInstance();
     if (code === "omqris") return OmqrisProviderAdapter.getInstance();
     if (code === "tripay") return TripayProviderAdapter.getInstance();
+    if (code === "hoose") return HooseProviderAdapter.getInstance();
     // Keep the established Midtrans fallback for 'midtrans', empty, and legacy NULL orders.
     return MidtransProviderAdapter.getInstance();
   }

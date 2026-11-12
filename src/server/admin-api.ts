@@ -1086,13 +1086,14 @@ export async function updateMidtransIntegration(req: AuthenticatedRequest, res: 
           updatedAt: now
         });
       }
-      for (const key of ["tripay_integration"] as const) {
+      for (const key of ["tripay_integration", "hoose_integration"] as const) {
         const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
         if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.HOOSE_IS_ACTIVE = "false";
     }
 
     if (serverKey && !serverKey.includes("****")) {
@@ -2331,12 +2332,13 @@ export async function updateOmqrisIntegration(req: AuthenticatedRequest, res: Re
     // Cross-gateway coordination is restricted to explicit OmQris activation.
     // Doit and Midtrans handlers/adapters are not modified; only their active flags are cleared.
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration", "tripay_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "tripay_integration", "hoose_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
+      process.env.HOOSE_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.OMQRIS_IS_ACTIVE = "false";
@@ -2526,13 +2528,14 @@ export async function updateTripayIntegration(req: AuthenticatedRequest, res: Re
     await repo.upsertConfig("tripay_integration", newConfig);
 
     if (requestedActive) {
-      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration"] as const) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration", "hoose_integration"] as const) {
         const current = await repo.getConfig(key).catch(() => null);
         if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.HOOSE_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.TRIPAY_IS_ACTIVE = "false";
@@ -2589,6 +2592,145 @@ export async function testTripayIntegration(req: AuthenticatedRequest, res: Resp
     });
   } catch (err: any) {
     return res.status(502).json({ success: false, message: err.message || "Tes koneksi TriPay gagal." });
+  }
+}
+
+
+export async function getHooseIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const config = await SystemConfigRepository.getInstance().getConfig("hoose_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    return res.status(200).json({
+      success: true,
+      data: {
+        apiKeyConfigured: !!apiKey,
+        isActive: config.isActive === true,
+        configured: !!apiKey,
+        webhookUrl: config.webhookUrl || "https://www.tega.biz.id/api/webhooks/hoose",
+        lastTestedAt: config.lastTestedAt || null,
+        lastTestResult: config.lastTestResult || null
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal mengambil konfigurasi Hoose.id." });
+  }
+}
+
+export async function updateHooseIntegration(req: AuthenticatedRequest, res: Response) {
+  try {
+    const { apiKey, isActive } = req.body || {};
+    const repo = SystemConfigRepository.getInstance();
+    const existing = await repo.getConfig("hoose_integration") || {};
+    const now = new Date().toISOString();
+    const suppliedKey = typeof apiKey === "string" && apiKey.trim() && !apiKey.includes("••••") && !apiKey.includes("****");
+    const encryptedApiKey = suppliedKey ? encryptSecret(apiKey.trim()) : String(existing.encryptedApiKey || "");
+    const requestedActive = isActive === true || isActive === "true";
+    const connectionSettingsChanged = !!suppliedKey;
+
+    if (requestedActive && !encryptedApiKey) {
+      return res.status(400).json({ success: false, message: "API Key Hoose.id harus disimpan sebelum aktivasi." });
+    }
+    if (requestedActive && (connectionSettingsChanged || existing.lastTestResult !== "success")) {
+      return res.status(409).json({ success: false, message: "Hoose.id hanya dapat diaktifkan setelah API Key tersimpan dan tes koneksi berhasil. Simpan dalam keadaan nonaktif, tes koneksi, lalu aktifkan." });
+    }
+
+    const newConfig = {
+      ...existing,
+      key: "hoose_integration",
+      encryptedApiKey,
+      callbackUrl: "https://www.tega.biz.id/api/webhooks/hoose",
+      lastTestedAt: connectionSettingsChanged ? null : (existing.lastTestedAt || null),
+      lastTestResult: connectionSettingsChanged ? null : (existing.lastTestResult || null),
+      isActive: isActive !== undefined ? requestedActive : existing.isActive === true,
+      updatedBy: req.user.uid,
+      updatedAt: now,
+      createdAt: existing.createdAt || now
+    };
+    await repo.upsertConfig("hoose_integration", newConfig);
+
+    if (requestedActive) {
+      for (const key of ["midtrans_integration", "doit_integration", "omqris_integration", "tripay_integration"] as const) {
+        const current = await repo.getConfig(key).catch(() => null);
+        if (current?.isActive === true) await repo.upsertConfig(key, { ...current, isActive: false, updatedAt: now });
+      }
+      process.env.MIDTRANS_IS_ACTIVE = "false";
+      process.env.DOIT_IS_ACTIVE = "false";
+      process.env.OMQRIS_IS_ACTIVE = "false";
+      process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.HOOSE_IS_ACTIVE = "true";
+    } else if (isActive === false || isActive === "false") {
+      process.env.HOOSE_IS_ACTIVE = "false";
+    }
+
+    const actor = { uid: req.user.uid, email: req.user.email || req.user.uid };
+    await logCoreAudit(actor, req.user.role || "pemilik", "UPDATE_HOOSE_INTEGRATION",
+      "systemConfigs/hoose_integration",
+      { isActive: existing.isActive === true, configured: !!existing.encryptedApiKey },
+      { isActive: newConfig.isActive, configured: !!encryptedApiKey },
+      "Updated Hoose.id configuration");
+
+    return res.status(200).json({
+      success: true,
+      message: "Konfigurasi Hoose.id berhasil disimpan.",
+      data: { isActive: newConfig.isActive, configured: !!encryptedApiKey, webhookUrl: newConfig.callbackUrl }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message || "Gagal menyimpan konfigurasi Hoose.id." });
+  }
+}
+
+export async function testHooseIntegration(req: AuthenticatedRequest, res: Response) {
+  const repo = SystemConfigRepository.getInstance();
+  try {
+    const config = await repo.getConfig("hoose_integration") || {};
+    const apiKey = config.encryptedApiKey ? decryptSecret(config.encryptedApiKey) : "";
+    if (!apiKey) return res.status(400).json({ success: false, message: "Simpan API Key Hoose.id terlebih dahulu." });
+
+    const response = await fetch("https://qris.hoose.id/api/balance", {
+      method: "GET",
+      headers: { "x-api-key": apiKey, Accept: "application/json" },
+      signal: AbortSignal.timeout(10000)
+    });
+    const payload: any = await response.json().catch(() => ({}));
+    const insufficientBalance = response.status === 402 &&
+      String(payload?.code || payload?.error?.code || payload?.error || "") === "INSUFFICIENT_BALANCE";
+    if (!response.ok && !insufficientBalance) {
+      const message = response.status === 401 || response.status === 403
+        ? "Autentikasi Hoose.id ditolak. Periksa API Key."
+        : response.status === 429
+          ? "Hoose.id membatasi frekuensi permintaan. Coba lagi nanti."
+          : `Tes koneksi Hoose.id gagal (HTTP ${response.status}).`;
+      await repo.upsertConfig("hoose_integration", { ...config, lastTestedAt: new Date().toISOString(), lastTestResult: "failed" });
+      return res.status(502).json({ success: false, message });
+    }
+
+    const now = new Date().toISOString();
+    await repo.upsertConfig("hoose_integration", {
+      ...config,
+      lastTestedAt: now,
+      lastTestResult: "success",
+      lastTestNote: insufficientBalance ? "API key valid; saldo layanan tidak mencukupi." : null
+    });
+    return res.status(200).json({
+      success: true,
+      message: insufficientBalance
+        ? "API Key Hoose.id valid, tetapi saldo biaya layanan tidak mencukupi."
+        : "Koneksi Hoose.id berhasil diverifikasi melalui endpoint saldo.",
+      data: { balanceCheck: true, insufficientBalance }
+    });
+  } catch (err: any) {
+    const timedOut = err?.name === "TimeoutError" || err?.name === "AbortError";
+    await repo.upsertConfig("hoose_integration", {
+      ...(await repo.getConfig("hoose_integration") || {}),
+      lastTestedAt: new Date().toISOString(),
+      lastTestResult: "failed"
+    }).catch(() => {});
+    return res.status(502).json({
+      success: false,
+      message: timedOut
+        ? "Tes koneksi Hoose.id melewati batas waktu 10 detik."
+        : "Tidak dapat menghubungi Hoose.id. Periksa koneksi jaringan lalu coba lagi."
+    });
   }
 }
 
@@ -2726,13 +2868,14 @@ export async function updateDoitIntegration(req: AuthenticatedRequest, res: Resp
           updatedAt: now
         });
       }
-      for (const key of ["tripay_integration"] as const) {
+      for (const key of ["tripay_integration", "hoose_integration"] as const) {
         const current = await SystemConfigRepository.getInstance().getConfig(key).catch(() => null);
         if (current?.isActive === true) await SystemConfigRepository.getInstance().upsertConfig(key, { ...current, isActive: false, updatedAt: now });
       }
       process.env.MIDTRANS_IS_ACTIVE = "false";
       process.env.OMQRIS_IS_ACTIVE = "false";
       process.env.TRIPAY_IS_ACTIVE = "false";
+      process.env.HOOSE_IS_ACTIVE = "false";
       process.env.DOIT_IS_ACTIVE = "true";
     } else if (isActive === false || isActive === "false") {
       process.env.DOIT_IS_ACTIVE = "false";
