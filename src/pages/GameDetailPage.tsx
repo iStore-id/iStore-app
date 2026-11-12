@@ -1435,7 +1435,7 @@ export default function GameDetailPage() {
               </h2>
               {activeGateway === "hoose" ? (
                 <div className="space-y-3">
-                  <h3 className={`text-xs font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-brand-300" : "text-slate-500"}`}>QRIS Hoose.id</h3>
+                  <h3 className={`text-xs font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-brand-300" : "text-slate-500"}`}>QRIS</h3>
                   <button
                     type="button"
                     aria-pressed={selectedPaymentMethod === "qris"}
@@ -1451,7 +1451,7 @@ export default function GameDetailPage() {
                     </span>
                     {selectedPaymentMethod === "qris" && <ShieldCheck className="h-5 w-5 shrink-0 text-brand-600" />}
                   </button>
-                  <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Hoose.id menambahkan kode unik 3 digit secara otomatis pada nominal pembayaran.</p>
+                  <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>Nominal pembayaran sudah termasuk kode unik otomatis.</p>
                 </div>
               ) : activeGateway === "doit" || activeGateway === "omqris" ? (
                 <div className="space-y-4">
