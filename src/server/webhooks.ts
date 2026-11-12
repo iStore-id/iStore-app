@@ -8,6 +8,7 @@ import { logSystem } from "./system-log-service.js";
 import { DoitProviderAdapter } from "./adapters/doit-adapter.js";
 import { OmqrisProviderAdapter } from "./adapters/omqris-adapter.js";
 import { TripayProviderAdapter } from "./adapters/tripay-adapter.js";
+import { HooseProviderAdapter } from "./adapters/hoose-adapter.js";
 import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
 import { buildTripayWebhookEventKey } from "./tripay-contract.js";
 import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
@@ -527,6 +528,114 @@ export async function tripayWebhook(req: any, res: any) {
     return res.status(signatureError ? 401 : 500).json({
       success: false,
       message: signatureError ? "Invalid callback signature" : "TriPay webhook processing failed"
+    });
+  }
+}
+
+export async function hooseWebhook(req: any, res: any) {
+  let eventId = "";
+  try {
+    const adapter = HooseProviderAdapter.getInstance();
+    const event = await adapter.verifyWebhook({
+      body: req.rawBody || req.body,
+      headers: req.headers,
+      ip: req.ip
+    });
+    const eventType = String(req.headers?.["x-event"] || event.rawPayload?.event || "");
+    eventId = String(event.transactionId || "").trim();
+
+    if (eventType === "test" || eventType === "webhook.test") {
+      if (eventId) markWebhookEventProcessed(`hoose:${eventId}`);
+      logSystem("INFO", "WEBHOOK", "HOOSE_WEBHOOK_TEST_RECEIVED",
+        "Webhook test Hoose.id berhasil diverifikasi.", "hoose-webhook", { outcome: "SUCCESS" });
+      return res.status(200).json({ success: true, message: "Webhook test received successfully" });
+    }
+
+    const dedupeKey = `hoose:${eventId}`;
+    const currentStatus = getWebhookEventStatus(dedupeKey);
+    if (currentStatus === "COMPLETED" || currentStatus === "PROCESSING") {
+      return res.status(200).json({ success: true, message: "Event already received" });
+    }
+    setWebhookEventStatus(dedupeKey, "PROCESSING");
+
+    try {
+      const orderRepo = OrderRepository.getInstance();
+      const orderData = await orderRepo.getOrderByInvoice(event.orderId) || await orderRepo.getOrderById(event.orderId);
+      if (!orderData) {
+        clearWebhookEventStatus(dedupeKey);
+        logSystem("WARN", "WEBHOOK", "HOOSE_ORDER_NOT_FOUND",
+          `Order tidak ditemukan pada webhook Hoose.id: ${event.orderId}`, "hoose-webhook", {
+            orderId: event.orderId, httpStatus: 404, outcome: "FAILURE"
+          });
+        return res.status(404).json({ success: false, message: "Order not found" });
+      }
+
+      if (String(orderData.paymentGatewayCode || "").toLowerCase().trim() !== "hoose") {
+        clearWebhookEventStatus(dedupeKey);
+        logSystem("WARN", "WEBHOOK", "HOOSE_GATEWAY_MISMATCH",
+          `Webhook Hoose.id tidak sesuai dengan gateway order ${orderData.id}`, "hoose-webhook", {
+            orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
+            metadata: { paymentGatewayCode: orderData.paymentGatewayCode }
+          });
+        return res.status(400).json({ success: false, message: "Gateway mismatch for order" });
+      }
+
+      if (String(orderData.paymentStatus || "").toLowerCase() === "paid") {
+        markWebhookEventProcessed(dedupeKey);
+        return res.status(200).json({ success: true, message: "Order already paid" });
+      }
+
+      if (!Number.isSafeInteger(event.amount) || event.amount <= 0 || event.amount !== Number(orderData.totalAmount)) {
+        clearWebhookEventStatus(dedupeKey);
+        logSystem("CRITICAL", "PAYMENT", "HOOSE_AMOUNT_MISMATCH",
+          `Nominal dasar Hoose.id tidak cocok untuk order ${orderData.id}`, "hoose-webhook", {
+            orderId: orderData.id, httpStatus: 400, outcome: "BLOCKED",
+            metadata: { expectedBaseAmount: orderData.totalAmount, receivedBaseAmount: event.amount, uniqueCode: event.rawPayload?.unique_code, finalAmount: event.rawPayload?.amount }
+          });
+        return res.status(400).json({ success: false, message: "Amount mismatch" });
+      }
+
+      if (event.status !== "PAID") {
+        markWebhookEventProcessed(dedupeKey);
+        return res.status(200).json({ success: true, message: "Status acknowledged; no payment transition required" });
+      }
+
+      await transitionOrderState(orderData.id, "PAID" as any, {
+        gatewayTransactionId: event.transactionId,
+        gatewayPaymentType: "qris",
+        gatewayResponse: event.rawPayload
+      }, "Hoose.id webhook: transaction.paid");
+
+      const refreshedOrder = await orderRepo.getOrderById(orderData.id);
+      if (refreshedOrder && String(refreshedOrder.paymentStatus || "").toLowerCase() === "paid") {
+        await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "Hoose.id Webhook" });
+        const { JobService } = await import("./job-service.js");
+        await JobService.getInstance().enqueue({
+          type: "FULFILLMENT",
+          payload: { orderId: orderData.id },
+          priority: "HIGH",
+          referenceId: orderData.id,
+          idempotencyKey: `fulfillment_${orderData.id}`
+        });
+      }
+
+      markWebhookEventProcessed(dedupeKey);
+      return res.status(200).json({ success: true });
+    } catch (innerError) {
+      clearWebhookEventStatus(dedupeKey);
+      throw innerError;
+    }
+  } catch (error: any) {
+    const signatureError = /signature/i.test(String(error?.message || ""));
+    logSystem(signatureError ? "WARN" : "ERROR", "WEBHOOK",
+      signatureError ? "HOOSE_INVALID_SIGNATURE" : "HOOSE_WEBHOOK_FAILED",
+      String(error?.message || "Hoose.id webhook failed"), "hoose-webhook", {
+        httpStatus: signatureError ? 401 : 500,
+        outcome: signatureError ? "BLOCKED" : "FAILURE"
+      });
+    return res.status(signatureError ? 401 : 500).json({
+      success: false,
+      message: signatureError ? "Invalid callback signature" : "Hoose.id webhook processing failed"
     });
   }
 }
