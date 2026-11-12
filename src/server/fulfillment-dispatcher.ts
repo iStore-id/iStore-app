@@ -72,7 +72,16 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       rawResponse: response.rawResponse
     };
 
-    console.log(`[Fulfillment Dispatcher] Provider response for ${orderId}:`, result);
+    console.log(`[Fulfillment Dispatcher] Provider response for ${orderId}: status=${result.status}`);
+
+    // A provider callback may arrive before the submit request resolves.
+    // Never overwrite a terminal callback result with a late submit response.
+    const latestOrder = await orderRepo.getOrderById(orderId);
+    const latestFulfillmentStatus = String(latestOrder?.transactionStatus || "").toLowerCase();
+    if (latestFulfillmentStatus === "success" || latestFulfillmentStatus === "failed") {
+      console.log(`[Fulfillment Dispatcher] Order ${orderId} already reached terminal fulfillment state ${latestFulfillmentStatus}; preserving callback result.`);
+      return;
+    }
 
     // 5. Update state based on provider response
     if (result.success || result.status === 'success') {
