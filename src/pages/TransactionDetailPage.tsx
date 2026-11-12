@@ -351,7 +351,7 @@ export default function TransactionDetailPage() {
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
-          <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-2xl border border-brand-100 bg-white px-5 py-3 text-lg font-extrabold tabular-nums text-slate-900 shadow-sm sm:text-xl">{formatRupiah(order.paymentGatewayCode === "omqris" ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
+          <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-2xl border border-brand-100 bg-white px-5 py-3 text-lg font-extrabold tabular-nums text-slate-900 shadow-sm sm:text-xl">{formatRupiah(["omqris", "hoose"].includes(order.paymentGatewayCode) ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex w-full flex-col items-center gap-5 sm:gap-6">
@@ -406,6 +406,37 @@ export default function TransactionDetailPage() {
                           )}
                         </div>
                       )}
+                    </div>
+                  );
+                }
+
+                if (order.paymentGatewayCode === "hoose") {
+                  const hooseQrImage = gwResp.qrImage || order.qrImage;
+                  return (
+                    <div className="flex w-full max-w-sm flex-col items-center space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                      <div className="text-center space-y-1">
+                        <h3 className="text-sm font-bold text-slate-900">Scan QRIS Hoose.id Untuk Membayar</h3>
+                        <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
+                      </div>
+                      {hooseQrImage ? (
+                        <>
+                          <div className="bg-white p-3 rounded-2xl border-2 border-brand-100 shadow-sm">
+                            <img src={hooseQrImage} alt="QRIS Hoose.id" className="w-48 h-48 sm:w-56 sm:h-56 object-contain" />
+                          </div>
+                          <a
+                            href={hooseQrImage}
+                            download={`QRIS-${String(order.invoice || order.id || "transaksi").replace(/[^a-zA-Z0-9_-]/g, "-")}.png`}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+                          >
+                            Unduh QRIS
+                          </a>
+                        </>
+                      ) : (
+                        <p className="p-4 bg-amber-50 rounded-xl text-xs text-amber-700 text-center">QRIS belum tersedia. Silakan muat ulang atau hubungi bantuan.</p>
+                      )}
+                      <div className="text-base font-black text-brand-600">{formatRupiah(displayTotal)}</div>
+                      <p className="text-center text-[11px] text-slate-500">Nominal sudah termasuk kode unik otomatis dari Hoose.id. Bayar sesuai nominal yang tertera.</p>
+                      {gwResp.expiresAt && <p className="text-[11px] text-slate-500">Batas pembayaran: {new Date(gwResp.expiresAt).toLocaleString("id-ID")}</p>}
                     </div>
                   );
                 }
