@@ -586,11 +586,12 @@ export async function hooseWebhook(req: any, res: any) {
       const receivedFinalAmount = Number(event.rawPayload?.amount);
       const receivedUniqueCode = Number(event.rawPayload?.unique_code);
       const expectedTransactionId = String(orderData.gatewayTransactionId || "");
+      const hasStoredHooseAmounts = Number.isSafeInteger(expectedFinalAmount) && expectedFinalAmount > 0 &&
+        Number.isSafeInteger(expectedUniqueCode) && expectedUniqueCode >= 0 && expectedUniqueCode <= 999;
       if (
         !Number.isSafeInteger(event.amount) || event.amount <= 0 || event.amount !== expectedBaseAmount ||
-        !expectedTransactionId || event.transactionId !== expectedTransactionId ||
-        !Number.isSafeInteger(expectedFinalAmount) || expectedFinalAmount <= 0 || receivedFinalAmount !== expectedFinalAmount ||
-        !Number.isSafeInteger(expectedUniqueCode) || receivedUniqueCode !== expectedUniqueCode
+        (expectedTransactionId && event.transactionId !== expectedTransactionId) ||
+        (hasStoredHooseAmounts && (receivedFinalAmount !== expectedFinalAmount || receivedUniqueCode !== expectedUniqueCode))
       ) {
         clearWebhookEventStatus(dedupeKey);
         logSystem("CRITICAL", "PAYMENT", "HOOSE_AMOUNT_OR_TRANSACTION_MISMATCH",
