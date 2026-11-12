@@ -439,7 +439,6 @@ export default function TransactionDetailPage() {
                       <div className="text-center space-y-1">
                         <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
-                        {hooseMerchantName && <p className="text-xs font-semibold text-slate-700">{hooseMerchantName}</p>}
                       </div>
                       {omqrisQrImage ? (
                         <>
@@ -488,6 +487,7 @@ export default function TransactionDetailPage() {
                       <div className="text-center space-y-1">
                         <h3 className="text-sm font-bold text-slate-900">Scan QRIS Untuk Membayar</h3>
                         <p className="text-[11px] text-slate-500">Gunakan aplikasi bank atau e-wallet yang mendukung QRIS.</p>
+                        {hooseMerchantName && <p className="text-xs font-semibold text-slate-700">{hooseMerchantName}</p>}
                       </div>
                       {hooseQrImage ? (
                         <>
