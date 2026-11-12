@@ -634,7 +634,17 @@ export async function hooseWebhook(req: any, res: any) {
       if (!refreshedOrder || String(refreshedOrder.paymentStatus || "").toLowerCase() !== "paid") {
         throw new Error("Hoose.id payment transition did not persist as PAID.");
       }
-      await safeRecordPaymentReceived(orderData.id, refreshedOrder, "SYSTEM", { source: "Hoose.id Webhook Retry" });
+      // The callback is the authoritative source for Hoose's final amount and
+      // unique code, including when the order was already marked PAID by polling.
+      const ledgerOrderData = {
+        ...refreshedOrder,
+        gatewayResponse: {
+          ...(refreshedOrder.gatewayResponse || {}),
+          totalAmount: Number(event.rawPayload?.amount),
+          feeAmount: Number(event.rawPayload?.unique_code)
+        }
+      };
+      await safeRecordPaymentReceived(orderData.id, ledgerOrderData, "SYSTEM", { source: "Hoose.id Webhook Retry" });
       const { JobService } = await import("./job-service.js");
       await JobService.getInstance().enqueue({
         type: "FULFILLMENT",
