@@ -135,6 +135,7 @@ import { customerSegmentRouter } from "./src/server/customer-segment-api.js";
 import { listJobsApi, getJobDetailApi, triggerWorkerApi, retryJobApi, cancelJobApi, workerAuth, processWorkerBatchApi } from "./src/server/job-api.js";
 import { supabaseAdmin } from "./src/server/supabase-admin.js";
 import { OrderRepository } from "./src/server/supabase/order-repository.js";
+import { toCustomerOrderView } from "./src/server/tokovoucher-utils.js";
 
 dotenv.config();
 
@@ -341,7 +342,7 @@ export async function initServerLogic() {
   });
 
   // Order & Webhooks
-  app.get("/api/orders/:invoice", async (req, res) => {
+  app.get("/api/orders/:invoice", optionalAuth, async (req, res) => {
     try {
       const { invoice } = req.params;
       if (!invoice) {
@@ -355,7 +356,8 @@ export async function initServerLogic() {
       if (!order) {
         return res.status(404).json({ success: false, message: "Transaksi tidak ditemukan." });
       }
-      return res.status(200).json({ success: true, data: order });
+      const isOwner = Boolean(req.user?.uid && order.userId === req.user.uid);
+      return res.status(200).json({ success: true, data: toCustomerOrderView(order, isOwner) });
     } catch (error: any) {
       console.error("Get order by invoice error:", error);
       return res.status(500).json({ success: false, message: error.message });
