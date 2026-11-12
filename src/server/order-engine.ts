@@ -126,6 +126,11 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
       } catch (error: any) {
         return res.status(400).json({ success: false, message: error.message || "Kanal pembayaran TriPay tidak tersedia." });
       }
+    } else if (gatewayCode === "hoose") {
+      if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
+        return res.status(400).json({ success: false, message: "Hoose.id hanya mendukung metode QRIS." });
+      }
+      validatedPaymentMethod = "qris";
     } else if (gatewayCode === "omqris") {
       if (typeof paymentMethod !== "string" || paymentMethod.toLowerCase() !== "qris") {
         return res.status(400).json({
@@ -374,7 +379,7 @@ export async function processCheckout(req: AuthenticatedRequest, res: any) {
         quantity: 1,
         name: `${product.name} - ${variant.displayName || variant.name}`.substring(0, 50)
       }],
-      paymentMethod: gatewayCode === "hoose" ? "qris" : validatedPaymentMethod
+      paymentMethod: validatedPaymentMethod
     });
 
     if (!paymentResult.success || (!paymentResult.redirectUrl && !paymentResult.qrImage && !paymentResult.vaNumber && !(gatewayCode === "omqris" && paymentResult.token))) {
