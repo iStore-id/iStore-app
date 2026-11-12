@@ -12,6 +12,7 @@ import { HooseProviderAdapter } from "./adapters/hoose-adapter.js";
 import { buildOmqrisWebhookEventKey } from "./omqris-contract.js";
 import { buildTripayWebhookEventKey } from "./tripay-contract.js";
 import { processOmqrisCallbackLifecycle } from "./omqris-lifecycle.js";
+import { normalizeTokoVoucherFailureReason } from "./tokovoucher-utils.js";
 import * as crypto from "crypto";
 
 // In-memory LRU/TTL Cache for Webhook Event Deduplication
@@ -293,7 +294,7 @@ export async function tokovoucherWebhook(req: any, res: any) {
     const expectedSignature = crypto.createHash('md5').update(`${config.memberCode}:${config.secret}:${ref_id}`).digest('hex');
     const expectedSignatureAlt = crypto.createHash('md5').update(`${config.memberCode}${config.secret}${ref_id}`).digest('hex');
 
-    if (authHeader && authHeader !== expectedSignature && authHeader !== expectedSignatureAlt) {
+    if (!authHeader || (authHeader !== expectedSignature && authHeader !== expectedSignatureAlt)) {
       logSystem("ERROR", "SECURITY", "TOKOVOUCHER_INVALID_SIGNATURE", `Tanda tangan TokoVoucher tidak valid untuk ref_id ${ref_id}`, "tokovoucher-webhook", {
         httpStatus: 403,
         outcome: "BLOCKED"
@@ -308,7 +309,9 @@ export async function tokovoucherWebhook(req: any, res: any) {
     const orderRepo = OrderRepository.getInstance();
     let orderData = await orderRepo.getOrderByProviderReferenceId(ref_id);
     if (!orderData) {
-      orderData = await orderRepo.getOrderById(ref_id);
+      // Current adapter references use <orderId>-REQ; legacy integrations used orderId.
+      const derivedOrderId = ref_id.endsWith("-REQ") ? ref_id.slice(0, -4) : ref_id;
+      orderData = await orderRepo.getOrderById(derivedOrderId);
     }
 
     if (!orderData) {
@@ -334,7 +337,41 @@ export async function tokovoucherWebhook(req: any, res: any) {
     }
 
     if (targetState) {
-      await transitionOrderState(orderId, targetState as any, { trxId: trx_id || "" }, `TokoVoucher Webhook: ${status}`);
+      const providerMessage = String(req.body?.error_msg || req.body?.message || "");
+      const failureReason = targetState === "FAILED"
+        ? normalizeTokoVoucherFailureReason(providerMessage)
+        : null;
+      const currentFulfillmentStatus = String(orderData.transactionStatus || "").toLowerCase();
+      const targetFulfillmentStatus = targetState.toLowerCase();
+
+      if (
+        (currentFulfillmentStatus === "success" || currentFulfillmentStatus === "failed") &&
+        currentFulfillmentStatus !== targetFulfillmentStatus
+      ) {
+        return res.status(409).json({ success: false, message: "Conflicting terminal fulfillment status" });
+      }
+
+      if (currentFulfillmentStatus !== targetFulfillmentStatus) {
+        await transitionOrderState(orderId, targetState as any, {
+          trxId: trx_id || "",
+          providerReferenceId: ref_id,
+          failureReason: failureReason || undefined
+        }, `TokoVoucher Webhook: ${status}`);
+      }
+
+      await orderRepo.updateOrder(orderId, {
+        providerReferenceId: ref_id,
+        failureReason: failureReason || undefined,
+        serialNumber: req.body?.sn || req.body?.serial_number || undefined,
+        fulfillmentResponse: {
+          status: targetState === "SUCCESS" ? "success" : "failed",
+          providerReference: ref_id,
+          providerTransactionId: trx_id || null,
+          message: failureReason || providerMessage || (targetState === "SUCCESS" ? "Fulfillment succeeded" : "Provider reported failure"),
+          rawResponse: req.body
+        },
+        updatedAt: new Date().toISOString()
+      });
     }
 
     return res.status(200).json({ status: "ok" });

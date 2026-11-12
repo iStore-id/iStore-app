@@ -3,6 +3,7 @@ import { OrderRepository } from "./supabase/order-repository.js";
 import { ProviderService } from "./provider-service.js";
 import { logSystem } from "./system-log-service.js";
 import { AuditLogRepository } from "./supabase/audit-log-repository.js";
+import { normalizeTokoVoucherFailureReason, isTokoVoucherInsufficientBalance } from "./tokovoucher-utils.js";
 
 export async function dispatchFulfillment(orderId: string): Promise<void> {
   console.log(`[Fulfillment Dispatcher] Initiating fulfillment process for order: ${orderId}`);
@@ -67,16 +68,36 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       success: response.success,
       reference: response.providerReference || response.reference,
       message: response.message,
-      status: response.status
+      status: response.status,
+      rawResponse: response.rawResponse
     };
 
-    console.log(`[Fulfillment Dispatcher] Provider response for ${orderId}:`, result);
+    console.log(`[Fulfillment Dispatcher] Provider response for ${orderId}: status=${result.status}`);
+
+    // A provider callback may arrive before the submit request resolves.
+    // Never overwrite a terminal callback result with a late submit response.
+    const latestOrder = await orderRepo.getOrderById(orderId);
+    const latestFulfillmentStatus = String(latestOrder?.transactionStatus || "").toLowerCase();
+    if (latestFulfillmentStatus === "success" || latestFulfillmentStatus === "failed") {
+      console.log(`[Fulfillment Dispatcher] Order ${orderId} already reached terminal fulfillment state ${latestFulfillmentStatus}; preserving callback result.`);
+      return;
+    }
 
     // 5. Update state based on provider response
     if (result.success || result.status === 'success') {
       const refId = result.reference || `REF-${orderId}`;
       await transitionOrderState(orderId, 'SUCCESS', { providerReference: refId }, "Fulfillment Succeeded");
-      
+      await orderRepo.updateOrder(orderId, {
+        providerReferenceId: refId,
+        fulfillmentResponse: {
+          status: "success",
+          providerReference: refId,
+          message: result.message || "Fulfillment succeeded",
+          rawResponse: result.rawResponse || null
+        },
+        updatedAt: new Date().toISOString()
+      });
+
       logSystem("INFO", "FULFILLMENT", "FULFILLMENT_SUCCESS", `Pemenuhan pesanan ${orderId} berhasil diproses oleh provider (${refId})`, "fulfillment-dispatcher", {
         orderId,
         outcome: "SUCCESS",
@@ -108,20 +129,41 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
           metadata: { message: result.message }
         });
         await orderRepo.updateOrder(orderId, {
-          fulfillmentResponse: { message: result.message || "Pending provider verification" },
+          providerReferenceId: result.reference || undefined,
+          fulfillmentResponse: {
+            status: result.status || "pending",
+            providerReference: result.reference || null,
+            message: result.message || "Pending provider verification",
+            rawResponse: result.rawResponse || null
+          },
           updatedAt: new Date().toISOString()
         });
       } else {
       // Only transition to FAILED if it's a permanent rejection
         // Define permanent failure reasons
         const permanentFailureReasons = [
-            'invalid sku', 'product not found', 'invalid denomination', 
+            'invalid sku', 'product not found', 'invalid denomination',
             'unsupported target', 'provider rejected', 'invalid product'
         ];
-        const isPermanentFailure = permanentFailureReasons.some(reason => result.message?.toLowerCase().includes(reason));
-        
+        const isPermanentFailure =
+          result.status === "failed" ||
+          isTokoVoucherInsufficientBalance(result.message) ||
+          permanentFailureReasons.some(reason => result.message?.toLowerCase().includes(reason));
+
         if (isPermanentFailure) {
-            await transitionOrderState(orderId, 'FAILED', { providerStatus: result.message || "Rejected by provider" }, "Fulfillment Failed: Permanent");
+            const failureReason = normalizeTokoVoucherFailureReason(result.message);
+            await transitionOrderState(orderId, 'FAILED', { providerStatus: failureReason, failureReason }, "Fulfillment Failed: Permanent");
+            await orderRepo.updateOrder(orderId, {
+              providerReferenceId: result.reference || undefined,
+              failureReason,
+              fulfillmentResponse: {
+                status: "failed",
+                providerReference: result.reference || null,
+                message: failureReason,
+                rawResponse: result.rawResponse || null
+              },
+              updatedAt: new Date().toISOString()
+            });
             logSystem("ERROR", "FULFILLMENT", "FULFILLMENT_FAILED", `Pemenuhan pesanan ${orderId} ditolak permanen oleh provider: ${result.message}`, "fulfillment-dispatcher", {
                 orderId,
                 outcome: "FAILURE",
@@ -133,8 +175,12 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
                 role: "system",
                 action: "FULFILLMENT_FAILED",
                 target: `orders/${orderId}`,
-                after: { message: result.message || "Provider returned failure response" },
-                reason: result.message || "Fulfillment failed permanent",
+                after: {
+                  message: failureReason,
+                  providerReference: result.reference || null,
+                  rawResponse: result.rawResponse || null
+                },
+                reason: failureReason,
                 timestamp: new Date().toISOString()
             });
         } else {
@@ -154,7 +200,13 @@ export async function dispatchFulfillment(orderId: string): Promise<void> {
       outcome: "FAILURE",
       stackTrace: err.stack
     });
-    // Keep order status as PROCESSING for safety on unexpected crashes
+    // A callback may have completed the order while the submit path was failing.
+    // Preserve the authoritative terminal result rather than replacing its diagnostics.
+    const latestAfterError = await orderRepo.getOrderById(orderId);
+    const terminalAfterError = String(latestAfterError?.transactionStatus || "").toLowerCase();
+    if (terminalAfterError === "success" || terminalAfterError === "failed") return;
+
+    // Keep order status as PROCESSING for safety on unexpected crashes.
     await orderRepo.updateOrder(orderId, {
       fulfillmentResponse: { message: `Error: ${err.message || "Unknown execution crash"}` },
       updatedAt: new Date().toISOString()
