@@ -183,7 +183,7 @@ export class HooseProviderAdapter implements PaymentProviderAdapter {
     const payload: any = JSON.parse(rawBody.toString("utf8"));
     const headerEvent = headerValue(request.headers, "x-event").trim();
     const bodyEvent = String(payload?.event || "").trim();
-    if (!bodyEvent || (headerEvent && headerEvent !== bodyEvent)) throw new Error("Hoose.id webhook event header mismatch.");
+    if (!bodyEvent || !headerEvent || headerEvent !== bodyEvent) throw new Error("Hoose.id webhook event header mismatch.");
     if (bodyEvent === "test" || bodyEvent === "webhook.test") {
       return {
         provider: "hoose",
