@@ -580,11 +580,6 @@ export async function hooseWebhook(req: any, res: any) {
         return res.status(400).json({ success: false, message: "Gateway mismatch for order" });
       }
 
-      if (String(orderData.paymentStatus || "").toLowerCase() === "paid") {
-        markWebhookEventProcessed(dedupeKey);
-        return res.status(200).json({ success: true, message: "Order already paid" });
-      }
-
       const expectedBaseAmount = Number(orderData.totalAmount);
       const expectedFinalAmount = Number(orderData.gatewayResponse?.totalAmount);
       const expectedUniqueCode = Number(orderData.gatewayResponse?.feeAmount);
@@ -609,6 +604,11 @@ export async function hooseWebhook(req: any, res: any) {
             }
           });
         return res.status(400).json({ success: false, message: "Transaction details mismatch" });
+      }
+
+      if (String(orderData.paymentStatus || "").toLowerCase() === "paid") {
+        markWebhookEventProcessed(dedupeKey);
+        return res.status(200).json({ success: true, message: "Order already paid" });
       }
 
       if (event.status !== "PAID") {
