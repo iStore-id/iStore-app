@@ -2693,7 +2693,7 @@ export async function testHooseIntegration(req: AuthenticatedRequest, res: Respo
     });
     const payload: any = await response.json().catch(() => ({}));
     const insufficientBalance = response.status === 402 &&
-      String(payload?.code || payload?.error?.code || "") === "INSUFFICIENT_BALANCE";
+      String(payload?.code || payload?.error?.code || payload?.error || "") === "INSUFFICIENT_BALANCE";
     if (!response.ok && !insufficientBalance) {
       const message = response.status === 401 || response.status === 403
         ? "Autentikasi Hoose.id ditolak. Periksa API Key."
