@@ -255,26 +255,29 @@ export async function safeRecordPaymentReceived(
       return null;
     }
 
-    const result = await recordPaymentReceived(orderId, grossAmount, createdBy, metadata);
-
-    // Hoose's unique code is an additional amount collected by the gateway,
-    // not product revenue. Keep the original base-payment journal immutable
-    // and post the unique-code delta in its own deterministic journal.
-    if (String(orderData.paymentGatewayCode || "").toLowerCase() === "hoose") {
-      const gatewayResponse = orderData.gatewayResponse || {};
-      const finalAmount = Number(gatewayResponse.totalAmount);
-      const uniqueCode = Number(gatewayResponse.feeAmount);
-      if (
+    const isHooseOrder = String(orderData.paymentGatewayCode || "").toLowerCase() === "hoose";
+    const gatewayResponse = isHooseOrder ? (orderData.gatewayResponse || {}) : {};
+    const finalAmount = isHooseOrder ? Number(gatewayResponse.totalAmount) : 0;
+    const uniqueCode = isHooseOrder ? Number(gatewayResponse.feeAmount) : 0;
+    if (
+      isHooseOrder &&
+      (
         !Number.isSafeInteger(finalAmount) ||
         !Number.isSafeInteger(uniqueCode) ||
         uniqueCode < 0 ||
         uniqueCode > 999 ||
         finalAmount !== grossAmount + uniqueCode
-      ) {
-        throw new Error("HOOSE_LEDGER_VALIDATION_ERROR: stored finalAmount/uniqueCode does not reconcile to order base amount.");
-      }
+      )
+    ) {
+      throw new Error("HOOSE_LEDGER_VALIDATION_ERROR: stored finalAmount/uniqueCode does not reconcile to order base amount.");
+    }
 
-      if (uniqueCode > 0) {
+    const result = await recordPaymentReceived(orderId, grossAmount, createdBy, metadata);
+
+    // Hoose's unique code is an additional amount collected by the gateway,
+    // not product revenue. Keep the original base-payment journal immutable
+    // and post the unique-code delta in its own deterministic journal.
+    if (isHooseOrder && uniqueCode > 0) {
         const baseJournal = await getJournalEntryByIdempotencyKey(`ledger_pay_${orderId}`);
         if (!baseJournal || baseJournal.eventType !== "PAYMENT_RECEIVED" || baseJournal.totalAmount !== grossAmount) {
           throw new Error("HOOSE_LEDGER_RECONCILIATION_BLOCKED: base payment journal is missing or has an unexpected amount.");
