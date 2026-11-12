@@ -181,7 +181,12 @@ export default function TransactionDetailPage() {
       }
 
       try {
-        const res = await fetch(`/api/orders/${encodeURIComponent(invoice)}`);
+        const authHeaders: Record<string, string> = {};
+        if (user) {
+          const accessToken = await user.getIdToken();
+          authHeaders.Authorization = `Bearer ${accessToken}`;
+        }
+        const res = await fetch(`/api/orders/${encodeURIComponent(invoice)}`, { headers: authHeaders });
         if (!res.ok) {
           if (res.status === 404) {
             setError("Transaksi tidak ditemukan.");
@@ -203,7 +208,7 @@ export default function TransactionDetailPage() {
         setOrder(orderData);
 
         // Keep guest transaction references on this browser only; never store order details or payment data.
-        if (!user && (!orderData.userId || orderData.userId === "guest")) {
+        if (!user && !orderData.isOwner) {
           try {
             const stored = JSON.parse(localStorage.getItem("istore_guest_transaction_invoices") || "[]");
             const invoices = Array.isArray(stored)
@@ -240,7 +245,7 @@ export default function TransactionDetailPage() {
         }
 
         // Fetch Delivery Data if Authorized
-        if (user && orderData.userId === user.uid) {
+        if (user && orderData.isOwner === true) {
            try {
              const token = await user.getIdToken();
              const deliveryRes = await fetch(`/api/customer/orders/${orderData.id}/delivery`, {
@@ -414,12 +419,17 @@ export default function TransactionDetailPage() {
           
           <h1 className="ui-page-title text-slate-900 mb-2">
             {order.transactionStatus === 'success' ? 'Transaksi Berhasil' :
-             order.transactionStatus === 'failed' ? 'Transaksi Gagal' :
+             order.transactionStatus === 'failed' ? (order.paymentStatus === 'paid' ? 'Pesanan Belum Berhasil Diproses' : 'Transaksi Gagal') :
              order.paymentStatus === 'expired' || order.transactionStatus === 'expired' ? 'Pembayaran Kedaluwarsa' :
              order.paymentStatus === 'paid' ? 'Sedang Diproses' :
              'Menunggu Pembayaran'}
           </h1>
           <p className="mt-2 inline-flex max-w-full items-center justify-center rounded-2xl border border-brand-100 bg-white px-5 py-3 text-lg font-extrabold tabular-nums text-slate-900 shadow-sm sm:text-xl">{formatRupiah(["omqris", "hoose"].includes(order.paymentGatewayCode) ? (order.gatewayResponse?.totalAmount || order.totalAmount) : order.totalAmount)}</p>
+          {order.paymentStatus === 'paid' && order.transactionStatus === 'failed' && (
+            <p className="mx-auto mt-4 max-w-md text-sm font-medium text-red-700">
+              Pembayaran berhasil. Pesanan belum berhasil diproses. Silakan hubungi layanan pelanggan untuk bantuan.
+            </p>
+          )}
           
           {order.paymentStatus === 'pending' && (
             <div className="mt-6 flex w-full flex-col items-center gap-5 sm:gap-6">
