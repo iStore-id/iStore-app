@@ -116,7 +116,7 @@ export default function TransactionDetailPage() {
 
   useEffect(() => {
     const qrContent = String(order?.gatewayResponse?.qrContent || "");
-    if ((order?.paymentGatewayCode !== "omqris" && order?.paymentGatewayCode !== "hoose") || !qrContent) {
+    if (order?.paymentGatewayCode !== "omqris" || !qrContent) {
       setOmqrisQrImage("");
       return;
     }
@@ -257,7 +257,7 @@ export default function TransactionDetailPage() {
     let stopped = false;
     let inFlight = false;
 
-    const checkGatewayStatus = async () => {
+    const checkOmqrisStatus = async () => {
       if (stopped || inFlight) return;
       inFlight = true;
       try {
@@ -277,19 +277,65 @@ export default function TransactionDetailPage() {
         }
       } catch (statusError) {
         // A temporary inquiry failure must not alter the displayed payment state.
-        console.warn("QRIS gateway status inquiry temporarily unavailable:", statusError);
+        console.warn("OmQris status inquiry temporarily unavailable:", statusError);
       } finally {
         inFlight = false;
       }
     };
 
-    void checkGatewayStatus();
-    const timer = window.setInterval(() => { void checkGatewayStatus(); }, 15000);
+    void checkOmqrisStatus();
+    const timer = window.setInterval(() => { void checkOmqrisStatus(); }, 15000);
     return () => {
       stopped = true;
       window.clearInterval(timer);
     };
   }, [invoice, order?.id, order?.paymentGatewayCode, order?.paymentStatus]);
+
+  // Hoose status inquiry is a recovery fallback for authenticated customers when its webhook is delayed.
+  useEffect(() => {
+    if (
+      !user ||
+      !invoice ||
+      order?.paymentGatewayCode !== "hoose" ||
+      String(order?.paymentStatus || "").toLowerCase() !== "pending"
+    ) return;
+
+    let stopped = false;
+    let inFlight = false;
+
+    const checkHooseStatus = async () => {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      try {
+        const token = await user.getIdToken();
+        if (!token) return;
+        const statusResponse = await fetch(`/api/orders/${encodeURIComponent(invoice)}/payment-status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!statusResponse.ok) return;
+        const statusJson = await statusResponse.json();
+        const providerStatus = String(statusJson?.data?.status || "").toUpperCase();
+        const persistedStatus = String(statusJson?.data?.orderPaymentStatus || "").toLowerCase();
+        if (providerStatus !== "PAID" && persistedStatus !== "paid") return;
+
+        const orderResponse = await fetch(`/api/orders/${encodeURIComponent(invoice)}`);
+        if (!orderResponse.ok) return;
+        const orderJson = await orderResponse.json();
+        if (!stopped && orderJson?.success && orderJson?.data) setOrder(orderJson.data);
+      } catch (statusError) {
+        console.warn("Hoose.id status inquiry temporarily unavailable:", statusError);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void checkHooseStatus();
+    const timer = window.setInterval(() => { void checkHooseStatus(); }, 15000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [invoice, order?.id, order?.paymentGatewayCode, order?.paymentStatus, user]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
