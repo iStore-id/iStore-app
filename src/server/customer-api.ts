@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from "./middleware.js";
 import { CustomerRepository } from "./supabase/customer-repository.js";
 import { OrderRepository } from "./supabase/order-repository.js";
 import { getUserRole } from "./auth-service.js";
+import { toCustomerOrderView } from "./customer-order-view.js";
 
 export async function getCustomerProfileApi(req: AuthenticatedRequest, res: Response) {
   try {
@@ -42,7 +43,7 @@ export async function getCustomerOrdersApi(req: AuthenticatedRequest, res: Respo
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
-    return res.status(200).json({ success: true, data: sorted });
+    return res.status(200).json({ success: true, data: sorted.map(order => toCustomerOrderView(order, true)) });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }
