@@ -331,7 +331,6 @@ export async function safeRecordPaymentReceived(
             finalAmount
           }
         });
-      }
     }
 
     if (result.duplicate) {
