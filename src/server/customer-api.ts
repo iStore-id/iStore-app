@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from "./middleware.js";
 import { CustomerRepository } from "./supabase/customer-repository.js";
 import { OrderRepository } from "./supabase/order-repository.js";
 import { getUserRole } from "./auth-service.js";
-import { toCustomerOrderView } from "./customer-order-view.js";
+import { toCustomerOrderView } from "./tokovoucher-utils.js";
 
 export async function getCustomerProfileApi(req: AuthenticatedRequest, res: Response) {
   try {
